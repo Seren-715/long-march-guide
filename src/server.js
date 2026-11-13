@@ -21,7 +21,7 @@ export default {async fetch(request, env) {
   if (!data || typeof data.question!=='string' || !data.question.trim() || data.question.length>500) return json({error:'请输入不超过 500 字的问题。'},400);
   if (!nodes.some(n=>n.id===data.node)) return json({error:'请先选择一个历史节点。'},400);
   const history=[];
-  if(Array.isArray(data.history)){const messages=data.history.slice(-6);for(let i=0;i+1<messages.length;i+=2){const user=messages[i],assistant=messages[i+1];if(user?.role==='user'&&assistant?.role==='assistant'&&typeof user.content==='string'&&typeof assistant.content==='string'){history.push({role:'user',content:user.content.slice(0,800)},{role:'assistant',content:JSON.stringify({answer:assistant.content.slice(0,800),sources:[]})})}}}
+  if(Array.isArray(data.history)){const messages=data.history.slice(-6);for(let i=0;i+1<messages.length;i+=2){const user=messages[i],assistant=messages[i+1];if(user?.role==='user'&&assistant?.role==='assistant'&&typeof user.content==='string'&&typeof assistant.content==='string'){history.push({role:'user',content:user.content.slice(0,800)},{role:'assistant',content:JSON.stringify({answer:assistant.content.slice(0,800),sources:Array.isArray(assistant.sources)?assistant.sources.filter(id=>typeof id==='string'&&nodes.some(n=>n.id===id||(n.extra||[]).some(e=>e.id===id))).slice(0,4):[]})})}}}
   if(!env.DEEPSEEK_API_KEY) return json({error:'讲解员的模型尚未配置。你仍可浏览节点和史料。'},503);
   const evidence=nodes.flatMap(n=>[{id:n.id,name:n.name,text:n.text,source:n.source,url:n.url},...(n.extra||[]).map(e=>({...e,name:n.name}))]);
   const context=evidence.map(e=>`[${e.id}] ${e.name}：${e.text}`).join('\n');
