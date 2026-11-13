@@ -24,7 +24,7 @@ const planReq=(body)=>new Request('http://localhost/api/plan',{method:'POST',hea
 assert.equal((await worker.fetch(planReq({preference:'',length:'short'}),{DEEPSEEK_API_KEY:'test'})).status,400);
 assert.equal((await worker.fetch(planReq({preference:'我想看军事转折',length:'short'}),{})).status,503);
 globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({route:['jiangtaibao','start','zunyi'],reason:'选择起点、转折和会师。'})}}]});
-res=await worker.fetch(planReq({preference:'从出发到会师',length:'short'}),{DEEPSEEK_API_KEY:'test'});body=await res.json();assert.equal(res.status,200);assert.deepEqual(body.route,['start','zunyi','jiangtaibao']);
+res=await worker.fetch(planReq({preference:'从出发到会师',length:'short'}),{DEEPSEEK_API_KEY:'test'});body=await res.json();assert.equal(res.status,200);assert.deepEqual(body.route,['start','zunyi','jiangtaibao']);assert.match(body.reason,/覆盖有限/);assert.doesNotMatch(body.reason,/完整呈现/);
 globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({route:['zunyi','fake','start'],reason:'测试'})}}]});assert.equal((await worker.fetch(planReq({preference:'军事转折',length:'short'}),{DEEPSEEK_API_KEY:'test'})).status,502);
 globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({route:['zunyi','zunyi','start'],reason:'测试'})}}]});assert.equal((await worker.fetch(planReq({preference:'军事转折',length:'short'}),{DEEPSEEK_API_KEY:'test'})).status,502);
 globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({route:[],reason:'无关'})}}]});assert.equal((await worker.fetch(planReq({preference:'巴黎天气',length:'short'}),{DEEPSEEK_API_KEY:'test'})).status,422);

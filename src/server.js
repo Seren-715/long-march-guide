@@ -33,8 +33,8 @@ export default {async fetch(request, env) {
       const allowed=new Set(nodes.map(n=>n.id));const chosen=plan.route;
       if(chosen.length!==count||chosen.some(id=>typeof id!=='string'||!allowed.has(id))||new Set(chosen).size!==count)return json({error:'路线规划结果未通过节点校验，请重试或使用规则路线。'},502);
       const route=nodes.map(n=>n.id).filter(id=>chosen.includes(id));
-      const reason=typeof plan.reason==='string'?plan.reason.replace(/https?:\/\/[^\s）)]+/gi,'').slice(0,120).trim():'';
-      return json({route,reason});
+      // 模型理由可能夸大覆盖范围；页面只展示经过人工确定的说明。
+      return json({route,reason:'这是模型按你的描述提出的节点建议，已按时间排序；资料覆盖有限'});
     }catch(e){return json({error:e?.name==='AbortError'?'路线规划超时，请使用规则路线。':'连接路线规划服务失败，请使用规则路线。'},502)}finally{clearTimeout(timer)}
   }
   if (!data || typeof data.question!=='string' || !data.question.trim() || data.question.length>500) return json({error:'请输入不超过 500 字的问题。'},400);
