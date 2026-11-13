@@ -1,2 +1,7 @@
 dist/
 site.tar.gz
+
+real-api-test.mjs
+
+.playwright-cli/
+output/

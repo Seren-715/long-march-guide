@@ -1,0 +1,3 @@
+import { createServer } from 'node:http';
+import worker from '../worker/index.js';
+const server=createServer(async (req,res)=>{try{const chunks=[];for await(const chunk of req)chunks.push(chunk);const body=Buffer.concat(chunks);const request=new Request('http://127.0.0.1:4173'+req.url,{method:req.method,headers:req.headers,...(body.length?{body}: {})});const response=await worker.fetch(request,{});res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));}catch{res.writeHead(500);res.end('Server error')}});server.listen(4173,'127.0.0.1',()=>console.log('Local: http://127.0.0.1:4173'));
