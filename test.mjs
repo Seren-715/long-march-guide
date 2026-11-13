@@ -20,4 +20,12 @@ attempts=0;globalThis.fetch=async()=>{attempts++;return Response.json({choices:[
 globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({answer:'两次会师分别发生在会宁和将台堡。',sources:['huining','jiangtaibao']})}}]});
 res=await worker.fetch(make({question:'两次会师的区别？',node:'huining'}),{DEEPSEEK_API_KEY:'test'});body=await res.json();assert.equal(body.sources.length,1);assert.deepEqual(body.sources[0].ids,['huining','jiangtaibao']);assert.match(body.sources[0].excerpt,/会宁/);assert.match(body.sources[0].excerpt,/将台堡/);
 globalThis.fetch=async()=>new Response('error',{status:500});assert.equal((await worker.fetch(make({question:'x',node:'zunyi'}),{DEEPSEEK_API_KEY:'test'})).status,502);
+const planReq=(body)=>new Request('http://localhost/api/plan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+assert.equal((await worker.fetch(planReq({preference:'',length:'short'}),{DEEPSEEK_API_KEY:'test'})).status,400);
+assert.equal((await worker.fetch(planReq({preference:'我想看军事转折',length:'short'}),{})).status,503);
+globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({route:['jiangtaibao','start','zunyi'],reason:'选择起点、转折和会师。'})}}]});
+res=await worker.fetch(planReq({preference:'从出发到会师',length:'short'}),{DEEPSEEK_API_KEY:'test'});body=await res.json();assert.equal(res.status,200);assert.deepEqual(body.route,['start','zunyi','jiangtaibao']);
+globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({route:['zunyi','fake','start'],reason:'测试'})}}]});assert.equal((await worker.fetch(planReq({preference:'军事转折',length:'short'}),{DEEPSEEK_API_KEY:'test'})).status,502);
+globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({route:['zunyi','zunyi','start'],reason:'测试'})}}]});assert.equal((await worker.fetch(planReq({preference:'军事转折',length:'short'}),{DEEPSEEK_API_KEY:'test'})).status,502);
+globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({route:[],reason:'无关'})}}]});assert.equal((await worker.fetch(planReq({preference:'巴黎天气',length:'short'}),{DEEPSEEK_API_KEY:'test'})).status,422);
 globalThis.fetch=original;console.log('API and evidence tests passed');

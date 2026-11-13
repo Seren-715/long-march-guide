@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/generate.mjs && node scripts/build.mjs",
-    "test": "node scripts/generate.mjs && node test.mjs && node scripts/validate-artifact.mjs",
+    "test": "node scripts/generate.mjs && node test.mjs && node scripts/build.mjs && node scripts/validate-artifact.mjs",
     "dev": "node scripts/dev.mjs"
   }
 }
