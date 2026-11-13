@@ -10,8 +10,13 @@ export default {async fetch(request, env) {
   if (origin && origin !== url.origin) return json({error:'请求来源不受支持。'},403);
   const declared=Number(request.headers.get('content-length')||0);
   if (declared>MAX_BODY) return json({error:'请求内容过长。'},413);
-  let raw; try {raw=await request.text()} catch {return json({error:'无法读取请求。'},400)}
-  if(new TextEncoder().encode(raw).length>MAX_BODY) return json({error:'请求内容过长。'},413);
+  let raw='';
+  try {
+    if (request.body) {
+      const reader=request.body.getReader(), decoder=new TextDecoder();let size=0;
+      while (true) {const {done,value}=await reader.read();if(done) break;size+=value.byteLength;if(size>MAX_BODY){await reader.cancel();return json({error:'请求内容过长。'},413)}raw+=decoder.decode(value,{stream:true})}raw+=decoder.decode();
+    }
+  } catch {return json({error:'无法读取请求。'},400)}
   let data; try {data=JSON.parse(raw)} catch {return json({error:'请求格式有误。'},400)}
   if (!data || typeof data.question!=='string' || !data.question.trim() || data.question.length>500) return json({error:'请输入不超过 500 字的问题。'},400);
   if (!nodes.some(n=>n.id===data.node)) return json({error:'请先选择一个历史节点。'},400);
