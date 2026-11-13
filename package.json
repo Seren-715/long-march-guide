@@ -1,9 +1,11 @@
 {
-  "name": "sites-worker-esm-starter",
+  "name": "long-march-guide",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bash scripts/build.sh",
-    "validate": "node scripts/validate-artifact.mjs"
+    "build": "node scripts/generate.mjs && node scripts/build.mjs",
+    "test": "node scripts/generate.mjs && node test.mjs && node scripts/validate-artifact.mjs",
+    "dev": "node scripts/dev.mjs"
   }
 }

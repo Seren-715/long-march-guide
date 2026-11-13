@@ -1,28 +1,26 @@
-# Sites Worker ESM starter
+# 长征路上
 
-Use this starter for a static microsite, click counter, or simple internal UI whose state is browser-scoped. It has no dependencies and needs no install.
+长征主题互动虚拟讲解员。作品以中央红军主力长征为主线，另展示红军三大主力会师；地图为节点示意。规则路线、知识条目和界面均使用 JavaScript，DeepSeek 问答通过服务端 Worker 调用。
 
-Edit `worker/index.js`, then publish through the Sites hosting workflow with this starter's build and validation in `commands`.
+## 本地运行
 
-The build copies only `worker/index.js` and `.openai/hosting.json`. Do not add standalone asset files. Embed any essential raster bytes in `worker/index.js` and serve or reference them as a data URL.
+需要 Node.js 18 或更新版本，无需安装额外依赖。
 
-Pass these argument arrays as `commands`:
-
-```json
-[
-  ["bash", "scripts/build.sh"],
-  ["node", "scripts/validate-artifact.mjs"]
-]
+```sh
+npm run build
+npm test
+npm run dev
 ```
 
-The deterministic build produces:
+本地预览打开 `http://127.0.0.1:4173`。本地预览默认不载入 API 密钥，能浏览页面和路线，模型问答会提示尚未配置；不要把密钥写入源码或前端。线上密钥由 Sites 服务端环境变量管理。
 
-```text
-dist/
-├── .openai/
-│   └── hosting.json
-└── server/
-    └── index.js
-```
+## 代码与材料
 
-`dist/server/index.js` is an ES module with a default export containing `fetch(request, env, ctx)`. Edit `worker/index.js`, not the generated file under `dist/`.
+- `src/data.js`：节点、资料与建议问题。
+- `src/page.html`：交互界面。
+- `src/server.js`：Worker 请求处理与模型调用。
+- `scripts/generate.mjs`：将源文件合成为部署入口 `worker/index.js`。
+- `docs/`：创作文档、知识库说明、测试记录和录屏脚本。
+- `deliverables/`：本地生成的演示素材，不作为网站部署文件。
+
+路线采用规则生成；问答不具备全文检索或实时联网功能。模型给出的来源 ID 经白名单检查，但不等于逐句事实核验。当前站点保持私有；公开前需另行处理评委访问与模型费用控制。
