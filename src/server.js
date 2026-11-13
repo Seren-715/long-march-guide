@@ -40,6 +40,8 @@ export default {async fetch(request, env) {
     const ids=Array.isArray(result.sources)?[...new Set(result.sources.filter(id=>typeof id==='string'&&evidence.some(e=>e.id===id)))].slice(0,4):[];
     const answer=result.answer.replace(/https?:\/\/[^\s）)]+/gi,'').slice(0,1800).trim();
     if(!ids.length) return json({answer:'现有资料不足以可靠回答这个问题，请换个问法或查阅节点资料。',sources:[]});
-    return json({answer,sources:[...new Map(ids.map(id=>{const e=evidence.find(x=>x.id===id);return [e.url,{id,title:e.source,url:e.url,excerpt:e.text}]})).values()]});
+    const grouped=new Map();
+    for(const id of ids){const e=evidence.find(x=>x.id===id),existing=grouped.get(e.url);if(existing){existing.ids.push(id);existing.excerpt+='\n'+e.text}else grouped.set(e.url,{id,ids:[id],title:e.source,url:e.url,excerpt:e.text});}
+    return json({answer,sources:[...grouped.values()]});
   } catch(e) {return json({error:e?.name==='AbortError'?'讲解员响应超时，请稍后重试。':'连接模型服务失败，请稍后重试。'},502)} finally {clearTimeout(timer)}
 }};

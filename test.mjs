@@ -17,5 +17,7 @@ res=await worker.fetch(make({question:'四渡赤水的时间？',node:'chishui',
 let attempts=0;globalThis.fetch=async()=>{attempts++;return Response.json({choices:[{message:{content:attempts===1?'   ':JSON.stringify({answer:'1935 年。',sources:['zunyi']})}}]})};
 res=await worker.fetch(make({question:'遵义会议什么时候？',node:'zunyi'}),{DEEPSEEK_API_KEY:'test'});assert.equal(res.status,200);assert.equal(attempts,2);
 attempts=0;globalThis.fetch=async()=>{attempts++;return Response.json({choices:[{message:{content:'   '}}]})};res=await worker.fetch(make({question:'遵义会议什么时候？',node:'zunyi'}),{DEEPSEEK_API_KEY:'test'});assert.equal(res.status,502);assert.equal(attempts,2);
+globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({answer:'两次会师分别发生在会宁和将台堡。',sources:['huining','jiangtaibao']})}}]});
+res=await worker.fetch(make({question:'两次会师的区别？',node:'huining'}),{DEEPSEEK_API_KEY:'test'});body=await res.json();assert.equal(body.sources.length,1);assert.deepEqual(body.sources[0].ids,['huining','jiangtaibao']);assert.match(body.sources[0].excerpt,/会宁/);assert.match(body.sources[0].excerpt,/将台堡/);
 globalThis.fetch=async()=>new Response('error',{status:500});assert.equal((await worker.fetch(make({question:'x',node:'zunyi'}),{DEEPSEEK_API_KEY:'test'})).status,502);
 globalThis.fetch=original;console.log('API and evidence tests passed');
