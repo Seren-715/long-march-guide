@@ -200,7 +200,35 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .tour-step.done:before{content:"✓ "}
 .tour-step.current{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
 .tour-actions{display:flex;gap:6px;align-items:center}
-.strip{display:flex;gap:4px;overflow-x:auto;padding:10px 24px;scrollbar-width:none}
+.strip{display:flex;gap:4px;overflow-x:auto;padding:10px 24px;scrollbar-width:none;flex:1;min-width:0}
+.strip-row{display:flex;align-items:center;gap:6px;padding-right:16px}
+.map-toggle{flex:none;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--text2)}
+.map-toggle:hover{background:var(--hover);color:var(--text)}
+.map-toggle[aria-expanded=true]{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+.map3d{flex:none;position:relative;background:#ece6df;border-bottom:1px solid var(--border2);overflow:hidden}
+.map-stage{position:relative;max-width:1040px;margin:0 auto;aspect-ratio:1600/840;overflow:hidden}
+.map-stage img{position:absolute;left:0;width:100%;top:-19.05%;height:119.05%;display:block;user-select:none;-webkit-user-drag:none}
+.map-stage svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.map-route{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-dasharray:6 5;stroke-linecap:round;opacity:.85;vector-effect:non-scaling-stroke}
+.map-label{position:absolute;transform:translate(-50%,-50%);font:600 12px/1 var(--serif);color:#5b4334;letter-spacing:.12em;white-space:nowrap;pointer-events:none;text-shadow:0 0 3px #f6efe6,0 0 6px #f6efe6}
+.map-label.river{font-style:italic;font-weight:500;color:#3f6474;letter-spacing:.06em}
+.map-label.pass{color:#8c2a1f}
+.mpin{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:5px;padding:0;border:0;background:none;z-index:2}
+.mpin i{position:relative;flex:none;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font:700 11px/1 var(--font);font-style:normal;background:#fffaf6;color:#8c2a1f;border:2px solid #b3261e;box-shadow:0 2px 6px rgba(60,20,10,.35);transition:transform .15s var(--ease)}
+.mpin.left{flex-direction:row-reverse;transform:translate(calc(-100% + 11px),-50%)}
+.mpin:not(.left){transform:translate(-11px,-50%)}
+.mpin span{font-size:12px;font-weight:600;color:#3a2420;background:rgba(255,250,246,.88);padding:2px 7px;border-radius:999px;white-space:nowrap;box-shadow:0 1px 3px rgba(60,20,10,.2)}
+.mpin:hover i{transform:scale(1.15)}
+.mpin.seen i{background:#b3261e;color:#fff}
+.mpin.active{z-index:3}
+.mpin.active i{background:#b3261e;color:#fff;transform:scale(1.25);box-shadow:0 0 0 4px rgba(179,38,30,.25),0 3px 10px rgba(60,20,10,.45)}
+.mpin.active i:after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;border:2px solid #b3261e;animation:pulse 1.8s ease-out infinite}
+.mpin.active span{background:#b3261e;color:#fff}
+.mpin.in-route:not(.active) i{box-shadow:0 0 0 3px rgba(179,38,30,.3),0 2px 6px rgba(60,20,10,.35)}
+.map-tip{position:absolute;z-index:4;transform:translate(-50%,calc(-100% - 18px));background:#2a1d1a;color:#fff;font-size:12px;line-height:1.5;padding:6px 10px;border-radius:8px;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
+.map-tip small{display:block;color:#e9c9c1}
+.map-note{position:absolute;left:10px;bottom:8px;z-index:2;font-size:11px;color:#5e504b;background:rgba(255,250,246,.85);padding:3px 9px;border-radius:999px}
+@keyframes pulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(2.2);opacity:0}}
 .strip::-webkit-scrollbar{display:none}
 .strip-sep{flex:none;align-self:center;width:1px;height:16px;background:var(--border);margin:0 6px}
 .stop{flex:none;display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;font-size:13px;color:var(--text2);transition:background .12s,color .12s}
@@ -294,7 +322,15 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
   .read-head{top:calc(var(--bar) + 51px)}
   .tour,.strip{padding-left:16px;padding-right:16px}
   .article{padding:24px 16px 40px}
-  .locator{width:96px;height:96px}
+  .mpin span{display:none}
+  .map-label{display:none}
+  .mpin.left,.mpin:not(.left){transform:translate(-50%,-50%)}
+  .mpin.active span{display:inline}
+  .mpin i{width:19px;height:19px;font-size:10px;border-width:1.5px}
+  .mpin.active i{width:22px;height:22px}
+  .map-label{font-size:10px}
+  .map-note{font-size:10px;left:6px;bottom:6px}
+  .strip-row{padding-right:10px}
   .bar-mid{display:none}
 }
 @media (max-width:560px){
@@ -372,8 +408,12 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="tour-actions" id="tour-actions"><button type="button" class="btn btn-text" id="skip">跳过</button><button type="button" class="btn btn-primary" id="next">下一站</button></div>
 <div class="tour-actions" id="tour-done" hidden><button type="button" class="btn btn-ghost" id="copy-summary">复制小结</button><button type="button" class="btn btn-ghost" id="download-summary">下载小结</button><button type="button" class="btn btn-primary" id="restart">换条路线</button></div>
 </div>
-<nav class="strip" id="strip" aria-label="全部节点（按时间顺序）"></nav>
+<div class="strip-row"><nav class="strip" id="strip" aria-label="全部节点（按时间顺序）"></nav><button type="button" class="map-toggle" id="map-toggle" aria-expanded="true" aria-controls="map3d">沙盘</button></div>
 </div>
+<section class="map3d" id="map3d" aria-label="长征途经地区地形示意沙盘">
+<div class="map-stage" id="map-stage"><img src="/assets/longmarch-map.webp" alt="长征途经地区的地形示意沙盘：西部横断山脉高耸、金沙江与大渡河切出深谷，北面是黄土高原，东南为丘陵。非精确地图。" width="1600" height="1000" loading="lazy" decoding="async"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="map-route"></polyline></svg></div>
+<div class="map-note">地形示意 · 非精确地图 · 虚线仅示意中央红军主力经过各站的先后，不是行军路线</div>
+</section>
 <article class="article" id="exhibit" aria-live="polite"></article>
 </section>
 </main>
@@ -498,7 +538,7 @@ function choose(id, opts = {}) {
   selectNode(id);
   if (view !== 'session') setView('session'); else render();
   if (mobile() && !opts.keepPane) setPane('read');
-  $('read-pane').scrollTo({ top: 0 }); if (mobile() && !opts.keepPane) window.scrollTo({ top: 0 });
+  if (!opts.keepMap) { $('read-pane').scrollTo({ top: 0 }); if (mobile() && !opts.keepPane) window.scrollTo({ top: 0 }); }
   if (opts.push !== false) syncHash();
   if (opts.focus) stopEls.get(id)?.focus({ preventScroll: true });
 }
@@ -522,12 +562,7 @@ function renderExhibit() {
     const url = safeLink(n.url); if (url) main.append(srcLink(url, n.source || '查看原文'));
     if (dec) main.append(decisionCard(n, dec));
   }
-  const loc = el('figure', 'locator'); loc.setAttribute('aria-hidden', 'true');
-  loc.innerHTML = '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><path class="land" d="M8 29 Q12 11 30 15 L38 8 Q50 11 55 18 Q68 13 73 21 L89 22 L94 34 L85 45 L89 59 L79 66 L75 83 L62 85 L56 92 L42 86 L34 88 L23 77 L12 72 L7 59 L3 47 Z"/></svg>';
-  const dots = el('div', 'loc-dots');
-  nodes.forEach(m => { const x = Number(m.x), y = Number(m.y); if (!Number.isFinite(x) || !Number.isFinite(y)) return; const d = el('span', 'loc-dot' + (m.id === selected ? ' on' : '')); d.style.left = Math.max(0, Math.min(100, x)) + '%'; d.style.top = Math.max(0, Math.min(100, y)) + '%'; dots.append(d); });
-  loc.append(dots, el('figcaption', 'loc-cap', '位置示意 · 非精确地图'));
-  top.append(main, loc);
+  top.append(main);
   const parts = [top];
   if ((n.extra || []).length && !pending) {
     const more = el('section', 'more'); more.append(el('h3', '', '延伸资料 · ' + n.extra.length + ' 条'));
@@ -618,11 +653,43 @@ function renderHome() {
   const r = $('resume'); r.hidden = !route.length && !messages.querySelector('.msg.user') && viewed.size === 0;
   if (!r.hidden) $('resume-text').textContent = route.length ? routeName + (finished ? ' · 已完成' : ' · 当前在「' + find(selected).name + '」') : '自由浏览 · 当前在「' + find(selected).name + '」';
 }
-function render() { renderStrip(); renderExhibit(); renderChips(); renderTour(); }
+/* ---------- 沙盘鸟瞰图 ---------- */
+const MAP = DATA.map && DATA.map.nodes ? DATA.map : null;
+const CROP_TOP = 16, CROP_H = 84;   // 图片上方留白裁掉 16%
+const mapY = y => (y - CROP_TOP) / CROP_H * 100;
+const mapPins = new Map();
+const PIN_LEFT = new Set(['caodi', 'huining', 'chishui', 'jinsha', 'jiajin']);   // 相邻节点的名字放到左侧，避免互相遮挡
+let mapOpen = true; try { mapOpen = localStorage.getItem('lmg-map') !== '0'; } catch {}
+(function buildMap() {
+  const stage = $('map-stage');
+  if (!MAP) { $('map3d').hidden = true; $('map-toggle').hidden = true; return; }
+  $('map-route').setAttribute('points', MAP.route.map(([x, y]) => x + ',' + mapY(y)).join(' '));
+  for (const l of MAP.labels || []) { const d = el('div', 'map-label ' + (l.kind || ''), l.text); d.style.left = l.at[0] + '%'; d.style.top = mapY(l.at[1]) + '%'; d.setAttribute('aria-hidden', 'true'); stage.append(d); }
+  const tip = el('div', 'map-tip'); tip.hidden = true; stage.append(tip);
+  nodes.forEach((n, i) => {
+    const at = MAP.nodes[n.id]; if (!at) return;
+    const b = el('button', 'mpin' + (PIN_LEFT.has(n.id) ? ' left' : '')); b.type = 'button'; b.dataset.node = n.id;
+    b.style.left = at[0] + '%'; b.style.top = mapY(at[1]) + '%';
+    b.setAttribute('aria-label', '第 ' + (i + 1) + ' 站：' + n.name + '，' + n.date);
+    b.append(el('i', '', i + 1), el('span', '', n.name));
+    b.addEventListener('click', () => choose(n.id, { keepMap: true }));
+    const show = () => { const pending = decisionOf(n.id) && !decided.has(n.id); tip.replaceChildren(document.createTextNode(n.date + ' · ' + n.name), el('small', '', pending ? '抉择时刻' : n.title || '')); tip.style.left = at[0] + '%'; tip.style.top = mapY(at[1]) + '%'; tip.hidden = false; };
+    b.addEventListener('mouseenter', show); b.addEventListener('focus', show);
+    b.addEventListener('mouseleave', () => { tip.hidden = true; }); b.addEventListener('blur', () => { tip.hidden = true; });
+    stage.append(b); mapPins.set(n.id, b);
+  });
+  setMapOpen(mapOpen);
+})();
+function setMapOpen(open) { mapOpen = open; $('map3d').hidden = !open || !MAP; $('map-toggle').setAttribute('aria-expanded', String(open)); $('map-toggle').textContent = open ? '收起沙盘' : '沙盘'; try { localStorage.setItem('lmg-map', open ? '1' : '0'); } catch {} }
+$('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
+function renderMap() {
+  for (const [id, b] of mapPins) { const on = id === selected; b.classList.toggle('active', on); b.classList.toggle('seen', !on && viewed.has(id)); b.classList.toggle('in-route', !on && route.includes(id)); if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); }
+}
+function render() { renderStrip(); renderMap(); renderExhibit(); renderChips(); renderTour(); }
 $('resume-go').addEventListener('click', () => choose(selected));
 $('start-main').addEventListener('click', openRoutes);
 $('start-ask').addEventListener('click', () => { homeQ.focus(); homeQ.scrollIntoView({ block: 'center', behavior: motion() }); });
-$('start-browse').addEventListener('click', () => { choose(selected); addMessage('小征', '好的，你可以用上方的节点条按时间自由浏览，也可以随时问我。现在是 ' + find(selected).date + ' 的「' + find(selected).name + '」。', [], { quiet: true, actions: stopActions(find(selected)) }); });
+$('start-browse').addEventListener('click', () => { setMapOpen(true); choose(selected); addMessage('小征', '好的，你可以点沙盘上的地点，或用上方的节点条按时间自由浏览，也可以随时问我。现在是 ' + find(selected).date + ' 的「' + find(selected).name + '」。', [], { quiet: true, actions: stopActions(find(selected)) }); });
 if (TTS) { $('tts-toggle').hidden = false; $('tts-toggle').setAttribute('aria-pressed', String(ttsOn)); $('tts-toggle').addEventListener('click', () => setTts(!ttsOn)); }
 
 /* ---------- 导览 ---------- */

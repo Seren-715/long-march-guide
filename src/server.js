@@ -101,8 +101,14 @@ function checkReply(parsed,question,current){
   return {type,ids,answer,badNumbers,badTitles,action:cleanAction(parsed.action,current),followups:cleanFollowups(parsed.followups,question)};
 }
 
+// 沙盘鸟瞰图（构建时由 scripts/generate.mjs 以 base64 填入）
+const MAP_IMAGE_B64='__MAP_IMAGE__';
+let mapBytes=null;
+function mapImage(){if(!mapBytes){const bin=atob(MAP_IMAGE_B64);mapBytes=Uint8Array.from(bin,c=>c.charCodeAt(0));}return mapBytes;}
+
 export default {async fetch(request, env) {
   const url = new URL(request.url);
+  if (url.pathname === '/assets/longmarch-map.webp' && ['GET','HEAD'].includes(request.method)) return new Response(request.method==='HEAD'?null:mapImage(), {headers:{'content-type':'image/webp','cache-control':'public, max-age=86400','x-content-type-options':'nosniff'}});
   if (url.pathname === '/' && ['GET','HEAD'].includes(request.method)) return new Response(request.method==='HEAD'?null:PAGE, {headers:{'content-type':'text/html; charset=utf-8','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin'}});
   if (!['/api/chat','/api/plan'].includes(url.pathname)) return json({error:'未找到页面。'},404);
   if (request.method !== 'POST') return json({error:'请求方法不支持。'},405);
