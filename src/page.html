@@ -159,6 +159,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .evidence[open] summary:before{transform:rotate(90deg)}
 .evidence p{margin:6px 0;padding-left:10px;border-left:2px solid var(--border);white-space:pre-wrap;line-height:1.7}
 .retry{margin-top:8px}
+.followups{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.followups .chip{min-height:30px;font-size:12px;padding:4px 12px;background:var(--bg)}
 .dots{display:inline-flex;gap:4px;align-items:center;height:22px}
 .dots i{width:6px;height:6px;border-radius:50%;background:var(--text3);animation:blink 1.2s infinite ease-in-out}
 .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
@@ -531,8 +533,21 @@ function advance(skip) {
     render(); return;
   }
   const prev = find(selected); selectNode(route[index + 1]); const next = find(selected);
-  addMessage('小征', (skip ? '已跳过「' + prev.name + '」。' : '接下来，') + '我们来到「' + next.name + '」。' + (next.text || ''), next.url ? [{ title: next.source || '查阅资料', url: next.url }] : [], { quiet: true });
+  addMessage('小征', transition(prev, next, skip), [], { quiet: true, followups: (next.questions || []).slice(0, 2) });
   render(); syncHash(); $('read-pane').scrollTo({ top: 0, behavior: motion() }); if (mobile()) window.scrollTo({ top: 0, behavior: motion() });
+}
+function transition(prev, next, skip) {
+  const pos = route.indexOf(next.id), left = route.length - pos - 1;
+  const from = skip ? '跳过「' + prev.name + '」，' : '从「' + prev.name + '」（' + prev.date + '）继续前行，';
+  const where = '来到' + (next.date ? ' ' + next.date + ' 的' : '') + '「' + next.name + '」：' + (next.title || next.name) + '。';
+  const rest = left > 0 ? '这是路线第 ' + (pos + 1) + ' 站，之后还有 ' + left + ' 站。' : '这是路线的最后一站。';
+  return from + where + rest + '讲解区有这一站的经过和原文出处，读完有疑问随时问我。';
+}
+function runAction(action) {
+  if (!action || typeof action !== 'object') return;
+  if (action.type === 'goto' && find(action.node)) choose(action.node);
+  else if ((action.type === 'next' || action.type === 'skip') && route.length && !finished) { advance(action.type === 'skip'); if (mobile()) setPane('read'); }
+  else if (action.type === 'route') { const r = ROUTES.find(x => x.key === action.route); const ids = r ? routeFor(r.key) : []; if (ids.length) applyPlan(ids, '', r.title); }
 }
 $('next').addEventListener('click', () => advance(false));
 $('skip').addEventListener('click', () => advance(true));
@@ -575,6 +590,8 @@ function addMessage(who, text, sources = [], opts = {}) {
   const refs = el('div', 'refs'); for (const s of sources) { const u = safeLink(s.url); if (u) refs.append(srcLink(u, s.title || '查看资料', 'ref')); } if (refs.childNodes.length) body.append(refs);
   const ex = sources.filter(s => typeof s.excerpt === 'string' && s.excerpt.trim());
   if (ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); body.append(d); }
+  const follow = (opts.followups || []).filter(q => typeof q === 'string' && q.trim()).slice(0, 2);
+  if (follow.length) { const box = el('div', 'followups'); for (const q of follow) { const c = el('button', 'chip', q); c.type = 'button'; c.addEventListener('click', () => askChip(q)); box.append(c); } body.append(box); }
   if (opts.retry) { const r = el('button', 'btn btn-ghost retry', '重试这个问题'); r.type = 'button'; r.addEventListener('click', () => { if (busy) return; const cur = input.value.trim(); if (cur && cur !== opts.retry) { status.textContent = '输入框已有未发送的问题，请先处理后再重试。'; input.focus(); return; } r.disabled = true; input.value = ''; autosize(input); ask(opts.retry); }); body.append(r); }
   row.append(body); messages.append(row); scrollToMsg(row);
   if (!mine && !opts.quiet && mobile() && view === 'session' && pane !== 'chat') $('chat-dot').hidden = false;
@@ -605,15 +622,18 @@ async function ask(question) {
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id, { keepPane: true }); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
   busy = true; $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); status.textContent = '小征正在查阅资料并思考…';
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
-  let payload = JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior });
-  while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior }); }
+  const tour = route.length ? { route, visited: [...visited] } : undefined;
+  const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour });
+  let payload = build();
+  while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
   const typing = showTyping();
   try {
     const data = await fetchJSON('/api/chat', JSON.parse(payload)); typing.remove();
     if (typeof data.answer !== 'string' || !data.answer.trim()) throw new Error('暂未获得回答，请换个问法试试。');
-    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { node: find(questionNode)?.name || '未知' });
+    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { node: data.type === 'history' || !data.type ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [] });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
+    if (requestVersion === contextVersion) runAction(data.action);
   } catch (err) {
     typing.remove(); if (!input.value) { input.value = question; autosize(input); } updateCount();
     addMessage('小征', err.message || '连接失败，请稍后再试。', [], { error: true, retry: err.notConfigured ? null : question });
