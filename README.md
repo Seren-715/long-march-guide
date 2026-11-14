@@ -26,7 +26,7 @@ DEEPSEEK_API_KEY=你的密钥 npm run eval
 DEEPSEEK_API_KEY=你的密钥 npm run audit
 ```
 
-本地预览打开 `http://127.0.0.1:4173`。本地预览默认不载入 API 密钥，能浏览页面和路线，模型问答会提示尚未配置；不要把密钥写入源码或前端。线上密钥由 Sites 服务端环境变量管理，包含 `DEEPSEEK_API_KEY` 和独立随机的 `HISTORY_SIGNING_KEY`；不得写入源码或前端。
+本地预览打开 `http://127.0.0.1:4173`。本地预览默认不载入 API 密钥，能浏览页面和路线，模型问答会提示尚未配置；如需在本地试用真实问答，用 `DEEPSEEK_API_KEY=你的密钥 npm run dev` 启动（对话签名密钥自动随机生成，可用 `HOST`、`PORT` 改监听地址）；不要把密钥写入源码或前端。线上密钥由 Sites 服务端环境变量管理，包含 `DEEPSEEK_API_KEY` 和独立随机的 `HISTORY_SIGNING_KEY`；不得写入源码或前端。
 
 ## 代码与材料
 
