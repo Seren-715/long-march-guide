@@ -1,9 +1,10 @@
 import { nodes } from '../src/data.js';
+import { stories } from '../src/stories.js';
 
-const entries = nodes.flatMap(n => [
+const entries = [...stories.map(st => ({ kind: 'story', owner: st.id, title: st.source, url: st.url })), ...nodes.flatMap(n => [
   { kind: 'node', owner: n.id, title: n.source, url: n.url },
   ...(n.extra || []).map(e => ({ kind: 'extra', owner: e.id, title: e.source, url: e.url })),
-]);
+])];
 const byUrl = new Map();
 for (const entry of entries) if (!byUrl.has(entry.url)) byUrl.set(entry.url, entry);
 const queue = [...byUrl.values()];

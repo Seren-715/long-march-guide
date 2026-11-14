@@ -1,15 +1,16 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {nodes} from '../src/data.js';
 import {decisions,quizzes} from '../src/guide-content.js';
+import {stories} from '../src/stories.js';
 const html=await readFile(new URL('../src/page.html',import.meta.url),'utf8');
 const server=await readFile(new URL('../src/server.js',import.meta.url),'utf8');
 const mapLayout=JSON.parse(await readFile(new URL('../src/map-layout.json',import.meta.url),'utf8'));
 const mapImage=(await readFile(new URL('../src/assets/longmarch-map.webp',import.meta.url))).toString('base64');
-const data=JSON.stringify({nodes,guide:{decisions,quizzes},map:{nodes:mapLayout.nodes,route:mapLayout.route,labels:mapLayout.labels,width:mapLayout.width,height:mapLayout.height}}).replaceAll('<','\\u003c');
+const data=JSON.stringify({nodes,guide:{decisions,quizzes},stories,map:{nodes:mapLayout.nodes,route:mapLayout.route,labels:mapLayout.labels,width:mapLayout.width,height:mapLayout.height}}).replaceAll('<','\\u003c');
 const sourceCount=nodes.reduce((sum,n)=>sum+1+(n.extra||[]).length,0);
 const withData=html.replace('__DATA__',()=>data);
 if(withData===html) throw new Error('Missing data marker');
 const page=withData.replaceAll('__NODE_COUNT__',String(nodes.length)).replaceAll('__SOURCE_COUNT__',String(sourceCount));
-const output=server.replace("import { nodes } from './data.js';",()=> 'const nodes = '+JSON.stringify(nodes)+';').replace('PAGE',()=>JSON.stringify(page)).replace("'__MAP_IMAGE__'",()=>JSON.stringify(mapImage));
+const output=server.replace("import { nodes } from './data.js';",()=> 'const nodes = '+JSON.stringify(nodes)+';').replace("import { stories } from './stories.js';",()=> 'const stories = '+JSON.stringify(stories)+';').replace('PAGE',()=>JSON.stringify(page)).replace("'__MAP_IMAGE__'",()=>JSON.stringify(mapImage));
 await writeFile(new URL('../worker/index.js',import.meta.url),output);
 console.log('Worker generated');

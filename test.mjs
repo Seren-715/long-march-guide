@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import worker from './worker/index.js';
 import { nodes } from './src/data.js';
 import { decisions, quizzes } from './src/guide-content.js';
+import { stories } from './src/stories.js';
 const sessionId='123e4567-e89b-42d3-a456-426614174000';
 const env={DEEPSEEK_API_KEY:'test',HISTORY_SIGNING_KEY:'test-signing-key-for-unit-tests'};
 const make=(body,headers={})=>new Request('http://localhost/api/chat',{method:'POST',headers:{'content-type':'application/json',...headers},body:typeof body==='string'?body:JSON.stringify({sessionId,...body})});
@@ -122,6 +123,12 @@ globalThis.fetch=async()=>reply({type:'history',answer:'红军第一次渡过赤
 body=await (await worker.fetch(make({question:'首渡何时？',node:'chishui'}),env)).json();assert.match(body.answer,/第一次/);
 attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'红军渡江用了七只船。',sources:['jinsha_detail']})};
 body=await (await worker.fetch(make({question:'用了几条船？',node:'jinsha'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);
+globalThis.fetch=async()=>reply({type:'history',answer:'红二十五军最先到达陕北；资料没有说明两军之间的隶属关系，红一、红二、红四方面军三军会师见资料。',sources:['wuqi_red25']});
+body=await (await worker.fetch(make({question:'红二十五军和中央红军什么关系？',node:'wuqi'}),env)).json();assert.match(body.answer,/两军之间/);
+globalThis.fetch=async()=>reply({type:'history',answer:'过草地有两个故事，从三个方面讲。',sources:['caodi']});
+body=await (await worker.fetch(make({question:'讲讲草地',node:'caodi'}),env)).json();assert.match(body.answer,/两个故事/);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'红军在草地走了两个月。',sources:['caodi']})};
+body=await (await worker.fetch(make({question:'走了多久？',node:'caodi'}),env)).json();assert.match(body.answer,/资料不足/);
 globalThis.fetch=async()=>reply({type:'chat',answer:'你好！遵义会议改组了中央领导机构。你可以问我遵义会议解决了什么问题。',sources:[]});
 body=await (await worker.fetch(make({question:'你好',node:'zunyi'}),env)).json();assert.equal(body.type,'chat');assert.doesNotMatch(body.answer,/改组/);assert.match(body.answer,/你可以问我遵义会议/);
 globalThis.fetch=async()=>reply({type:'chat',answer:'红军翻越了夹金山。',sources:[]});
@@ -132,4 +139,18 @@ attempts=0;globalThis.fetch=async(url,options)=>{attempts++;seen=JSON.parse(opti
 body=await (await worker.fetch(make({question:'毛儿盖会议通过了什么？',node:'caodi'}),env)).json();assert.equal(attempts,2);assert.match(seen.messages.at(-1).content,/书名/);assert.match(body.answer,/之补充决定/);
 globalThis.fetch=async()=>reply({type:'history',answer:'遵义会议通过了《遵义宣言》。',sources:['zunyi']});
 body=await (await worker.fetch(make({question:'遵义会议通过了什么文件？',node:'zunyi'}),env)).json();assert.match(body.answer,/资料不足/);
+
+// —— 长征故事 ——
+{
+  const nodeIds=new Set(nodes.map(n=>n.id));const kbIds=new Set(nodes.flatMap(n=>[n.id,...(n.extra||[]).map(e=>e.id)]));
+  assert.equal(new Set(stories.map(s=>s.id)).size,stories.length,'故事 ID 重复');
+  for(const st of stories){assert.ok(st.id&&st.title&&st.text&&st.source&&st.url&&st.date,'故事字段不全：'+st.id);assert.ok(nodeIds.has(st.node),'故事节点不存在：'+st.id);assert.ok(!kbIds.has(st.id),'故事 ID 与资料冲突：'+st.id);assert.match(st.url,/^https?:\/\//);assert.equal(typeof st.reviewed,'boolean');}
+  assert.match(html,/"stories":\[/);
+  // 已审核的故事进入问答资料，并可作为出处返回
+  const reviewed=stories.find(s=>s.reviewed);
+  globalThis.fetch=async(url,options)=>{seen=JSON.parse(options.body);return reply({type:'history',answer:'红军行进到湖南汝城县沙洲村时，三名女红军把仅有的一条被子剪下一半留给徐解秀。',sources:[reviewed.id]})};
+  res=await worker.fetch(make({question:'讲个故事吧',node:reviewed.node}),env);body=await res.json();assert.equal(res.status,200);assert.equal(body.sources[0].id,reviewed.id);assert.match(seen.messages[0].content,/故事·/);assert.match(seen.messages[0].content,new RegExp('\\['+reviewed.id+'\\]'));
+  // 带故事来源的对话凭证可在下一轮使用
+  res=await worker.fetch(make({question:'后来呢？',node:reviewed.node,historyTokens:[body.historyToken]}),env);assert.equal(res.status,200);
+}
 globalThis.fetch=original;console.log('API and evidence tests passed');

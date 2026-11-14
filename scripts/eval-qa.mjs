@@ -97,6 +97,9 @@ const CASES = [
   { id: '32', node: 'wuqi', q: '吴起镇会议是哪天开的，提出了什么任务？', expect: { all: ['10月22日'], any: ['保卫与扩大', '保卫和扩大'], sources: ['wuqi_meeting'] } },
   { id: '33', node: 'luding', q: '彝海结盟是谁和谁？对过大渡河有什么作用？', expect: { all: ['刘伯承', '小叶丹'], sources: ['luding_yihai'] } },
   { id: '34', node: 'caodi', q: '巴西会议决定了什么？', expect: { all: ['9月9日'], any: ['北上'], sources: ['caodi_brazil'] } },
+  { id: '35', node: 'caodi', q: '给我讲一个过草地的故事。', expect: { any: ['周恩来', '周广才', '皮带'], sources: ['story_zhou_enlai', 'story_banjie_pidai'] } },
+  { id: '36', node: 'xiangjiang', q: '陈树湘是怎样牺牲的？', expect: { all: ['29'], any: ['石马神', '绞断肠子'], sources: ['story_chen_shuxiang'] } },
+  { id: '37', node: 'jinsha', q: '贺子珍身上有多少块弹片？是怎么受的伤？', expect: { all: ['17'], any: ['钟赤兵'], none: ['背部'], sources: ['story_he_zizhen'] } },
 ];
 const PLAN_CASES = [
   { id: 'P1', preference: '我想看翻雪山、过草地那一段', length: 'short', expect: { status: 200 } },

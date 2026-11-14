@@ -251,6 +251,14 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .more h3{font-size:13px;font-weight:600;color:var(--text3);margin:0 0 6px}
 .more-item{padding:14px 0;border-top:1px solid var(--border2)}
 .more-item p{margin:0 0 8px;font-size:15px;line-height:1.85}
+.stories{margin-top:32px}
+.stories h3{font-size:13px;font-weight:600;color:var(--text3);margin:0 0 10px}
+.story-card{position:relative;margin:0 0 12px;padding:16px 18px 14px 20px;border-radius:14px;background:var(--bg2);border:1px solid var(--border2)}
+.story-card:before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:2px;background:var(--accent)}
+.story-card h4{display:flex;align-items:baseline;gap:10px;margin:0 0 6px;font:700 17px/1.4 var(--serif)}
+.story-card h4 small{font:400 12px var(--font);color:var(--text3)}
+.story-card p{margin:0 0 8px;font-size:15px;line-height:1.85}
+.story-note{display:block;margin:0 0 8px;font-size:12px;color:var(--accent)}
 .ask-here{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:28px;padding:14px 16px;border-radius:14px;background:var(--bg2);font-size:13px;color:var(--text2)}
 .ask-here .chip{min-height:30px;font-size:12px;padding:4px 12px;background:var(--bg)}
 .art-nav{display:flex;justify-content:space-between;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border2)}
@@ -437,6 +445,16 @@ const visible = item => !!item && (item.reviewed === true || DRAFT);
 const decisionOf = id => visible(GUIDE.decisions?.[id]) ? GUIDE.decisions[id] : null;
 const quizOf = id => visible(GUIDE.quizzes?.[id]) ? GUIDE.quizzes[id] : null;
 const decided = new Map(), quizAnswers = new Map();
+const STORIES = Array.isArray(DATA.stories) ? DATA.stories : [];
+const storiesOf = id => STORIES.filter(t => t.node === id && visible(t));
+const told = new Set();
+function tellStory(n) {
+  const list = storiesOf(n.id); if (!list.length) return;
+  const t = list.find(x => !told.has(x.id)) || list[0]; told.add(t.id);
+  const more = list.some(x => !told.has(x.id));
+  addMessage('小征', '给你讲一个「' + n.name + '」的故事——' + t.title + '。\n' + t.text, [{ title: t.source, url: t.url }], { quiet: true, actions: [...(more ? [{ label: '再讲一个', primary: true, run: () => tellStory(n) }] : []), ...stopActions(n).filter(a => a.label !== '听小征讲个故事')] });
+  if (mobile()) setPane('chat');
+}
 const evidenceOf = id => { for (const n of nodes) { if (n.id === id) return { title: n.source, url: n.url }; for (const e of n.extra || []) if (e.id === id) return { title: e.source, url: e.url }; } return null; };
 function draftTag(item) { return item && item.reviewed !== true ? el('span', 'draft', '草稿·待核对') : null; }
 function monthsFromStart(n) { const m = String(n.date || '').match(/^(\d{4})\.(\d{2})/); return m ? (Number(m[1]) - 1934) * 12 + Number(m[2]) - 10 : null; }
@@ -563,6 +581,12 @@ function renderExhibit() {
     for (const e of n.extra) { const item = el('div', 'more-item'); item.append(el('p', '', e.text)); const u = safeLink(e.url); if (u) item.append(srcLink(u, e.source)); more.append(item); }
     parts.push(more);
   }
+  const tales = storiesOf(n.id);
+  if (tales.length && !pending) {
+    const box = el('section', 'stories'); box.id = 'story-list'; box.append(el('h3', '', '长征故事 · ' + tales.length + ' 个'));
+    for (const t of tales) { const c = el('article', 'story-card'); c.id = 'story-' + t.id; const h = el('h4', '', t.title); h.append(el('small', '', t.date)); const tag = draftTag(t); if (tag) h.append(tag); c.append(h); if (t.note) c.append(el('span', 'story-note', '讲解提示：' + t.note)); c.append(el('p', '', t.text)); const u = safeLink(t.url); if (u) c.append(srcLink(u, t.source)); box.append(c); }
+    parts.push(box);
+  }
   const quiz = quizOf(n.id); if (quiz && !pending) parts.push(quizCard(n, quiz));
   if ((n.questions || []).length) {
     const ask = el('div', 'ask-here'); ask.append(el('span', '', '关于这一站，可以问：'));
@@ -609,6 +633,7 @@ function stopActions(n) {
   const idx = route.indexOf(n.id);
   if (route.length && idx >= 0 && !finished) acts.push({ label: idx === route.length - 1 ? '完成参观' : '下一站：' + find(route[idx + 1]).name, primary: !acts.length, run: () => { if (selected === n.id) advance(false); } });
   acts.push({ label: '再讲讲这一站', run: () => askChip('请再讲讲「' + n.name + '」这一站的背景和意义。') });
+  if (storiesOf(n.id).length && !(d && !decided.has(n.id))) acts.push({ label: '听小征讲个故事', run: () => tellStory(n) });
   if (quizOf(n.id) && !quizAnswers.has(n.id)) acts.push({ label: '小测一下', run: () => reveal('quiz-card') });
   return acts;
 }

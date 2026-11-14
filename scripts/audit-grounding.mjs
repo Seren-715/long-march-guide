@@ -17,6 +17,7 @@ import { writeFile } from 'node:fs/promises';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { nodes } from '../src/data.js';
+import { stories } from '../src/stories.js';
 
 const BASE = (process.env.EVAL_BASE_URL || '').replace(/\/+$/, '');
 const EXTRA_HEADERS = process.env.EVAL_HEADERS ? JSON.parse(process.env.EVAL_HEADERS) : {};
@@ -39,7 +40,7 @@ async function post(path, body) {
   return { status: res.status, data };
 }
 
-const KB = new Map(nodes.flatMap(n => [[n.id, n.text], ...(n.extra || []).map(e => [e.id, e.text])]));
+const KB = new Map([...nodes.flatMap(n => [[n.id, n.text], ...(n.extra || []).map(e => [e.id, e.text])]), ...stories.filter(st => st.reviewed).map(st => [st.id, st.text])]);
 const NAMES = nodes.map(n => n.name);
 
 // —— 问题集 ——
