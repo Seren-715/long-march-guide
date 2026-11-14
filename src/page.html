@@ -220,6 +220,7 @@ a{color:inherit}
 .suggestions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .suggestions button{border:1px solid var(--red-line);background:var(--red-soft);color:var(--red-d);border-radius:999px;padding:6px 13px;font-size:13px;min-height:34px;text-align:left;transition:background .15s,border-color .15s}
 .suggestions button:hover{background:#f5dcd2;border-color:#dba899}
+.suggestions button:disabled{opacity:.55;cursor:wait}
 .form{display:flex;gap:8px}
 .form input{flex:1;min-width:0}
 .send{min-width:82px}
@@ -371,6 +372,8 @@ const initialHash = fromHash();
 let selected = (find(initialHash) ? initialHash : nodes[0]?.id) || '';
 let route = [], routeName = '', completed = new Set(), visited = new Set(), viewed = new Set(selected ? [selected] : []), finished = false;
 let chatHistory = [], busy = false, contextVersion = 0, summaryText = '', planVersion = 0, planning = false;
+const askedByNode = new Map(), suggestionTurns = new Map();
+const normalizeQuestion = text => text.toLowerCase().replace(/[\s，。！？、,.!?；;：:]/g, '');
 const stationEls = new Map();
 
 function el(tag, className, text) { const e = document.createElement(tag); if (className) e.className = className; if (text != null) e.textContent = String(text); return e; }
@@ -479,11 +482,30 @@ function renderExhibit() {
   nav.append(pb, nb);
   exhibit.replaceChildren(body, nav);
 }
+function markQuestionAnswered(nodeId, question) {
+  const n = find(nodeId); if (!n) return;
+  const normalized = normalizeQuestion(question);
+  if ((n.questions || []).some(q => normalizeQuestion(q) === normalized)) {
+    if (!askedByNode.has(nodeId)) askedByNode.set(nodeId, new Set());
+    askedByNode.get(nodeId).add(normalized);
+  }
+  suggestionTurns.set(nodeId, (suggestionTurns.get(nodeId) || 0) + 1);
+}
 function renderSuggestions() {
-  const box = $('suggestions'); if (box.dataset.node === selected) return; box.dataset.node = selected; box.replaceChildren();
-  const n = find(selected); const label = $('sugg-label'); label.replaceChildren(document.createTextNode('关于「'), el('b', '', n?.name || ''), document.createTextNode('」，可以这样问：'));
-  for (const q of n?.questions || []) {
-    const b = el('button', '', q); b.type = 'button';
+  const box = $('suggestions'); box.replaceChildren();
+  const n = find(selected), label = $('sugg-label');
+  const asked = askedByNode.get(selected) || new Set();
+  const available = (n?.questions || []).filter(q => !asked.has(normalizeQuestion(q)));
+  if (!available.length) {
+    label.textContent = '本节点的建议问题已看完，你可以自行提问。';
+    const reset = el('button', '', '重新显示建议问题'); reset.type = 'button'; reset.disabled = busy;
+    reset.addEventListener('click', () => { askedByNode.delete(selected); suggestionTurns.delete(selected); renderSuggestions(); }); box.append(reset); return;
+  }
+  label.replaceChildren(document.createTextNode('关于「'), el('b', '', n?.name || ''), document.createTextNode('」，可以这样问：'));
+  const offset = (suggestionTurns.get(selected) || 0) % available.length;
+  const choices = available.slice(offset).concat(available.slice(0, offset)).slice(0, 2);
+  for (const q of choices) {
+    const b = el('button', '', q); b.type = 'button'; b.disabled = busy;
     b.addEventListener('click', () => { if (busy) return; if (input.value.trim()) { status.textContent = '输入框已有未发送的问题，请先处理后再使用建议问题。'; input.focus(); return; } input.value = q; $('chat-form').requestSubmit(); });
     box.append(b);
   }
@@ -585,7 +607,7 @@ function addMessage(who, text, sources = [], opts = {}) {
   const refs = el('div', 'refs'); for (const s of sources) { const u = safeLink(s.url); if (u) refs.append(srcLink(u, s.title || '查看资料')); } if (refs.childNodes.length) bubble.append(refs);
   const ex = sources.filter(s => typeof s.excerpt === 'string' && s.excerpt.trim());
   if (ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); bubble.append(d); }
-  if (opts.retry) { const r = el('button', 'btn btn-line btn-sm retry', '重试这个问题'); r.type = 'button'; r.addEventListener('click', () => { if (busy) return; const cur = input.value.trim(); if (cur && cur !== opts.retry) { status.textContent = '输入框已有未发送的问题，请先处理后再重试。'; input.focus(); return; } r.disabled = true; input.value = opts.retry; $('chat-form').requestSubmit(); }); bubble.append(r); }
+  if (opts.retry) { const r = el('button', 'btn btn-line btn-sm retry', '重试这个问题'); r.type = 'button'; r.addEventListener('click', () => { if (busy) return; const cur = input.value.trim(); if (cur && (cur !== opts.retry || selected !== opts.retryNode)) { status.textContent = '输入框已有未发送的问题，请先处理后再重试。'; input.focus(); return; } if (opts.retryNode && selected !== opts.retryNode) choose(opts.retryNode); r.disabled = true; input.value = opts.retry; $('chat-form').requestSubmit(); }); bubble.append(r); }
   row.append(bubble); messages.append(row); scrollToMsg(row); return row;
 }
 function showTyping() { const row = el('div', 'msg bot'); const b = el('div', 'bubble'); const d = el('span', 'dots'); d.setAttribute('aria-hidden', 'true'); d.append(el('i'), el('i'), el('i')); b.append(d, el('span', 'typing-text', '小征正在查阅资料…')); row.append(seal(), b); messages.append(row); scrollToMsg(row); return row; }
@@ -594,7 +616,7 @@ $('to-latest').addEventListener('click', () => messages.scrollTo({ top: messages
 function updateCount() { const left = 500 - input.value.length; $('count').textContent = left <= 100 ? '还可输入 ' + left + ' 字' : ''; }
 input.addEventListener('input', updateCount);
 
-async function fetchJSON(path, payload) { const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 30000); try { const response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal }); let data; try { data = await response.json(); } catch (err) { if (err?.name === 'AbortError') throw err; throw new Error('服务返回异常，请稍后再试。'); } if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('服务返回异常，请稍后再试。'); if (!response.ok || data.error) { const err = new Error(data?.error || '服务暂时不可用，请稍后再试。'); err.notConfigured = response.status === 503; throw err; } return data; } catch (err) { if (err?.name === 'AbortError') throw new Error('连接超时，请检查网络后重试。'); if (err instanceof TypeError) throw new Error('网络连接失败，请检查网络后重试。'); throw err; } finally { clearTimeout(timer); } }
+async function fetchJSON(path, payload) { const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 30000); try { const response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal }); let data; try { data = await response.json(); } catch (err) { if (err?.name === 'AbortError') throw err; throw new Error('服务返回异常，请稍后再试。'); } if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('服务返回异常，请稍后再试。'); if (!response.ok || data.error) { const err = new Error(data?.error || '服务暂时不可用，请稍后再试。'); err.notConfigured = response.status === 503; err.code = data.code; throw err; } return data; } catch (err) { if (err?.name === 'AbortError') throw new Error('连接超时，请检查网络后重试。'); if (err instanceof TypeError) throw new Error('网络连接失败，请检查网络后重试。'); throw err; } finally { clearTimeout(timer); } }
 
 $('chat-form').addEventListener('submit', async e => {
   e.preventDefault(); if (busy) return; const question = input.value.trim(); if (!question) return;
@@ -603,7 +625,7 @@ $('chat-form').addEventListener('submit', async e => {
   if (/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { if (!route.length) { addMessage('小征', '请先在上方选一条参观路线。'); return; } advance(question.startsWith('跳过')); return; }
   const jump = question.match(/^(?:带我去|前往|切换到|看看)(.{1,12}?)[。！!\s]*$/);
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
-  busy = true; $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); status.textContent = '小征正在查阅资料并思考…';
+  busy = true; $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); renderSuggestions(); status.textContent = '小征正在查阅资料并思考…';
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
   let payload = JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior });
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior }); }
@@ -611,14 +633,17 @@ $('chat-form').addEventListener('submit', async e => {
   try {
     const data = await fetchJSON('/api/chat', JSON.parse(payload)); typing.remove();
     if (typeof data.answer !== 'string' || !data.answer.trim()) throw new Error('暂未获得回答，请换个问法试试。');
+    markQuestionAnswered(questionNode, question);
     addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { node: find(questionNode)?.name || '未知' });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
   } catch (err) {
-    typing.remove(); if (!input.value) input.value = question; updateCount();
-    addMessage('小征', err.message || '连接失败，请稍后再试。', [], { error: true, retry: err.notConfigured ? null : question });
-    status.textContent = err.notConfigured ? '模型尚未配置，当前可浏览节点和资料。' : input.value === question ? '本次问题未加入上下文，已保留，可重试。' : '本次问题未加入上下文，可重新输入后重试。';
-  } finally { busy = false; $('send').disabled = false; $('send').removeAttribute('aria-busy'); if (document.activeElement === document.body) input.focus(); }
+    typing.remove(); const sameContext = selected === questionNode && requestVersion === contextVersion;
+    if (sameContext && err.code === 'HISTORY_INVALID') chatHistory = [];
+    if (sameContext && !input.value) input.value = question; updateCount();
+    addMessage('小征', err.message || '连接失败，请稍后再试。', [], { node: find(questionNode)?.name || '未知', error: true, retry: err.notConfigured || err.code === 'SESSION_INVALID' ? null : question, retryNode: questionNode });
+    status.textContent = err.notConfigured ? '模型尚未配置，当前可浏览节点和资料。' : err.code === 'SESSION_INVALID' ? '对话会话无效，请刷新页面后重试。' : !sameContext ? '节点已切换；可在原问题下方返回原节点重试。' : err.code === 'HISTORY_INVALID' ? '上次对话已失效并清空，可重新提问。' : input.value === question ? '本次问题未加入上下文，已保留，可重试。' : '本次问题未加入上下文，可重新输入后重试。';
+  } finally { busy = false; $('send').disabled = false; $('send').removeAttribute('aria-busy'); renderSuggestions(); if (document.activeElement === document.body) input.focus(); }
 });
 
 /* 手机底栏：进入参观区后出现 */
