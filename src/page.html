@@ -150,7 +150,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .refs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ref{display:inline-flex;align-items:center;gap:5px;max-width:100%;height:26px;padding:0 10px;border:1px solid var(--border);border-radius:999px;background:var(--bg);font-size:12px;color:var(--text2);text-decoration:none;overflow:hidden}
 .ref svg{flex:none;width:10px;height:10px}
-.ref span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ref span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ref:hover{color:var(--text);border-color:color-mix(in srgb,var(--text) 30%,var(--border))}
 .evidence{margin-top:8px;font-size:13px;color:var(--text2)}
 .evidence summary{cursor:pointer;color:var(--text3);font-size:12px;list-style:none}
@@ -199,9 +199,9 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .stop.active{background:var(--primary);color:var(--on-primary)}
 .stop.active b{color:inherit;opacity:.7}
 
-.article{max-width:740px;margin:0 auto;padding:36px 28px 32px;animation:fade .25s var(--ease)}
+.article{width:100%;max-width:740px;margin:0 auto;padding:36px 28px 32px;animation:fade .25s var(--ease)}
 .art-top{display:flex;gap:24px;align-items:flex-start}
-.art-main{flex:1;min-width:0}
+.art-main{flex:1;min-width:0;max-width:100%}
 .kicker{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:13px;color:var(--text3);margin-bottom:10px}
 .article h2{font-size:clamp(24px,2.6vw,30px);line-height:1.35;font-weight:600;letter-spacing:-.005em;margin:0 0 16px}
 .article h2:focus{outline:none}
@@ -226,6 +226,45 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .art-nav{display:flex;justify-content:space-between;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border2)}
 .art-nav .btn{max-width:48%;overflow:hidden}
 
+.starts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 18px}
+.start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:var(--bg);transition:background .15s,border-color .15s,transform .15s}
+.start:hover{background:var(--hover);transform:translateY(-1px)}
+.start.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.start.primary:hover{background:var(--primary);opacity:.9}
+.start b{font-size:15px;font-weight:600}
+.start span{font-size:12px;color:var(--text3)}
+.start.primary span{color:inherit;opacity:.7}
+.or{display:flex;align-items:center;gap:12px;margin:0 0 14px;font-size:12px;color:var(--text3)}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--border2)}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.quick .btn{height:32px;font-size:13px;padding:0 12px}
+.stamp{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin:0 0 8px}
+.stamp-date{font:600 26px/1.1 "Songti SC","STSong","Noto Serif CJK SC","Noto Serif SC",SimSun,serif;letter-spacing:.02em;color:var(--accent)}
+.stamp-place{font:600 15px/1.2 "Songti SC","STSong","Noto Serif CJK SC","Noto Serif SC",SimSun,serif}
+.stamp-rel{font-size:12px;color:var(--text3)}
+.speak{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--text2)}
+.speak:hover{background:var(--hover);color:var(--text)}
+.speak[aria-pressed=true]{background:var(--active);color:var(--text)}
+#tts-toggle[aria-pressed=true]{background:var(--active);color:var(--text)}
+.card{margin:24px 0 0;padding:18px 20px;border:1px solid var(--border);border-radius:16px;background:var(--bg2)}
+.card-label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--accent);letter-spacing:.06em;margin-bottom:8px}
+.card p{margin:0 0 10px;line-height:1.85}
+.card .q{font-weight:600}
+.choices{display:grid;gap:8px;margin-top:6px}
+.choice{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);font-size:14px;line-height:1.6;transition:background .12s,border-color .12s}
+.choice:hover:not(:disabled){background:var(--hover);border-color:color-mix(in srgb,var(--text) 25%,var(--border))}
+.choice:disabled{opacity:1;cursor:default}
+.choice i{flex:none;width:22px;height:22px;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;font-style:normal;font-size:12px;color:var(--text3)}
+.choice.picked{border-color:var(--text)}
+.choice.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,var(--bg))}
+.choice.right i{background:var(--ok);border-color:var(--ok);color:#fff}
+.choice.wrong{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--bg))}
+.reveal{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);animation:fade .25s var(--ease)}
+.reveal h4{margin:0 0 6px;font-size:13px;color:var(--text2)}
+.reveal .refs{margin-top:6px}
+.skip-link{margin-top:10px;font-size:12px;color:var(--text3);text-decoration:underline;text-underline-offset:3px}
+.skip-link:hover{color:var(--text)}
+.draft{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;border:1px dashed var(--accent);color:var(--accent);letter-spacing:0}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @keyframes blink{0%,80%,100%{opacity:.3}40%{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -247,9 +286,11 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 }
 @media (max-width:560px){
   .home-inner{padding-top:7vh}
+  .starts{grid-template-columns:1fr}
+  .start{flex-direction:row;align-items:baseline;justify-content:space-between;gap:10px}
   .tour-actions{width:100%}
   .tour-actions .btn{flex:1}
-  .art-top{flex-direction:column-reverse;gap:14px}
+  .art-top{flex-direction:column-reverse;align-items:stretch;gap:14px}
   .locator{width:100%;height:110px}
   .row{padding:12px 14px}
   .row-meta{display:none}
@@ -265,13 +306,19 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <header class="bar">
 <button type="button" class="brand" id="go-home" aria-label="长征路上，回到首页"><span class="seal" aria-hidden="true">征</span>长征路上</button>
 <div class="bar-mid" id="bar-mid"></div>
-<div class="bar-right"><button type="button" class="btn btn-text" id="bar-about">资料说明</button></div>
+<div class="bar-right"><button type="button" class="btn btn-text" id="tts-toggle" aria-pressed="false" hidden title="切换节点时自动朗读讲解">语音讲解</button><button type="button" class="btn btn-text" id="bar-about">资料说明</button></div>
 </header>
 
 <main class="home" id="home">
 <div class="home-inner">
 <h1>今天想了解长征的哪一段？</h1>
 <p class="home-sub">我是 AI 讲解员小征。选一条路线逐站参观，或直接向我提问——回答只依据整理好的 <span data-count="sources">__SOURCE_COUNT__</span> 条史料，并附上出处。</p>
+<div class="starts" role="group" aria-label="开始方式">
+<button type="button" class="start primary" id="start-main"><b>带我走一遍主线</b><span>3 站 · 出发、转折、抵达陕北</span></button>
+<button type="button" class="start" id="start-ask"><b>我有具体想问的</b><span>直接向小征提问</span></button>
+<button type="button" class="start" id="start-browse"><b>我自己随便看看</b><span>按时间浏览全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
+</div>
+<div class="or">或者直接提问</div>
 <form class="composer" id="home-form">
 <label class="sr-only" for="home-q">向小征提问</label>
 <textarea id="home-q" rows="1" maxlength="500" placeholder="问小征任何关于长征的问题…" enterkeyhint="send"></textarea>
@@ -337,6 +384,24 @@ let view = 'home', pane = 'read';
 let route = [], routeName = '', completed = new Set(), visited = new Set(), viewed = new Set(), finished = false;
 let chatHistory = [], busy = false, contextVersion = 0, summaryText = '', planVersion = 0, planning = false;
 const stopEls = new Map();
+const GUIDE = DATA.guide && typeof DATA.guide === 'object' ? DATA.guide : {};
+const DRAFT = new URLSearchParams(location.search).has('draft');
+const visible = item => !!item && (item.reviewed === true || DRAFT);
+const decisionOf = id => visible(GUIDE.decisions?.[id]) ? GUIDE.decisions[id] : null;
+const quizOf = id => visible(GUIDE.quizzes?.[id]) ? GUIDE.quizzes[id] : null;
+const decided = new Map(), quizAnswers = new Map();
+const evidenceOf = id => { for (const n of nodes) { if (n.id === id) return { title: n.source, url: n.url }; for (const e of n.extra || []) if (e.id === id) return { title: e.source, url: e.url }; } return null; };
+function draftTag(item) { return item && item.reviewed !== true ? el('span', 'draft', '草稿·待核对') : null; }
+function monthsFromStart(n) { const m = String(n.date || '').match(/^(\d{4})\.(\d{2})/); return m ? (Number(m[1]) - 1934) * 12 + Number(m[2]) - 10 : null; }
+function relTime(n) { const d = monthsFromStart(n); return d == null ? '' : d <= 0 ? '长征出发' : '中央红军出发后约 ' + d + ' 个月'; }
+
+/* 语音讲解：使用浏览器自带的中文朗读 */
+const TTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+let ttsOn = false; try { ttsOn = TTS && localStorage.getItem('lmg-tts') === '1'; } catch {}
+function speak(text) { if (!TTS || !text) return; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/\s+/g, ' ')); u.lang = 'zh-CN'; const v = speechSynthesis.getVoices().find(x => /^zh(-|_)?(CN|Hans)?/i.test(x.lang)); if (v) u.voice = v; u.rate = 1; speechSynthesis.speak(u); } catch {} }
+function stopSpeaking() { if (TTS) try { speechSynthesis.cancel(); } catch {} }
+function narration(n) { const d = decisionOf(n.id); if (d && !decided.has(n.id)) return n.name + '。' + d.situation + d.question; return (n.date || '') + '，' + n.name + '。' + (n.title || '') + '。' + (n.text || ''); }
+function setTts(on) { ttsOn = on; $('tts-toggle').setAttribute('aria-pressed', String(on)); try { localStorage.setItem('lmg-tts', on ? '1' : '0'); } catch {} if (!on) stopSpeaking(); else if (view === 'session') speak(narration(find(selected))); }
 
 function el(tag, className, text) { const e = document.createElement(tag); if (className) e.className = className; if (text != null) e.textContent = String(text); return e; }
 function safeLink(url) { try { const u = new URL(url); return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : ''; } catch { return ''; } }
@@ -415,7 +480,7 @@ function setPane(p) {
 }
 $('sw-read').addEventListener('click', () => setPane('read'));
 $('sw-chat').addEventListener('click', () => setPane('chat'));
-function goHome(push = true) { setView('home'); if (push && location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} } }
+function goHome(push = true) { stopSpeaking(); spokenFor = null; setView('home'); if (push && location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} } }
 $('go-home').addEventListener('click', () => goHome());
 
 /* ---------- 选择节点 ---------- */
@@ -444,9 +509,17 @@ function renderExhibit() {
   const i = indexOf(selected), top = el('div', 'art-top'), main = el('div', 'art-main');
   const kicker = el('div', 'kicker'); kicker.append(el('span', '', '第 ' + (i + 1) + ' / ' + nodes.length + ' 站'), el('span', '', '·'), el('span', '', n.date), el('span', '', '·'), el('span', '', PHASES[phaseOf(n)]));
   const ri = route.indexOf(selected); if (ri >= 0) kicker.append(el('span', 'badge', '路线第 ' + (ri + 1) + ' 站'));
-  const h = el('h2', '', n.title || n.name); h.tabIndex = -1; h.id = 'exhibit-title';
-  main.append(kicker, h, el('p', 'lede', n.text || ''));
-  const url = safeLink(n.url); if (url) main.append(srcLink(url, n.source || '查看原文'));
+  const dec = decisionOf(n.id), pending = dec && !decided.has(n.id);
+  const stamp = el('div', 'stamp'); stamp.append(el('span', 'stamp-date', n.date || ''), el('span', 'stamp-place', n.name), el('span', 'stamp-rel', relTime(n)));
+  if (TTS) { const sp = el('button', 'speak', '▶ 朗读'); sp.type = 'button'; sp.setAttribute('aria-label', '朗读本站讲解'); sp.addEventListener('click', () => speak(narration(n))); stamp.append(sp); }
+  const h = el('h2', '', pending ? '抉择时刻' : n.title || n.name); h.tabIndex = -1; h.id = 'exhibit-title';
+  main.append(kicker, stamp, h);
+  if (pending) main.append(decisionCard(n, dec));
+  else {
+    main.append(el('p', 'lede', n.text || ''));
+    const url = safeLink(n.url); if (url) main.append(srcLink(url, n.source || '查看原文'));
+    if (dec) main.append(decisionCard(n, dec));
+  }
   const loc = el('figure', 'locator'); loc.setAttribute('aria-hidden', 'true');
   loc.innerHTML = '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><path class="land" d="M8 29 Q12 11 30 15 L38 8 Q50 11 55 18 Q68 13 73 21 L89 22 L94 34 L85 45 L89 59 L79 66 L75 83 L62 85 L56 92 L42 86 L34 88 L23 77 L12 72 L7 59 L3 47 Z"/></svg>';
   const dots = el('div', 'loc-dots');
@@ -454,11 +527,12 @@ function renderExhibit() {
   loc.append(dots, el('figcaption', 'loc-cap', '位置示意 · 非精确地图'));
   top.append(main, loc);
   const parts = [top];
-  if ((n.extra || []).length) {
+  if ((n.extra || []).length && !pending) {
     const more = el('section', 'more'); more.append(el('h3', '', '延伸资料 · ' + n.extra.length + ' 条'));
     for (const e of n.extra) { const item = el('div', 'more-item'); item.append(el('p', '', e.text)); const u = safeLink(e.url); if (u) item.append(srcLink(u, e.source)); more.append(item); }
     parts.push(more);
   }
+  const quiz = quizOf(n.id); if (quiz && !pending) parts.push(quizCard(n, quiz));
   if ((n.questions || []).length) {
     const ask = el('div', 'ask-here'); ask.append(el('span', '', '关于这一站，可以问：'));
     for (const q of n.questions) { const c = el('button', 'chip', q); c.type = 'button'; c.addEventListener('click', () => askChip(q)); ask.append(c); }
@@ -470,7 +544,44 @@ function renderExhibit() {
   nav.append(pb, nb); parts.push(nav);
   exhibit.replaceChildren(...parts);
   exhibit.style.animation = 'none'; void exhibit.offsetWidth; exhibit.style.animation = '';
+  if (ttsOn && view === 'session' && spokenFor !== selected) { spokenFor = selected; speak(narration(n)); }
 }
+let spokenFor = null;
+function refsOf(ids) { const box = el('div', 'refs'); const seen = new Set(); for (const id of ids) { const e = evidenceOf(id); const u = e && safeLink(e.url); if (u && !seen.has(u)) { seen.add(u); box.append(srcLink(u, e.title, 'ref')); } } return box; }
+function decisionCard(n, d) {
+  const card = el('section', 'card decision'); card.id = 'decision-card';
+  const label = el('div', 'card-label', '抉择时刻'); const t = draftTag(d); if (t) label.append(t); card.append(label);
+  const choice = decided.get(n.id);
+  if (choice == null) card.append(el('p', '', d.situation), el('p', 'q', d.question));
+  const list = el('div', 'choices');
+  d.options.forEach((opt, i) => { const b = el('button', 'choice' + (choice === i ? ' picked' : '')); b.type = 'button'; b.disabled = choice != null; b.append(el('i', '', String.fromCharCode(65 + i)), document.createTextNode(opt)); b.addEventListener('click', () => { decided.set(n.id, i); shownKey = null; spokenFor = n.id; renderExhibit(); if (ttsOn) speak('历史上的决定。' + d.outcome); addMessage('小征', '你的判断是「' + opt + '」。历史上的决定是：' + d.outcome + '\n左边已展开这一站的完整讲解。', d.sources.map(evidenceOf).filter(Boolean), { quiet: true, actions: stopActions(n) }); }); list.append(b); });
+  card.append(list);
+  if (choice != null) {
+    const r = el('div', 'reveal'); r.append(el('h4', '', '历史上的决定'), el('p', '', d.outcome), refsOf(d.sources)); card.append(r);
+  } else {
+    const skip = el('button', 'skip-link', '不判断了，直接看讲解'); skip.type = 'button'; skip.addEventListener('click', () => { decided.set(n.id, -1); shownKey = null; spokenFor = n.id; renderExhibit(); }); card.append(skip);
+  }
+  return card;
+}
+function quizCard(n, q) {
+  const card = el('section', 'card quiz'); card.id = 'quiz-card';
+  const label = el('div', 'card-label', '小测一下'); const t = draftTag(q); if (t) label.append(t); card.append(label, el('p', 'q', q.question));
+  const picked = quizAnswers.get(n.id), list = el('div', 'choices');
+  q.options.forEach((opt, i) => { const cls = picked == null ? '' : i === q.answer ? ' right' : i === picked ? ' wrong' : ''; const b = el('button', 'choice' + cls); b.type = 'button'; b.disabled = picked != null; b.append(el('i', '', picked != null && i === q.answer ? '✓' : String.fromCharCode(65 + i)), document.createTextNode(opt)); b.addEventListener('click', () => { quizAnswers.set(n.id, i); const fresh = quizCard(n, q); card.replaceWith(fresh); fresh.querySelector('.reveal h4')?.setAttribute('tabindex', '-1'); fresh.querySelector('.reveal h4')?.focus({ preventScroll: true }); }); list.append(b); });
+  card.append(list);
+  if (picked != null) { const r = el('div', 'reveal'); r.append(el('h4', '', picked === q.answer ? '回答正确' : '正确答案是「' + q.options[q.answer] + '」'), refsOf([q.source])); card.append(r); }
+  return card;
+}
+function stopActions(n) {
+  const acts = [];
+  const d = decisionOf(n.id); if (d && !decided.has(n.id)) acts.push({ label: '先做个判断', primary: true, run: () => reveal('decision-card') });
+  const idx = route.indexOf(n.id);
+  if (route.length && idx >= 0 && !finished) acts.push({ label: idx === route.length - 1 ? '完成参观' : '下一站：' + find(route[idx + 1]).name, primary: !acts.length, run: () => { if (selected === n.id) advance(false); } });
+  acts.push({ label: '再讲讲这一站', run: () => askChip('请再讲讲「' + n.name + '」这一站的背景和意义。') });
+  if (quizOf(n.id) && !quizAnswers.has(n.id)) acts.push({ label: '小测一下', run: () => reveal('quiz-card') });
+  return acts;
+}
+function reveal(id) { if (mobile()) setPane('read'); requestAnimationFrame(() => { const c = $(id); if (c) { c.scrollIntoView({ block: 'center', behavior: motion() }); c.querySelector('button')?.focus({ preventScroll: true }); } }); }
 function renderStrip() {
   for (const [id, b] of stopEls) { const on = id === selected; b.classList.toggle('active', on); b.classList.toggle('seen', !on && viewed.has(id)); b.classList.toggle('in-route', !on && route.includes(id) && !completed.has(id)); if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); }
   const b = stopEls.get(selected), s = $('strip');
@@ -508,6 +619,10 @@ function renderHome() {
 }
 function render() { renderStrip(); renderExhibit(); renderChips(); renderTour(); }
 $('resume-go').addEventListener('click', () => choose(selected));
+$('start-main').addEventListener('click', () => { planVersion++; setPlanNote(''); applyPlan(routeFor('overview'), '', '主线速览'); });
+$('start-ask').addEventListener('click', () => { homeQ.focus(); homeQ.scrollIntoView({ block: 'center', behavior: motion() }); });
+$('start-browse').addEventListener('click', () => { choose(selected); addMessage('小征', '好的，你可以用上方的节点条按时间自由浏览，也可以随时问我。现在是 ' + find(selected).date + ' 的「' + find(selected).name + '」。', [], { quiet: true, actions: stopActions(find(selected)) }); });
+if (TTS) { $('tts-toggle').hidden = false; $('tts-toggle').setAttribute('aria-pressed', String(ttsOn)); $('tts-toggle').addEventListener('click', () => setTts(!ttsOn)); }
 
 /* ---------- 导览 ---------- */
 function makeSummary(seen) { return '长征路上 · 参观小结\n\n本次打开过 ' + seen.length + ' 个节点：' + seen.map(n => n.name).join('、') + '。\n\n' + seen.map(n => n.date + ' · ' + n.name + '\n' + n.text + '\n资料：' + n.source + '\n' + n.url).join('\n\n') + '\n\n说明：节点图为示意，不代表各路红军的完整路线。'; }
@@ -517,7 +632,8 @@ function applyPlan(ids, reason, name) {
   if (route[0] === selected) { chatHistory = []; contextVersion++; }
   selectNode(route[0]); visited.add(selected); shownKey = null;
   setView('session'); setPane('read'); syncHash(); $('read-pane').scrollTo({ top: 0 }); window.scrollTo({ top: 0 });
-  addMessage('小征', '好的，我们按这条路线参观：' + route.map(id => find(id).name).join(' → ') + '。' + (reason ? reason + '。' : '') + '\n现在从「' + find(selected).name + '」开始，读完讲解有疑问就问我，准备好了点「下一站」。', [], { quiet: true });
+  const first = find(selected), firstDec = decisionOf(first.id) && !decided.has(first.id);
+  addMessage('小征', '好的，我们按这条路线参观：' + route.map(id => find(id).name).join(' → ') + '。' + (reason ? reason + '。' : '') + '\n第一站是 ' + first.date + ' 的「' + first.name + '」。' + (firstDec ? '这里有一个抉择时刻，先想一想再看讲解。' : '讲解区有这一站的经过和原文出处，读完有疑问随时问我。'), [], { quiet: true, actions: stopActions(first) });
   $('tour-name').focus({ preventScroll: true });
 }
 function advance(skip) {
@@ -529,19 +645,21 @@ function advance(skip) {
   if (index === route.length - 1) {
     const seen = [...visited].map(find).filter(Boolean); const refs = [...new Map(seen.map(n => [n.url, { title: n.source, url: n.url }])).values()];
     summaryText = makeSummary(seen); finished = true;
-    addMessage('小征', '参观结束。你打开过 ' + seen.length + ' 个节点：' + seen.map(n => n.name).join('、') + '。\n\n回顾：\n' + seen.map(n => n.date + ' · ' + n.name + '：' + n.text).join('\n\n') + '\n\n可以复制或下载小结，也可以继续提问。', refs);
+    const first = seen[0], last = seen[seen.length - 1];
+    addMessage('小征', '参观结束。这一路你走过 ' + seen.length + ' 站：' + seen.map(n => n.name).join(' → ') + (first && last && first !== last ? '，从 ' + first.date + ' 到 ' + last.date : '') + '。\n\n回顾：\n' + seen.map(n => n.date + ' · ' + n.name + '：' + n.text).join('\n\n') + '\n\n可以复制或下载小结，也可以继续提问。', refs, { actions: [{ label: '换一条路线', primary: true, run: () => { goHome(); setTab('routes'); } }, { label: '复制小结', run: () => $('copy-summary').click() }] });
     render(); return;
   }
   const prev = find(selected); selectNode(route[index + 1]); const next = find(selected);
-  addMessage('小征', transition(prev, next, skip), [], { quiet: true, followups: (next.questions || []).slice(0, 2) });
+  addMessage('小征', transition(prev, next, skip), [], { quiet: true, actions: stopActions(next) });
   render(); syncHash(); $('read-pane').scrollTo({ top: 0, behavior: motion() }); if (mobile()) window.scrollTo({ top: 0, behavior: motion() });
 }
 function transition(prev, next, skip) {
   const pos = route.indexOf(next.id), left = route.length - pos - 1;
   const from = skip ? '跳过「' + prev.name + '」，' : '从「' + prev.name + '」（' + prev.date + '）继续前行，';
-  const where = '来到' + (next.date ? ' ' + next.date + ' 的' : '') + '「' + next.name + '」：' + (next.title || next.name) + '。';
+  const pending = decisionOf(next.id) && !decided.has(next.id);
+  const where = '来到' + (next.date ? ' ' + next.date + ' 的' : '') + '「' + next.name + '」' + (pending ? '。' : '：' + (next.title || next.name) + '。');
   const rest = left > 0 ? '这是路线第 ' + (pos + 1) + ' 站，之后还有 ' + left + ' 站。' : '这是路线的最后一站。';
-  return from + where + rest + '讲解区有这一站的经过和原文出处，读完有疑问随时问我。';
+  return from + where + rest + (pending ? '这里有一个抉择时刻：先看看当时的处境，想一想你会怎么选。' : '讲解区有这一站的经过和原文出处，读完有疑问随时问我。');
 }
 function runAction(action) {
   if (!action || typeof action !== 'object') return;
@@ -592,6 +710,7 @@ function addMessage(who, text, sources = [], opts = {}) {
   if (ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); body.append(d); }
   const follow = (opts.followups || []).filter(q => typeof q === 'string' && q.trim()).slice(0, 2);
   if (follow.length) { const box = el('div', 'followups'); for (const q of follow) { const c = el('button', 'chip', q); c.type = 'button'; c.addEventListener('click', () => askChip(q)); box.append(c); } body.append(box); }
+  if (opts.actions && opts.actions.length) { messages.querySelectorAll('.quick button').forEach(b => { b.disabled = true; }); const box = el('div', 'quick'); for (const a of opts.actions) { const b = el('button', 'btn ' + (a.primary ? 'btn-primary' : 'btn-ghost'), a.label); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; a.run(); }); box.append(b); } body.append(box); }
   if (opts.retry) { const r = el('button', 'btn btn-ghost retry', '重试这个问题'); r.type = 'button'; r.addEventListener('click', () => { if (busy) return; const cur = input.value.trim(); if (cur && cur !== opts.retry) { status.textContent = '输入框已有未发送的问题，请先处理后再重试。'; input.focus(); return; } r.disabled = true; input.value = ''; autosize(input); ask(opts.retry); }); body.append(r); }
   row.append(body); messages.append(row); scrollToMsg(row);
   if (!mine && !opts.quiet && mobile() && view === 'session' && pane !== 'chat') $('chat-dot').hidden = false;

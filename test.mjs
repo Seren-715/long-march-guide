@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import worker from './worker/index.js';
 import { nodes } from './src/data.js';
+import { decisions, quizzes } from './src/guide-content.js';
 const sessionId='123e4567-e89b-42d3-a456-426614174000';
 const env={DEEPSEEK_API_KEY:'test',HISTORY_SIGNING_KEY:'test-signing-key-for-unit-tests'};
 const make=(body,headers={})=>new Request('http://localhost/api/chat',{method:'POST',headers:{'content-type':'application/json',...headers},body:typeof body==='string'?body:JSON.stringify({sessionId,...body})});
@@ -89,4 +90,24 @@ globalThis.fetch=async()=>reply({type:'chat',answer:'好的。',sources:[]});
 const ipReq=()=>worker.fetch(make({question:'你好',node:'zunyi'},{'cf-connecting-ip':'203.0.113.9'}),limitEnv);
 assert.equal((await ipReq()).status,200);assert.equal((await ipReq()).status,200);res=await ipReq();assert.equal(res.status,429);assert.match((await res.json()).error,/频繁/);
 assert.equal((await worker.fetch(make({question:'你好',node:'zunyi'},{'cf-connecting-ip':'203.0.113.10'}),limitEnv)).status,200);
+
+// —— 讲解互动内容（抉择时刻、小题）——
+{
+  const nodeIds=new Set(nodes.map(n=>n.id));const texts=new Map(nodes.flatMap(n=>[[n.id,n.text],...(n.extra||[]).map(e=>[e.id,e.text])]));
+  const nums=t=>(String(t).match(/\d+(?:\.\d+)?/g)||[]).flatMap(x=>x.includes('.')?[x,...x.split('.')]:[x]).map(x=>x.includes('.')?x:String(Number(x)));
+  const grounded=(label,text,ids)=>{const allowed=new Set(ids.flatMap(id=>nums(texts.get(id))));for(const n of nums(text))assert.ok(allowed.has(n),`${label} 中的数字 ${n} 不在所列资料中`);};
+  for(const [id,d] of Object.entries(decisions)){
+    assert.ok(nodeIds.has(id),'抉择节点不存在：'+id);assert.equal(typeof d.reviewed,'boolean');
+    assert.ok(d.situation&&d.question&&d.outcome&&Array.isArray(d.options)&&d.options.length>=2);
+    assert.ok(d.sources.length&&d.sources.every(x=>texts.has(x)),'抉择资料 ID 无效：'+id);
+    grounded('抉择 '+id+' 处境',d.situation,d.sources);grounded('抉择 '+id+' 结果',d.outcome,d.sources);
+  }
+  for(const [id,q] of Object.entries(quizzes)){
+    assert.ok(nodeIds.has(id),'小题节点不存在：'+id);assert.equal(typeof q.reviewed,'boolean');
+    assert.ok(q.question&&Array.isArray(q.options)&&q.options.length>=2&&Number.isInteger(q.answer)&&q.answer>=0&&q.answer<q.options.length);
+    assert.equal(new Set(q.options).size,q.options.length);assert.ok(texts.has(q.source),'小题资料 ID 无效：'+id);
+    grounded('小题 '+id,q.question+' '+q.options[q.answer],[q.source]);
+  }
+  assert.match(html,/"guide":\{"decisions"/);
+}
 globalThis.fetch=original;console.log('API and evidence tests passed');
