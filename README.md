@@ -10,7 +10,7 @@
 npm run build
 npm test
 npm run dev
-# 可选：联网核查 34 个史料链接是否可打开
+# 可选：联网核查全部史料链接（目前 44 个）是否可打开
 npm run check:sources
 ```
 
