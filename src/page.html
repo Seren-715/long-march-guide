@@ -5,18 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#212121" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#1b1413" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="data:,">
 <title>长征路上 · AI 讲解员</title>
 <meta name="description" content="跟着 AI 讲解员小征逐站参观长征的 __NODE_COUNT__ 个历史节点、__SOURCE_COUNT__ 条整理史料，随时提问，回答附资料出处。">
 <style>
 [hidden]{display:none!important}
 :root{
-  --bg:#ffffff;--bg2:#f9f9f9;--hover:#f2f2f2;--active:#ebebeb;
-  --border:#e5e5e5;--border2:#efefef;
-  --text:#0d0d0d;--text2:#5d5d5d;--text3:#8f8f8f;
-  --primary:#0d0d0d;--on-primary:#ffffff;
-  --accent:#b4372a;--accent-soft:#fbeeea;--accent-line:#efcfc6;
+  --bg:#ffffff;--bg2:#fbf6f3;--hover:#f7ede8;--active:#f2e3dd;
+  --border:#ecdcd5;--border2:#f4e9e4;
+  --text:#1f1715;--text2:#5e504b;--text3:#978782;
+  --primary:#b3261e;--on-primary:#ffffff;
+  --accent:#b3261e;--accent-soft:#fbeae6;--accent-line:#f0c9c0;
+  --serif:"Songti SC","STSong","Source Han Serif SC","Noto Serif CJK SC","Noto Serif SC",SimSun,serif;
   --ok:#2f6b4a;
   --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 24px rgba(0,0,0,.06);
   --shadow-lg:0 2px 4px rgba(0,0,0,.04),0 16px 48px rgba(0,0,0,.10);
@@ -25,11 +26,11 @@
   --bar:56px;
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#212121;--bg2:#181818;--hover:#2c2c2c;--active:#333;
-  --border:#363636;--border2:#2c2c2c;
-  --text:#ececec;--text2:#b4b4b4;--text3:#8a8a8a;
-  --primary:#ececec;--on-primary:#0d0d0d;
-  --accent:#e2735c;--accent-soft:#3a2420;--accent-line:#5a3129;
+  --bg:#1b1413;--bg2:#151010;--hover:#2a1f1d;--active:#35261f;
+  --border:#3b2c28;--border2:#2c201e;
+  --text:#f3e9e6;--text2:#c8b7b2;--text3:#95847f;
+  --primary:#d9483a;--on-primary:#ffffff;
+  --accent:#ec7462;--accent-soft:#3a2420;--accent-line:#5a3129;
   --ok:#7cc29a;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 24px rgba(0,0,0,.3);
   --shadow-lg:0 2px 4px rgba(0,0,0,.3),0 16px 48px rgba(0,0,0,.45);
@@ -66,11 +67,14 @@ body[data-view=session] .bar{border-bottom-color:var(--border)}
 
 /* 首页 */
 .home{min-height:calc(100vh - var(--bar))}
-.home-inner{max-width:760px;margin:0 auto;padding:12vh 20px 48px}
-.home h1{font-size:clamp(26px,3.4vw,34px);line-height:1.3;font-weight:600;letter-spacing:-.01em;text-align:center;margin:0 0 10px}
-.home-sub{text-align:center;color:var(--text2);margin:0 auto 28px;max-width:560px}
+.home-inner{max-width:720px;margin:0 auto;padding:14vh 20px 48px}
+.home-mark{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;font-size:12px;letter-spacing:.3em;color:var(--accent);font-weight:600}
+.home-mark .seal{width:30px;height:30px;font-size:17px;border-radius:7px;letter-spacing:0;transform:rotate(-4deg)}
+.home h1{font-family:var(--serif);font-size:clamp(28px,3.8vw,40px);line-height:1.3;font-weight:700;letter-spacing:.02em;text-align:center;margin:0 0 12px}
+.home h1 em{font-style:normal;color:var(--accent)}
+.home-sub{text-align:center;color:var(--text2);margin:0 auto 32px;max-width:520px}
 .composer{position:relative;background:var(--bg);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow);padding:14px 14px 10px 18px;transition:border-color .15s,box-shadow .15s}
-.composer:focus-within{border-color:color-mix(in srgb,var(--text) 30%,var(--border));box-shadow:var(--shadow-lg)}
+.composer:focus-within{border-color:color-mix(in srgb,var(--accent) 45%,var(--border));box-shadow:var(--shadow-lg)}
 .composer textarea{display:block;width:100%;resize:none;border:0;outline:0;background:none;font-size:16px;line-height:1.6;min-height:28px;max-height:200px;padding:2px 0}
 .composer textarea::placeholder{color:var(--text3)}
 .composer-bar{display:flex;align-items:center;gap:8px;margin-top:8px}
@@ -120,12 +124,21 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .plan-title{display:flex;align-items:center;gap:8px;font-weight:500;margin-bottom:10px}
 .plan-row{display:flex;gap:8px}
 .input{flex:1;min-width:0;height:38px;border:1px solid var(--border);border-radius:999px;background:var(--bg);padding:0 16px;font-size:14px;outline:0;transition:border-color .15s}
-.input:focus{border-color:color-mix(in srgb,var(--text) 35%,var(--border))}
+.input:focus{border-color:color-mix(in srgb,var(--accent) 50%,var(--border))}
 .plan-note{margin:8px 4px 0;font-size:12px;color:var(--text3)}
 .plan-note.err{color:var(--accent)}
 #custom-plan[aria-busy=true]:after{content:"";width:12px;height:12px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite}
 
-.about{margin-top:56px;padding-top:20px;border-top:1px solid var(--border2);font-size:12px;line-height:1.8;color:var(--text3)}
+.route-dialog{border:0;padding:0;width:min(560px,calc(100% - 24px));max-height:calc(100dvh - 48px);border-radius:20px;background:var(--bg);color:var(--text);box-shadow:var(--shadow-lg)}
+.route-dialog::backdrop{background:rgba(31,14,10,.42)}
+.route-dialog[open]{animation:fade .2s var(--ease)}
+.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 6px}
+.dialog-head h2{font-family:var(--serif);font-size:20px;margin:0}
+.dialog-head p{margin:2px 0 0;font-size:13px;color:var(--text3)}
+.dialog-close{width:36px;height:36px;border-radius:50%;font-size:20px;line-height:1;color:var(--text2)}
+.dialog-close:hover{background:var(--hover);color:var(--text)}
+.dialog-body{padding:10px 20px 20px;overflow:auto}
+.about{margin-top:64px;padding-top:20px;border-top:1px solid var(--border2);font-size:12px;line-height:1.8;color:var(--text3)}
 .about p{margin:0 0 6px}
 
 /* 会话页 */
@@ -229,7 +242,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .starts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 18px}
 .start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:var(--bg);transition:background .15s,border-color .15s,transform .15s}
 .start:hover{background:var(--hover);transform:translateY(-1px)}
-.start.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.start.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary);box-shadow:0 8px 24px color-mix(in srgb,var(--primary) 28%,transparent)}
 .start.primary:hover{background:var(--primary);opacity:.9}
 .start b{font-size:15px;font-weight:600}
 .start span{font-size:12px;color:var(--text3)}
@@ -311,35 +324,35 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 
 <main class="home" id="home">
 <div class="home-inner">
-<h1>今天想了解长征的哪一段？</h1>
-<p class="home-sub">我是 AI 讲解员小征。选一条路线逐站参观，或直接向我提问——回答只依据整理好的 <span data-count="sources">__SOURCE_COUNT__</span> 条史料，并附上出处。</p>
+<div class="home-mark" aria-hidden="true"><span class="seal">征</span>1934 — 1936</div>
+<h1>今天想了解<em>长征</em>的哪一段？</h1>
+<p class="home-sub">我是 AI 讲解员小征。可以跟我逐站参观，也可以直接提问——回答只依据整理好的 <span data-count="sources">__SOURCE_COUNT__</span> 条史料，并附上出处。</p>
 <div class="starts" role="group" aria-label="开始方式">
-<button type="button" class="start primary" id="start-main"><b>带我走一遍主线</b><span>3 站 · 出发、转折、抵达陕北</span></button>
-<button type="button" class="start" id="start-ask"><b>我有具体想问的</b><span>直接向小征提问</span></button>
-<button type="button" class="start" id="start-browse"><b>我自己随便看看</b><span>按时间浏览全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
+<button type="button" class="start primary" id="start-main" aria-haspopup="dialog"><b>跟着小征参观</b><span>选一条路线，逐站讲解</span></button>
+<button type="button" class="start" id="start-ask"><b>我有问题想问</b><span>回答附原文出处</span></button>
+<button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
 </div>
-<div class="or">或者直接提问</div>
 <form class="composer" id="home-form">
 <label class="sr-only" for="home-q">向小征提问</label>
 <textarea id="home-q" rows="1" maxlength="500" placeholder="问小征任何关于长征的问题…" enterkeyhint="send"></textarea>
-<div class="composer-bar"><button type="button" class="ctx-pill" id="ctx-pill" title="更换提问所围绕的节点"><i></i><span id="ctx-text"></span></button><span class="spacer"></span><button type="submit" class="send-round" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div>
+<div class="composer-bar"><span class="ctx-pill" title="提问会围绕这个节点"><i></i><span id="ctx-text"></span></span><span class="spacer"></span><button type="submit" class="send-round" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div>
 </form>
-<div class="chips" id="home-chips"></div>
 
 <div class="resume" id="resume" hidden><div class="resume-text"><small>继续参观</small><span id="resume-text"></span></div><button type="button" class="btn btn-primary" id="resume-go">继续 →</button></div>
-
-<div class="tabs" role="tablist" aria-label="浏览方式"><button type="button" class="tab" role="tab" id="tab-routes" aria-selected="true" aria-controls="panel-routes">推荐路线</button><button type="button" class="tab" role="tab" id="tab-nodes" aria-selected="false" aria-controls="panel-nodes">全部节点<small data-count="nodes">__NODE_COUNT__</small></button></div>
-<div id="panel-routes" role="tabpanel" aria-labelledby="tab-routes">
-<ul class="rows" id="route-rows"></ul>
-<div class="plan"><div class="plan-title"><label for="preference">用一句话描述你想看什么</label><span class="badge">AI 规划</span></div>
-<div class="plan-row"><input class="input" id="preference" maxlength="200" placeholder="例如：我想看翻雪山、过草地那一段" enterkeyhint="go" aria-describedby="plan-status"><button type="button" class="btn btn-ghost" id="custom-plan">生成路线</button></div>
-<p class="plan-note" id="plan-status" role="status"></p></div>
-</div>
-<div id="panel-nodes" role="tabpanel" aria-labelledby="tab-nodes" hidden></div>
 
 <div class="about" id="about"><p>长征路上 · 以中央红军主力长征为主线，并展示红军三大主力会师。节点资料整理自公开文章，每条均附原文链接。</p><p>位置图为节点示意，非精确地理地图与行军路线，不代表各路红军的完整路线。</p><p>回答由 AI 根据资料生成，请结合原文核对；提问和参观偏好会发送给 DeepSeek，请勿输入个人敏感信息。</p></div>
 </div>
 </main>
+
+<dialog class="route-dialog" id="route-dialog" aria-labelledby="route-dialog-title">
+<div class="dialog-head"><div><h2 id="route-dialog-title">选择参观路线</h2><p>选好后小征会逐站为你讲解，途中随时可以提问或换路线</p></div><button type="button" class="dialog-close" id="route-dialog-close" aria-label="关闭">×</button></div>
+<div class="dialog-body">
+<ul class="rows" id="route-rows"></ul>
+<div class="plan"><div class="plan-title"><label for="preference">或者用一句话描述你想看什么</label><span class="badge">AI 规划</span></div>
+<div class="plan-row"><input class="input" id="preference" maxlength="200" placeholder="例如：我想看翻雪山、过草地那一段" enterkeyhint="go" aria-describedby="plan-status"><button type="button" class="btn btn-ghost" id="custom-plan">生成路线</button></div>
+<p class="plan-note" id="plan-status" role="status"></p></div>
+</div>
+</dialog>
 
 <main class="session" id="session" data-pane="read" hidden>
 <div class="pane-switch" role="tablist" aria-label="切换视图"><button type="button" role="tab" id="sw-read" aria-selected="true">讲解</button><button type="button" role="tab" id="sw-chat" aria-selected="false">对话<span class="dot" id="chat-dot" hidden></span></button></div>
@@ -431,24 +444,13 @@ for (const r of ROUTES) {
   const stops = ids.length > 5 ? ids.slice(0, 3).map(id => find(id).name).join(' → ') + ' → … → ' + find(ids[ids.length - 1]).name : ids.map(id => find(id).name).join(' → ');
   main.append(title, el('span', 'row-sub', r.desc + ' · ' + stops));
   b.append(el('span', 'row-icon', ids.length), main, el('span', 'row-meta', ids.length + ' 站'), chev());
-  b.addEventListener('click', () => { planVersion++; setPlanNote(''); applyPlan(ids, '', r.title); });
+  b.addEventListener('click', () => { planVersion++; setPlanNote(''); closeRoutes(); applyPlan(ids, '', r.title); });
   li.append(b); $('route-rows').append(li);
 }
-(function buildNodeList() {
-  const panel = $('panel-nodes'); let current = -1, list = null;
-  nodes.forEach((n, i) => {
-    const p = phaseOf(n);
-    if (p !== current) { current = p; panel.append(el('div', 'group-label', PHASES[p])); list = el('ul', 'rows'); panel.append(list); }
-    const li = el('li'); const b = el('button', 'row'); b.type = 'button'; b.dataset.node = n.id;
-    const main = el('span', 'row-main'); main.append(el('span', 'row-title', n.name), el('span', 'row-sub', n.title || ''));
-    b.append(el('span', 'row-icon', i + 1), main, el('span', 'row-meta', n.date), chev());
-    b.addEventListener('click', () => choose(n.id)); li.append(b); list.append(li);
-  });
-})();
-function setTab(t) { const r = t === 'routes'; $('tab-routes').setAttribute('aria-selected', String(r)); $('tab-nodes').setAttribute('aria-selected', String(!r)); $('panel-routes').hidden = !r; $('panel-nodes').hidden = r; }
-$('tab-routes').addEventListener('click', () => setTab('routes'));
-$('tab-nodes').addEventListener('click', () => setTab('nodes'));
-$('ctx-pill').addEventListener('click', () => { setTab('nodes'); $('tab-nodes').scrollIntoView({ block: 'start', behavior: motion() }); });
+function openRoutes() { const d = $('route-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); } requestAnimationFrame(() => d.querySelector('.row')?.focus()); }
+function closeRoutes() { const d = $('route-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
+$('route-dialog-close').addEventListener('click', closeRoutes);
+$('route-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeRoutes(); });
 $('bar-about').addEventListener('click', () => { if (view !== 'home') goHome(); setTimeout(() => $('about').scrollIntoView({ block: 'center', behavior: motion() }), 30); });
 
 /* ---------- 节点条 ---------- */
@@ -589,7 +591,7 @@ function renderStrip() {
 }
 function renderChips() {
   const n = find(selected); const qs = n?.questions || [];
-  for (const id of ['chat-chips', 'home-chips']) {
+  for (const id of ['chat-chips']) {
     const box = $(id); if (box.dataset.node === selected) continue; box.dataset.node = selected; box.replaceChildren();
     for (const q of qs) { const c = el('button', 'chip', q); c.type = 'button'; c.addEventListener('click', () => askChip(q)); box.append(c); }
   }
@@ -615,11 +617,10 @@ function renderHome() {
   renderChips(); $('bar-mid').replaceChildren();
   const r = $('resume'); r.hidden = !route.length && !messages.querySelector('.msg.user') && viewed.size === 0;
   if (!r.hidden) $('resume-text').textContent = route.length ? routeName + (finished ? ' · 已完成' : ' · 当前在「' + find(selected).name + '」') : '自由浏览 · 当前在「' + find(selected).name + '」';
-  document.querySelectorAll('#panel-nodes .row').forEach(b => b.classList.toggle('seen', viewed.has(b.dataset.node)));
 }
 function render() { renderStrip(); renderExhibit(); renderChips(); renderTour(); }
 $('resume-go').addEventListener('click', () => choose(selected));
-$('start-main').addEventListener('click', () => { planVersion++; setPlanNote(''); applyPlan(routeFor('overview'), '', '主线速览'); });
+$('start-main').addEventListener('click', openRoutes);
 $('start-ask').addEventListener('click', () => { homeQ.focus(); homeQ.scrollIntoView({ block: 'center', behavior: motion() }); });
 $('start-browse').addEventListener('click', () => { choose(selected); addMessage('小征', '好的，你可以用上方的节点条按时间自由浏览，也可以随时问我。现在是 ' + find(selected).date + ' 的「' + find(selected).name + '」。', [], { quiet: true, actions: stopActions(find(selected)) }); });
 if (TTS) { $('tts-toggle').hidden = false; $('tts-toggle').setAttribute('aria-pressed', String(ttsOn)); $('tts-toggle').addEventListener('click', () => setTts(!ttsOn)); }
@@ -646,7 +647,7 @@ function advance(skip) {
     const seen = [...visited].map(find).filter(Boolean); const refs = [...new Map(seen.map(n => [n.url, { title: n.source, url: n.url }])).values()];
     summaryText = makeSummary(seen); finished = true;
     const first = seen[0], last = seen[seen.length - 1];
-    addMessage('小征', '参观结束。这一路你走过 ' + seen.length + ' 站：' + seen.map(n => n.name).join(' → ') + (first && last && first !== last ? '，从 ' + first.date + ' 到 ' + last.date : '') + '。\n\n回顾：\n' + seen.map(n => n.date + ' · ' + n.name + '：' + n.text).join('\n\n') + '\n\n可以复制或下载小结，也可以继续提问。', refs, { actions: [{ label: '换一条路线', primary: true, run: () => { goHome(); setTab('routes'); } }, { label: '复制小结', run: () => $('copy-summary').click() }] });
+    addMessage('小征', '参观结束。这一路你走过 ' + seen.length + ' 站：' + seen.map(n => n.name).join(' → ') + (first && last && first !== last ? '，从 ' + first.date + ' 到 ' + last.date : '') + '。\n\n回顾：\n' + seen.map(n => n.date + ' · ' + n.name + '：' + n.text).join('\n\n') + '\n\n可以复制或下载小结，也可以继续提问。', refs, { actions: [{ label: '换一条路线', primary: true, run: () => { goHome(); openRoutes(); } }, { label: '复制小结', run: () => $('copy-summary').click() }] });
     render(); return;
   }
   const prev = find(selected); selectNode(route[index + 1]); const next = find(selected);
@@ -669,7 +670,7 @@ function runAction(action) {
 }
 $('next').addEventListener('click', () => advance(false));
 $('skip').addEventListener('click', () => advance(true));
-$('restart').addEventListener('click', () => { goHome(); setTab('routes'); });
+$('restart').addEventListener('click', () => { goHome(); openRoutes(); });
 
 /* AI 规划 */
 function setPlanNote(text, err = false) { const note = $('plan-status'); note.textContent = text || 'AI 会在现有 ' + nodes.length + ' 个节点中挑选 3 站，并按时间排序。'; note.classList.toggle('err', err); }
@@ -684,7 +685,7 @@ $('custom-plan').addEventListener('click', async () => {
     const data = await fetchJSON('/api/plan', { preference, length: len }); if (version !== planVersion) return; const ids = data.route;
     if (!Array.isArray(ids) || !ids.length || ids.length !== (len === 'short' ? 3 : nodes.length) || new Set(ids).size !== ids.length || ids.some(id => typeof id !== 'string' || !find(id)) || ids.some((id, i) => i > 0 && indexOf(id) <= indexOf(ids[i - 1]))) throw new Error('规划结果不完整，请重试或选择上方的推荐路线。');
     const reason = typeof data.reason === 'string' ? data.reason.trim().slice(0, 200).replace(/[。！？!?]+$/, '') : '';
-    setPlanNote(''); applyPlan(ids, reason, 'AI 规划路线'); status.textContent = '已生成建议路线，请检查节点是否符合你的想法。';
+    setPlanNote(''); closeRoutes(); applyPlan(ids, reason, 'AI 规划路线'); status.textContent = '已生成建议路线，请检查节点是否符合你的想法。';
   } catch (err) { if (version === planVersion) setPlanNote(err.message || '规划暂时不可用，可选择上方的推荐路线。', true); }
   finally { planning = false; $('custom-plan').disabled = false; $('custom-plan').removeAttribute('aria-busy'); }
 });
