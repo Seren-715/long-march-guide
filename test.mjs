@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import worker from './worker/index.js';
+import { nodes } from './src/data.js';
 const sessionId='123e4567-e89b-42d3-a456-426614174000';
 const env={DEEPSEEK_API_KEY:'test',HISTORY_SIGNING_KEY:'test-signing-key-for-unit-tests'};
 const make=(body,headers={})=>new Request('http://localhost/api/chat',{method:'POST',headers:{'content-type':'application/json',...headers},body:typeof body==='string'?body:JSON.stringify({sessionId,...body})});
-let res=await worker.fetch(new Request('http://localhost/'),{});assert.equal(res.status,200);const html=await res.text();assert.match(html,/吴起镇/);assert.match(html,/将台堡/);assert.doesNotMatch(html,/__DATA__/);
+let res=await worker.fetch(new Request('http://localhost/'),{});assert.equal(res.status,200);const html=await res.text();assert.match(html,/吴起镇/);assert.match(html,/将台堡/);assert.match(html,/腊子口/);assert.match(html,/夹金山/);assert.match(html,/直罗镇/);assert.doesNotMatch(html,/__DATA__/);
+assert.ok(nodes.length>=14);assert.equal(new Set(nodes.map(n=>n.id)).size,nodes.length);
+const extraIds=nodes.flatMap(n=>(n.extra||[]).map(e=>e.id));assert.equal(new Set(extraIds).size,extraIds.length);
+for(const n of nodes){assert.ok(n.id&&n.name&&n.text&&n.source&&n.url);assert.match(n.url,/^https?:\/\//);assert.ok(Array.isArray(n.questions)&&n.questions.length>=1);for(const e of n.extra||[]){assert.ok(e.id&&e.text&&e.source&&e.url);assert.match(e.url,/^https?:\/\//);}}
 assert.equal((await worker.fetch(new Request('http://localhost/',{method:'HEAD'}),{})).status,200);
 assert.equal((await worker.fetch(new Request('http://localhost/api/chat',{method:'POST',headers:{'content-type':'text/plain'},body:'{}'}),env)).status,415);
 assert.equal((await worker.fetch(make({question:'',node:'zunyi'}),{})).status,400);
@@ -26,6 +30,7 @@ globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringi
 res=await worker.fetch(make({question:'两次会师的区别？',node:'huining'}),env);body=await res.json();assert.equal(body.sources.length,1);assert.deepEqual(body.sources[0].ids,['huining','jiangtaibao']);assert.match(body.sources[0].excerpt,/会宁/);assert.match(body.sources[0].excerpt,/将台堡/);
 globalThis.fetch=async()=>new Response('error',{status:500});assert.equal((await worker.fetch(make({question:'x',node:'zunyi'}),env)).status,502);
 const planReq=(body)=>new Request('http://localhost/api/plan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+res=await worker.fetch(planReq({preference:'全部节点',length:'full'}),{});body=await res.json();assert.equal(res.status,200);assert.deepEqual(body.route,nodes.map(n=>n.id));assert.match(body.reason,/覆盖全部节点/);
 assert.equal((await worker.fetch(planReq({preference:'',length:'short'}),env)).status,400);
 assert.equal((await worker.fetch(planReq({preference:'我想看军事转折',length:'short'}),{})).status,503);
 globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({route:['jiangtaibao','start','zunyi'],reason:'选择起点、转折和会师。'})}}]});

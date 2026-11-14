@@ -1,11 +1,12 @@
 {
   "name": "long-march-guide",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/generate.mjs && node scripts/build.mjs",
     "test": "node scripts/generate.mjs && node test.mjs && node scripts/build.mjs && node scripts/validate-artifact.mjs",
-    "dev": "node scripts/dev.mjs"
+    "dev": "node scripts/dev.mjs",
+    "check:sources": "node scripts/check-sources.mjs"
   }
 }
