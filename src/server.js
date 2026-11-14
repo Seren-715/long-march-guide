@@ -42,11 +42,31 @@ async function callModel(env,messages,maxTokens,signal){
 function stripLinks(text){
   return text.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/https?:\/\/[^\s）)]+/gi,'').split(/(?<=[。！？!?\n])/).filter(part=>!/(链接|网址|网页地址|URL)/i.test(part)).join('').trim();
 }
-const numbersIn=text=>(String(text).match(/\d+/g)||[]).map(x=>String(Number(x)));
-// 回答里的阿拉伯数字必须出现在所引资料或用户问题中。
+// 汉字数字转数值，例如“十七”→17、“二十五”→25、“一万”→10000。
+const CN_DIGITS={零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10,百:100,千:1000,万:10000};
+function cnToNumber(text){let total=0,section=0,digit=0;for(const ch of text){const v=CN_DIGITS[ch];if(v==null)return null;if(v===10000){total+=(section+digit)*v;section=0;digit=0;}else if(v>=10){section+=(digit||1)*v;digit=0;}else digit=v;}return total+section+digit;}
+const arabicIn=text=>(String(text).match(/\d+/g)||[]).map(x=>String(Number(x)));
+// 资料一侧：所有阿拉伯数字和汉字数字都算作“出现过”，宁可宽一些，避免误杀。
+const numbersAllowedIn=text=>[...arabicIn(text),...[...String(text).matchAll(/[零〇一二两三四五六七八九十百千万]+/g)].map(m=>cnToNumber(m[0])).filter(v=>v!=null).map(String)];
+// 回答一侧：阿拉伯数字，以及与量词连用的汉字数量（“三个月”“十七名”“两个团”），不含“第一次”这类序数。
+const CN_QUANTITY=/(?<!第)([零〇一二两三四五六七八九十百千万]+)(?=[个名人条次天年月日夜里座根师团军营连艘只路纵批位])/g;
+const numbersClaimedIn=text=>[...arabicIn(text),...[...String(text).matchAll(CN_QUANTITY)].map(m=>cnToNumber(m[1])).filter(v=>v!=null).map(String)];
+// 回答里的数字必须出现在所引资料或用户问题中。
 function unsupportedNumbers(answer,ids,question){
-  const allowed=new Set([...ids.flatMap(id=>numbersIn(evidence.find(e=>e.id===id).text)),...numbersIn(question)]);
-  return [...new Set(numbersIn(answer).filter(n=>!allowed.has(n)))];
+  const allowed=new Set([...ids.flatMap(id=>numbersAllowedIn(evidence.find(e=>e.id===id).text)),...numbersAllowedIn(question)]);
+  return [...new Set(numbersClaimedIn(answer).filter(n=>!allowed.has(n)))];
+}
+// 回答中的书名号内容（文件、文章名）必须与所引资料或用户问题中的写法完全一致。
+const squash=text=>String(text).replace(/\s+/g,'');
+function unsupportedTitles(answer,ids,question){
+  const pool=squash(ids.map(id=>evidence.find(e=>e.id===id).text).join('')+question);
+  return [...new Set([...String(answer).matchAll(/《([^》]{2,60})》/g)].map(m=>m[1]).filter(t=>!pool.includes(squash(t))))];
+}
+// 闲聊或无关回答不附出处，因此不得陈述史实：删除其中带史实迹象的陈述句，保留“你可以问我……”这类引导句。
+const HISTORY_HINT=/红[一二三四六]|红军|方面军|军团|会议|战役|战斗|会师|渡江|渡河|毛泽东|周恩来|朱德|张闻天|刘伯承|\d{4}\s*年/;
+const SUGGESTION=/可以问|想了解|不妨|比如|例如|你可以|带你|选择|路线|节点|问我|陪你/;
+function dropUnsourcedFacts(text){
+  return text.split(/(?<=[。！？!?；;\n])/).filter(part=>!(HISTORY_HINT.test(part.replace(/长征/g,''))&&!SUGGESTION.test(part))).join('').trim();
 }
 function cleanAction(action,current){
   if(!action||typeof action!=='object')return null;
@@ -71,14 +91,14 @@ function checkReply(parsed,question,current){
   let answer=stripLinks(parsed.answer).slice(0,1200);
   // 自称闲聊却引用资料或带年份时，按历史问题处理，避免绕过来源要求。
   if(type!=='history'&&(ids.length||/\d{3,}/.test(answer)))type='history';
-  let badNumbers=[];
+  let badNumbers=[],badTitles=[];
   if(type==='history'){
     if(!ids.length||!answer){answer=NO_DATA;ids=[];}
-    else badNumbers=unsupportedNumbers(answer,ids,question);
+    else{badNumbers=unsupportedNumbers(answer,ids,question);badTitles=unsupportedTitles(answer,ids,question);}
   }else{
-    ids=[];answer=(answer||'我是长征讲解员小征，可以问我长征相关的问题。').slice(0,300);
+    ids=[];answer=(dropUnsourcedFacts(answer)||'我是长征讲解员小征，可以问我长征相关的问题。').slice(0,300);
   }
-  return {type,ids,answer,badNumbers,action:cleanAction(parsed.action,current),followups:cleanFollowups(parsed.followups,question)};
+  return {type,ids,answer,badNumbers,badTitles,action:cleanAction(parsed.action,current),followups:cleanFollowups(parsed.followups,question)};
 }
 
 export default {async fetch(request, env) {
@@ -137,8 +157,8 @@ export default {async fetch(request, env) {
 当前参观节点是 ${current.name}（${current.id}）。${visit}
 
 一、先判断问题类型 type：
-- "history"：与长征相关的史实、原因、意义、比较等问题。只依据下方资料作答；资料未说明的事实必须明确说不知道，不得猜测或编造，可以同时给出资料里相关的事实。sources 必须列出实际支持回答的资料 ID。回答中的日期、数量等数字必须原样出自所引资料。
-- "chat"：问候、感谢、询问你是谁或本站怎么用。简短友好地回应，可介绍你能讲解的内容和操作方式；不陈述任何史实，sources 为空。
+- "history"：与长征相关的史实、原因、意义、比较、总结等问题；问候、感谢里同时提出了这类问题的，也按 history 回答其中的历史部分。只依据下方资料作答，尽量沿用资料原文的说法；资料未说明的事实必须明确说不知道，不得猜测或编造，可以同时给出资料里相关的事实。不要自行推算时间间隔、数量或比例，不要做资料之外的评价、假设或推测。sources 必须列出回答中每一项事实所依据的资料 ID。回答中的日期、数量等数字必须原样出自所引资料。
+- "chat"：单纯的问候、感谢、询问你是谁或本站怎么用。简短友好地回应，可介绍你能讲解的内容和操作方式；不陈述任何史实（包括时间、人物、事件和评价），sources 为空。
 - "off_topic"：与长征学习无关。礼貌说明你只讲解长征，并建议一个可以问的方向；sources 为空。
 二、操作 action：观众表达想看、想去、想切换到某一站时（例如“我想看看飞夺泸定桥那段”“带我去遵义”“切到草地”“去腊子口看看”），action 为 {"type":"goto","node":"节点ID"}，节点取与该事件对应的节点；要求下一站/继续时为 {"type":"next"}；要求跳过本站时为 {"type":"skip"}；要求开始预设路线时为 {"type":"route","route":"overview|turning|journey|full"}（主线速览、转折与决策、时间线探索、完整路线）。只是询问史实（例如“飞夺泸定桥是什么时候”“遵义会议解决了什么”）时不跳转，action 为 null。给出 goto 时，answer 用一两句话说明要去的节点并简要预告，史实同样只能来自资料并列出 sources。其他情况为 null。
 三、followups：给出 0—2 个不超过 25 字、能由下方资料回答的追问建议。
@@ -157,14 +177,15 @@ ${context}`;
       let parsed=null;if(choice?.finish_reason!=='length'){try{parsed=JSON.parse(content)}catch{parsed=null}}
       if(!parsed||typeof parsed.answer!=='string'||!parsed.answer.trim())continue;
       result=checkReply(parsed,question,current.id);
-      if(result.badNumbers.length&&attempt===0){
-        messages=[...base,{role:'assistant',content},{role:'user',content:`系统校验：回答中的数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中。请只使用所引资料里的数字重新回答，资料没有的就说明不知道，仍输出同样格式的 JSON。`}];
+      if((result.badNumbers.length||result.badTitles.length)&&attempt===0){
+        const issues=[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:''].filter(Boolean).join('；');
+        messages=[...base,{role:'assistant',content},{role:'user',content:`系统校验：${issues}。请只使用所引资料中原样出现的数字和名称重新回答，不要自行推算，资料没有的就说明不知道，仍输出同样格式的 JSON。`}];
         continue;
       }
       break;
     }
     if(!result) return json({error:'讲解员回复格式异常，请重试。'},502);
-    if(result.badNumbers.length){result.answer=NO_DATA;result.ids=[];}
+    if(result.badNumbers.length||result.badTitles.length){result.answer=NO_DATA;result.ids=[];}
     const {type,ids,answer,action,followups}=result;
     const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
     const grouped=new Map();

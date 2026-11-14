@@ -110,4 +110,24 @@ assert.equal((await worker.fetch(make({question:'你好',node:'zunyi'},{'cf-conn
   }
   assert.match(html,/"guide":\{"decisions"/);
 }
+
+// —— 依据约束：汉字数字、闲聊夹带史实 ——
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'从中央苏区出发到遵义会议，相隔约三个月。',sources:['start','zunyi']})};
+body=await (await worker.fetch(make({question:'隔了多久？',node:'zunyi'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);
+globalThis.fetch=async()=>reply({type:'history',answer:'孙继先挑选了十七名勇士强渡大渡河。',sources:['luding_dadu']});
+body=await (await worker.fetch(make({question:'强渡大渡河有多少勇士？',node:'luding'}),env)).json();assert.match(body.answer,/十七名/);assert.equal(body.sources.length,1);
+globalThis.fetch=async()=>reply({type:'history',answer:'红军第一次渡过赤水河是在1935年1月29日，四渡赤水在川黔滇边境进行。',sources:['chishui_detail','chishui']});
+body=await (await worker.fetch(make({question:'首渡何时？',node:'chishui'}),env)).json();assert.match(body.answer,/第一次/);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'红军渡江用了七只船。',sources:['jinsha_detail']})};
+body=await (await worker.fetch(make({question:'用了几条船？',node:'jinsha'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);
+globalThis.fetch=async()=>reply({type:'chat',answer:'你好！遵义会议改组了中央领导机构。你可以问我遵义会议解决了什么问题。',sources:[]});
+body=await (await worker.fetch(make({question:'你好',node:'zunyi'}),env)).json();assert.equal(body.type,'chat');assert.doesNotMatch(body.answer,/改组/);assert.match(body.answer,/你可以问我遵义会议/);
+globalThis.fetch=async()=>reply({type:'chat',answer:'红军翻越了夹金山。',sources:[]});
+body=await (await worker.fetch(make({question:'聊聊',node:'jiajin'}),env)).json();assert.doesNotMatch(body.answer,/夹金山/);assert.match(body.answer,/小征/);
+
+// 书名必须与资料原文一致
+attempts=0;globalThis.fetch=async(url,options)=>{attempts++;seen=JSON.parse(options.body);return reply(attempts===1?{type:'history',answer:'毛儿盖会议通过《关于目前战略方针的补充决定》。',sources:['caodi_maogai']}:{type:'history',answer:'毛儿盖会议通过《关于目前战略方针之补充决定》。',sources:['caodi_maogai']})};
+body=await (await worker.fetch(make({question:'毛儿盖会议通过了什么？',node:'caodi'}),env)).json();assert.equal(attempts,2);assert.match(seen.messages.at(-1).content,/书名/);assert.match(body.answer,/之补充决定/);
+globalThis.fetch=async()=>reply({type:'history',answer:'遵义会议通过了《遵义宣言》。',sources:['zunyi']});
+body=await (await worker.fetch(make({question:'遵义会议通过了什么文件？',node:'zunyi'}),env)).json();assert.match(body.answer,/资料不足/);
 globalThis.fetch=original;console.log('API and evidence tests passed');
