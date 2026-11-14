@@ -14,6 +14,12 @@ npm run dev
 npm run check:sources
 ```
 
+真实模型评估：按《问答评估清单》逐项调用讲解员接口，生成《问答评估结果-日期》文档，人工判定一栏留空待填。需要 DeepSeek 密钥，或用 `EVAL_BASE_URL` 指向已部署站点：
+
+```sh
+DEEPSEEK_API_KEY=你的密钥 npm run eval
+```
+
 本地预览打开 `http://127.0.0.1:4173`。本地预览默认不载入 API 密钥，能浏览页面和路线，模型问答会提示尚未配置；不要把密钥写入源码或前端。线上密钥由 Sites 服务端环境变量管理，包含 `DEEPSEEK_API_KEY` 和独立随机的 `HISTORY_SIGNING_KEY`；不得写入源码或前端。
 
 ## 代码与材料

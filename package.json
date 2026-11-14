@@ -7,6 +7,7 @@
     "build": "node scripts/generate.mjs && node scripts/build.mjs",
     "test": "node scripts/generate.mjs && node test.mjs && node scripts/build.mjs && node scripts/validate-artifact.mjs",
     "dev": "node scripts/dev.mjs",
-    "check:sources": "node scripts/check-sources.mjs"
+    "check:sources": "node scripts/check-sources.mjs",
+    "eval": "node scripts/eval-qa.mjs"
   }
 }
