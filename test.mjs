@@ -10,6 +10,8 @@ assert.ok(nodes.length>=14);assert.equal(new Set(nodes.map(n=>n.id)).size,nodes.
 const extraIds=nodes.flatMap(n=>(n.extra||[]).map(e=>e.id));assert.equal(new Set(extraIds).size,extraIds.length);
 for(const n of nodes){assert.ok(n.id&&n.name&&n.text&&n.source&&n.url);assert.match(n.url,/^https?:\/\//);assert.ok(Array.isArray(n.questions)&&n.questions.length>=4);assert.equal(new Set(n.questions).size,n.questions.length);for(const e of n.extra||[]){assert.ok(e.id&&e.text&&e.source&&e.url);assert.match(e.url,/^https?:\/\//);}}
 assert.equal((await worker.fetch(new Request('http://localhost/',{method:'HEAD'}),{})).status,200);
+res=await worker.fetch(new Request('http://localhost/assets/longmarch-map.webp'),{});assert.equal(res.status,200);assert.equal(res.headers.get('content-type'),'image/webp');{const buf=new Uint8Array(await res.arrayBuffer());assert.ok(buf.length>10000);assert.equal(String.fromCharCode(...buf.slice(8,12)),'WEBP');}
+assert.match(html,/"map":\{"nodes"/);
 assert.equal((await worker.fetch(new Request('http://localhost/api/chat',{method:'POST',headers:{'content-type':'text/plain'},body:'{}'}),env)).status,415);
 assert.equal((await worker.fetch(make({question:'',node:'zunyi'}),{})).status,400);
 assert.equal((await worker.fetch(make({question:'x',node:'bad'}),{})).status,400);
