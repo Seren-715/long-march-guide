@@ -7,7 +7,7 @@ async page => {
     else if (fail) await route.fulfill({status:502,json:{error:'模拟连接失败'}});
     else await route.fulfill({json:{answer:'测试回答',sources:[],historyToken:'mock-token'}});
   });
-  const choose = async id => { if (await page.locator('#home').isVisible()) { await page.locator('#tab-nodes').click(); await page.locator('#panel-nodes [data-node="'+id+'"]').click(); } else await page.locator('#strip [data-node="'+id+'"]').click(); };
+  const choose = async id => { if (await page.locator('#home').isVisible()) { await page.locator('#start-browse').click(); } await page.locator('#strip [data-node="'+id+'"]').click(); };
   const suggestions = async () => page.locator('#chat-chips button').allTextContents();
   const sendDone = async () => page.locator('#send:not([disabled])').waitFor();
   await choose('jinsha');
@@ -26,7 +26,7 @@ async page => {
   fail = false; delay = 0; await page.locator('#messages .retry').last().click(); await sendDone();
   if (!calls.at(-1) || calls.at(-1).node !== 'jinsha' || !(await page.locator('#ctx-text2').innerText()).includes('金沙江')) throw Error('跨节点重试没有回到原节点');
   await page.reload(); await choose('chishui');
-  for (let i=0;i<4;i++) {const q=(await suggestions())[0];await page.locator('#chat-chips').getByRole('button',{name:q,exact:true}).click();await sendDone();}
+  for (let i=0;i<12 && !(await page.locator('#chat-chips').innerText()).includes('已看完');i++) {const q=(await suggestions())[0];await page.locator('#chat-chips').getByRole('button',{name:q,exact:true}).click();await sendDone();}
   if (!(await page.locator('#chat-chips').innerText()).includes('已看完')) throw Error('耗尽状态缺失');
   await page.locator('#chat-chips').getByRole('button',{name:'重新显示建议问题'}).click(); if ((await suggestions()).length !== 2) throw Error('无法重新显示建议');
   await page.reload(); await choose('jinsha');

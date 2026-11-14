@@ -1,8 +1,9 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {nodes} from '../src/data.js';
+import {decisions,quizzes} from '../src/guide-content.js';
 const html=await readFile(new URL('../src/page.html',import.meta.url),'utf8');
 const server=await readFile(new URL('../src/server.js',import.meta.url),'utf8');
-const data=JSON.stringify({nodes}).replaceAll('<','\\u003c');
+const data=JSON.stringify({nodes,guide:{decisions,quizzes}}).replaceAll('<','\\u003c');
 const sourceCount=nodes.reduce((sum,n)=>sum+1+(n.extra||[]).length,0);
 const withData=html.replace('__DATA__',()=>data);
 if(withData===html) throw new Error('Missing data marker');

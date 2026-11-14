@@ -5,18 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#212121" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#1b1413" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="data:,">
 <title>长征路上 · AI 讲解员</title>
 <meta name="description" content="跟着 AI 讲解员小征逐站参观长征的 __NODE_COUNT__ 个历史节点、__SOURCE_COUNT__ 条整理史料，随时提问，回答附资料出处。">
 <style>
 [hidden]{display:none!important}
 :root{
-  --bg:#ffffff;--bg2:#f9f9f9;--hover:#f2f2f2;--active:#ebebeb;
-  --border:#e5e5e5;--border2:#efefef;
-  --text:#0d0d0d;--text2:#5d5d5d;--text3:#8f8f8f;
-  --primary:#0d0d0d;--on-primary:#ffffff;
-  --accent:#b4372a;--accent-soft:#fbeeea;--accent-line:#efcfc6;
+  --bg:#ffffff;--bg2:#fbf6f3;--hover:#f7ede8;--active:#f2e3dd;
+  --border:#ecdcd5;--border2:#f4e9e4;
+  --text:#1f1715;--text2:#5e504b;--text3:#978782;
+  --primary:#b3261e;--on-primary:#ffffff;
+  --accent:#b3261e;--accent-soft:#fbeae6;--accent-line:#f0c9c0;
+  --serif:"Songti SC","STSong","Source Han Serif SC","Noto Serif CJK SC","Noto Serif SC",SimSun,serif;
   --ok:#2f6b4a;
   --shadow:0 1px 2px rgba(0,0,0,.04),0 6px 24px rgba(0,0,0,.06);
   --shadow-lg:0 2px 4px rgba(0,0,0,.04),0 16px 48px rgba(0,0,0,.10);
@@ -25,11 +26,11 @@
   --bar:56px;
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#212121;--bg2:#181818;--hover:#2c2c2c;--active:#333;
-  --border:#363636;--border2:#2c2c2c;
-  --text:#ececec;--text2:#b4b4b4;--text3:#8a8a8a;
-  --primary:#ececec;--on-primary:#0d0d0d;
-  --accent:#e2735c;--accent-soft:#3a2420;--accent-line:#5a3129;
+  --bg:#1b1413;--bg2:#151010;--hover:#2a1f1d;--active:#35261f;
+  --border:#3b2c28;--border2:#2c201e;
+  --text:#f3e9e6;--text2:#c8b7b2;--text3:#95847f;
+  --primary:#d9483a;--on-primary:#ffffff;
+  --accent:#ec7462;--accent-soft:#3a2420;--accent-line:#5a3129;
   --ok:#7cc29a;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 24px rgba(0,0,0,.3);
   --shadow-lg:0 2px 4px rgba(0,0,0,.3),0 16px 48px rgba(0,0,0,.45);
@@ -66,11 +67,14 @@ body[data-view=session] .bar{border-bottom-color:var(--border)}
 
 /* 首页 */
 .home{min-height:calc(100vh - var(--bar))}
-.home-inner{max-width:760px;margin:0 auto;padding:12vh 20px 48px}
-.home h1{font-size:clamp(26px,3.4vw,34px);line-height:1.3;font-weight:600;letter-spacing:-.01em;text-align:center;margin:0 0 10px}
-.home-sub{text-align:center;color:var(--text2);margin:0 auto 28px;max-width:560px}
+.home-inner{max-width:720px;margin:0 auto;padding:14vh 20px 48px}
+.home-mark{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;font-size:12px;letter-spacing:.3em;color:var(--accent);font-weight:600}
+.home-mark .seal{width:30px;height:30px;font-size:17px;border-radius:7px;letter-spacing:0;transform:rotate(-4deg)}
+.home h1{font-family:var(--serif);font-size:clamp(28px,3.8vw,40px);line-height:1.3;font-weight:700;letter-spacing:.02em;text-align:center;margin:0 0 12px}
+.home h1 em{font-style:normal;color:var(--accent)}
+.home-sub{text-align:center;color:var(--text2);margin:0 auto 32px;max-width:520px}
 .composer{position:relative;background:var(--bg);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow);padding:14px 14px 10px 18px;transition:border-color .15s,box-shadow .15s}
-.composer:focus-within{border-color:color-mix(in srgb,var(--text) 30%,var(--border));box-shadow:var(--shadow-lg)}
+.composer:focus-within{border-color:color-mix(in srgb,var(--accent) 45%,var(--border));box-shadow:var(--shadow-lg)}
 .composer textarea{display:block;width:100%;resize:none;border:0;outline:0;background:none;font-size:16px;line-height:1.6;min-height:28px;max-height:200px;padding:2px 0}
 .composer textarea::placeholder{color:var(--text3)}
 .composer-bar{display:flex;align-items:center;gap:8px;margin-top:8px}
@@ -120,12 +124,21 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .plan-title{display:flex;align-items:center;gap:8px;font-weight:500;margin-bottom:10px}
 .plan-row{display:flex;gap:8px}
 .input{flex:1;min-width:0;height:38px;border:1px solid var(--border);border-radius:999px;background:var(--bg);padding:0 16px;font-size:14px;outline:0;transition:border-color .15s}
-.input:focus{border-color:color-mix(in srgb,var(--text) 35%,var(--border))}
+.input:focus{border-color:color-mix(in srgb,var(--accent) 50%,var(--border))}
 .plan-note{margin:8px 4px 0;font-size:12px;color:var(--text3)}
 .plan-note.err{color:var(--accent)}
 #custom-plan[aria-busy=true]:after{content:"";width:12px;height:12px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite}
 
-.about{margin-top:56px;padding-top:20px;border-top:1px solid var(--border2);font-size:12px;line-height:1.8;color:var(--text3)}
+.route-dialog{border:0;padding:0;width:min(560px,calc(100% - 24px));max-height:calc(100dvh - 48px);border-radius:20px;background:var(--bg);color:var(--text);box-shadow:var(--shadow-lg)}
+.route-dialog::backdrop{background:rgba(31,14,10,.42)}
+.route-dialog[open]{animation:fade .2s var(--ease)}
+.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 6px}
+.dialog-head h2{font-family:var(--serif);font-size:20px;margin:0}
+.dialog-head p{margin:2px 0 0;font-size:13px;color:var(--text3)}
+.dialog-close{width:36px;height:36px;border-radius:50%;font-size:20px;line-height:1;color:var(--text2)}
+.dialog-close:hover{background:var(--hover);color:var(--text)}
+.dialog-body{padding:10px 20px 20px;overflow:auto}
+.about{margin-top:64px;padding-top:20px;border-top:1px solid var(--border2);font-size:12px;line-height:1.8;color:var(--text3)}
 .about p{margin:0 0 6px}
 
 /* 会话页 */
@@ -150,7 +163,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .refs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ref{display:inline-flex;align-items:center;gap:5px;max-width:100%;height:26px;padding:0 10px;border:1px solid var(--border);border-radius:999px;background:var(--bg);font-size:12px;color:var(--text2);text-decoration:none;overflow:hidden}
 .ref svg{flex:none;width:10px;height:10px}
-.ref span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ref span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ref:hover{color:var(--text);border-color:color-mix(in srgb,var(--text) 30%,var(--border))}
 .evidence{margin-top:8px;font-size:13px;color:var(--text2)}
 .evidence summary{cursor:pointer;color:var(--text3);font-size:12px;list-style:none}
@@ -159,6 +172,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .evidence[open] summary:before{transform:rotate(90deg)}
 .evidence p{margin:6px 0;padding-left:10px;border-left:2px solid var(--border);white-space:pre-wrap;line-height:1.7}
 .retry{margin-top:8px}
+.followups{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.followups .chip{min-height:30px;font-size:12px;padding:4px 12px;background:var(--bg)}
 .dots{display:inline-flex;gap:4px;align-items:center;height:22px}
 .dots i{width:6px;height:6px;border-radius:50%;background:var(--text3);animation:blink 1.2s infinite ease-in-out}
 .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
@@ -197,9 +212,9 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .stop.active{background:var(--primary);color:var(--on-primary)}
 .stop.active b{color:inherit;opacity:.7}
 
-.article{max-width:740px;margin:0 auto;padding:36px 28px 32px;animation:fade .25s var(--ease)}
+.article{width:100%;max-width:740px;margin:0 auto;padding:36px 28px 32px;animation:fade .25s var(--ease)}
 .art-top{display:flex;gap:24px;align-items:flex-start}
-.art-main{flex:1;min-width:0}
+.art-main{flex:1;min-width:0;max-width:100%}
 .kicker{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:13px;color:var(--text3);margin-bottom:10px}
 .article h2{font-size:clamp(24px,2.6vw,30px);line-height:1.35;font-weight:600;letter-spacing:-.005em;margin:0 0 16px}
 .article h2:focus{outline:none}
@@ -224,6 +239,45 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .art-nav{display:flex;justify-content:space-between;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border2)}
 .art-nav .btn{max-width:48%;overflow:hidden}
 
+.starts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 18px}
+.start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:var(--bg);transition:background .15s,border-color .15s,transform .15s}
+.start:hover{background:var(--hover);transform:translateY(-1px)}
+.start.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary);box-shadow:0 8px 24px color-mix(in srgb,var(--primary) 28%,transparent)}
+.start.primary:hover{background:var(--primary);opacity:.9}
+.start b{font-size:15px;font-weight:600}
+.start span{font-size:12px;color:var(--text3)}
+.start.primary span{color:inherit;opacity:.7}
+.or{display:flex;align-items:center;gap:12px;margin:0 0 14px;font-size:12px;color:var(--text3)}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--border2)}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.quick .btn{height:32px;font-size:13px;padding:0 12px}
+.stamp{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin:0 0 8px}
+.stamp-date{font:600 26px/1.1 "Songti SC","STSong","Noto Serif CJK SC","Noto Serif SC",SimSun,serif;letter-spacing:.02em;color:var(--accent)}
+.stamp-place{font:600 15px/1.2 "Songti SC","STSong","Noto Serif CJK SC","Noto Serif SC",SimSun,serif}
+.stamp-rel{font-size:12px;color:var(--text3)}
+.speak{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--text2)}
+.speak:hover{background:var(--hover);color:var(--text)}
+.speak[aria-pressed=true]{background:var(--active);color:var(--text)}
+#tts-toggle[aria-pressed=true]{background:var(--active);color:var(--text)}
+.card{margin:24px 0 0;padding:18px 20px;border:1px solid var(--border);border-radius:16px;background:var(--bg2)}
+.card-label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--accent);letter-spacing:.06em;margin-bottom:8px}
+.card p{margin:0 0 10px;line-height:1.85}
+.card .q{font-weight:600}
+.choices{display:grid;gap:8px;margin-top:6px}
+.choice{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);font-size:14px;line-height:1.6;transition:background .12s,border-color .12s}
+.choice:hover:not(:disabled){background:var(--hover);border-color:color-mix(in srgb,var(--text) 25%,var(--border))}
+.choice:disabled{opacity:1;cursor:default}
+.choice i{flex:none;width:22px;height:22px;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;font-style:normal;font-size:12px;color:var(--text3)}
+.choice.picked{border-color:var(--text)}
+.choice.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,var(--bg))}
+.choice.right i{background:var(--ok);border-color:var(--ok);color:#fff}
+.choice.wrong{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--bg))}
+.reveal{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);animation:fade .25s var(--ease)}
+.reveal h4{margin:0 0 6px;font-size:13px;color:var(--text2)}
+.reveal .refs{margin-top:6px}
+.skip-link{margin-top:10px;font-size:12px;color:var(--text3);text-decoration:underline;text-underline-offset:3px}
+.skip-link:hover{color:var(--text)}
+.draft{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;border:1px dashed var(--accent);color:var(--accent);letter-spacing:0}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @keyframes blink{0%,80%,100%{opacity:.3}40%{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -245,9 +299,11 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 }
 @media (max-width:560px){
   .home-inner{padding-top:7vh}
+  .starts{grid-template-columns:1fr}
+  .start{flex-direction:row;align-items:baseline;justify-content:space-between;gap:10px}
   .tour-actions{width:100%}
   .tour-actions .btn{flex:1}
-  .art-top{flex-direction:column-reverse;gap:14px}
+  .art-top{flex-direction:column-reverse;align-items:stretch;gap:14px}
   .locator{width:100%;height:110px}
   .row{padding:12px 14px}
   .row-meta{display:none}
@@ -263,34 +319,40 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <header class="bar">
 <button type="button" class="brand" id="go-home" aria-label="长征路上，回到首页"><span class="seal" aria-hidden="true">征</span>长征路上</button>
 <div class="bar-mid" id="bar-mid"></div>
-<div class="bar-right"><button type="button" class="btn btn-text" id="bar-about">资料说明</button></div>
+<div class="bar-right"><button type="button" class="btn btn-text" id="tts-toggle" aria-pressed="false" hidden title="切换节点时自动朗读讲解">语音讲解</button><button type="button" class="btn btn-text" id="bar-about">资料说明</button></div>
 </header>
 
 <main class="home" id="home">
 <div class="home-inner">
-<h1>今天想了解长征的哪一段？</h1>
-<p class="home-sub">我是 AI 讲解员小征。选一条路线逐站参观，或直接向我提问——回答只依据整理好的 <span data-count="sources">__SOURCE_COUNT__</span> 条史料，并附上出处。</p>
+<div class="home-mark" aria-hidden="true"><span class="seal">征</span>1934 — 1936</div>
+<h1>今天想了解<em>长征</em>的哪一段？</h1>
+<p class="home-sub">我是 AI 讲解员小征。可以跟我逐站参观，也可以直接提问——回答只依据整理好的 <span data-count="sources">__SOURCE_COUNT__</span> 条史料，并附上出处。</p>
+<div class="starts" role="group" aria-label="开始方式">
+<button type="button" class="start primary" id="start-main" aria-haspopup="dialog"><b>跟着小征参观</b><span>选一条路线，逐站讲解</span></button>
+<button type="button" class="start" id="start-ask"><b>我有问题想问</b><span>回答附原文出处</span></button>
+<button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
+</div>
 <form class="composer" id="home-form">
 <label class="sr-only" for="home-q">向小征提问</label>
 <textarea id="home-q" rows="1" maxlength="500" placeholder="问小征任何关于长征的问题…" enterkeyhint="send"></textarea>
-<div class="composer-bar"><button type="button" class="ctx-pill" id="ctx-pill" title="更换提问所围绕的节点"><i></i><span id="ctx-text"></span></button><span class="spacer"></span><button type="submit" class="send-round" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div>
+<div class="composer-bar"><span class="ctx-pill" title="提问会围绕这个节点"><i></i><span id="ctx-text"></span></span><span class="spacer"></span><button type="submit" class="send-round" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div>
 </form>
-<div class="chips" id="home-chips"></div>
 
 <div class="resume" id="resume" hidden><div class="resume-text"><small>继续参观</small><span id="resume-text"></span></div><button type="button" class="btn btn-primary" id="resume-go">继续 →</button></div>
-
-<div class="tabs" role="tablist" aria-label="浏览方式"><button type="button" class="tab" role="tab" id="tab-routes" aria-selected="true" aria-controls="panel-routes">推荐路线</button><button type="button" class="tab" role="tab" id="tab-nodes" aria-selected="false" aria-controls="panel-nodes">全部节点<small data-count="nodes">__NODE_COUNT__</small></button></div>
-<div id="panel-routes" role="tabpanel" aria-labelledby="tab-routes">
-<ul class="rows" id="route-rows"></ul>
-<div class="plan"><div class="plan-title"><label for="preference">用一句话描述你想看什么</label><span class="badge">AI 规划</span></div>
-<div class="plan-row"><input class="input" id="preference" maxlength="200" placeholder="例如：我想看翻雪山、过草地那一段" enterkeyhint="go" aria-describedby="plan-status"><button type="button" class="btn btn-ghost" id="custom-plan">生成路线</button></div>
-<p class="plan-note" id="plan-status" role="status"></p></div>
-</div>
-<div id="panel-nodes" role="tabpanel" aria-labelledby="tab-nodes" hidden></div>
 
 <div class="about" id="about"><p>长征路上 · 以中央红军主力长征为主线，并展示红军三大主力会师。节点资料整理自公开文章，每条均附原文链接。</p><p>位置图为节点示意，非精确地理地图与行军路线，不代表各路红军的完整路线。</p><p>回答由 AI 根据资料生成，请结合原文核对；提问和参观偏好会发送给 DeepSeek，请勿输入个人敏感信息。</p></div>
 </div>
 </main>
+
+<dialog class="route-dialog" id="route-dialog" aria-labelledby="route-dialog-title">
+<div class="dialog-head"><div><h2 id="route-dialog-title">选择参观路线</h2><p>选好后小征会逐站为你讲解，途中随时可以提问或换路线</p></div><button type="button" class="dialog-close" id="route-dialog-close" aria-label="关闭">×</button></div>
+<div class="dialog-body">
+<ul class="rows" id="route-rows"></ul>
+<div class="plan"><div class="plan-title"><label for="preference">或者用一句话描述你想看什么</label><span class="badge">AI 规划</span></div>
+<div class="plan-row"><input class="input" id="preference" maxlength="200" placeholder="例如：我想看翻雪山、过草地那一段" enterkeyhint="go" aria-describedby="plan-status"><button type="button" class="btn btn-ghost" id="custom-plan">生成路线</button></div>
+<p class="plan-note" id="plan-status" role="status"></p></div>
+</div>
+</dialog>
 
 <main class="session" id="session" data-pane="read" hidden>
 <div class="pane-switch" role="tablist" aria-label="切换视图"><button type="button" role="tab" id="sw-read" aria-selected="true">讲解</button><button type="button" role="tab" id="sw-chat" aria-selected="false">对话<span class="dot" id="chat-dot" hidden></span></button></div>
@@ -340,6 +402,24 @@ function availableQuestions() { const asked = askedByNode.get(selected) || new S
 function markQuestionAnswered(id, question) { const n = find(id), key = normalizeQuestion(question); if ((n?.questions || []).some(q => normalizeQuestion(q) === key)) { if (!askedByNode.has(id)) askedByNode.set(id, new Set()); askedByNode.get(id).add(key); } suggestionTurns.set(id, (suggestionTurns.get(id) || 0) + 1); }
 function fillSuggestions(box) { box.replaceChildren(); const qs = availableQuestions(); if (!qs.length) { box.append(el('span', '', '本节点的建议问题已看完，你可以自行提问。')); const reset = el('button', 'chip', '重新显示建议问题'); reset.type = 'button'; reset.disabled = busy; reset.addEventListener('click', () => { askedByNode.delete(selected); suggestionTurns.delete(selected); shownKey = null; renderExhibit(); renderChips(); }); box.append(reset); return; } for (const q of qs) { const c = el('button', 'chip', q); c.type = 'button'; c.disabled = busy; c.addEventListener('click', () => askChip(q)); box.append(c); } }
 const stopEls = new Map();
+const GUIDE = DATA.guide && typeof DATA.guide === 'object' ? DATA.guide : {};
+const DRAFT = new URLSearchParams(location.search).has('draft');
+const visible = item => !!item && (item.reviewed === true || DRAFT);
+const decisionOf = id => visible(GUIDE.decisions?.[id]) ? GUIDE.decisions[id] : null;
+const quizOf = id => visible(GUIDE.quizzes?.[id]) ? GUIDE.quizzes[id] : null;
+const decided = new Map(), quizAnswers = new Map();
+const evidenceOf = id => { for (const n of nodes) { if (n.id === id) return { title: n.source, url: n.url }; for (const e of n.extra || []) if (e.id === id) return { title: e.source, url: e.url }; } return null; };
+function draftTag(item) { return item && item.reviewed !== true ? el('span', 'draft', '草稿·待核对') : null; }
+function monthsFromStart(n) { const m = String(n.date || '').match(/^(\d{4})\.(\d{2})/); return m ? (Number(m[1]) - 1934) * 12 + Number(m[2]) - 10 : null; }
+function relTime(n) { const d = monthsFromStart(n); return d == null ? '' : d <= 0 ? '长征出发' : '中央红军出发后约 ' + d + ' 个月'; }
+
+/* 语音讲解：使用浏览器自带的中文朗读 */
+const TTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+let ttsOn = false; try { ttsOn = TTS && localStorage.getItem('lmg-tts') === '1'; } catch {}
+function speak(text) { if (!TTS || !text) return; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/\s+/g, ' ')); u.lang = 'zh-CN'; const v = speechSynthesis.getVoices().find(x => /^zh(-|_)?(CN|Hans)?/i.test(x.lang)); if (v) u.voice = v; u.rate = 1; speechSynthesis.speak(u); } catch {} }
+function stopSpeaking() { if (TTS) try { speechSynthesis.cancel(); } catch {} }
+function narration(n) { const d = decisionOf(n.id); if (d && !decided.has(n.id)) return n.name + '。' + d.situation + d.question; return (n.date || '') + '，' + n.name + '。' + (n.title || '') + '。' + (n.text || ''); }
+function setTts(on) { ttsOn = on; $('tts-toggle').setAttribute('aria-pressed', String(on)); try { localStorage.setItem('lmg-tts', on ? '1' : '0'); } catch {} if (!on) stopSpeaking(); else if (view === 'session') speak(narration(find(selected))); }
 
 function el(tag, className, text) { const e = document.createElement(tag); if (className) e.className = className; if (text != null) e.textContent = String(text); return e; }
 function safeLink(url) { try { const u = new URL(url); return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : ''; } catch { return ''; } }
@@ -369,24 +449,13 @@ for (const r of ROUTES) {
   const stops = ids.length > 5 ? ids.slice(0, 3).map(id => find(id).name).join(' → ') + ' → … → ' + find(ids[ids.length - 1]).name : ids.map(id => find(id).name).join(' → ');
   main.append(title, el('span', 'row-sub', r.desc + ' · ' + stops));
   b.append(el('span', 'row-icon', ids.length), main, el('span', 'row-meta', ids.length + ' 站'), chev());
-  b.addEventListener('click', () => { planVersion++; setPlanNote(''); applyPlan(ids, '', r.title); });
+  b.addEventListener('click', () => { planVersion++; setPlanNote(''); closeRoutes(); applyPlan(ids, '', r.title); });
   li.append(b); $('route-rows').append(li);
 }
-(function buildNodeList() {
-  const panel = $('panel-nodes'); let current = -1, list = null;
-  nodes.forEach((n, i) => {
-    const p = phaseOf(n);
-    if (p !== current) { current = p; panel.append(el('div', 'group-label', PHASES[p])); list = el('ul', 'rows'); panel.append(list); }
-    const li = el('li'); const b = el('button', 'row'); b.type = 'button'; b.dataset.node = n.id;
-    const main = el('span', 'row-main'); main.append(el('span', 'row-title', n.name), el('span', 'row-sub', n.title || ''));
-    b.append(el('span', 'row-icon', i + 1), main, el('span', 'row-meta', n.date), chev());
-    b.addEventListener('click', () => choose(n.id)); li.append(b); list.append(li);
-  });
-})();
-function setTab(t) { const r = t === 'routes'; $('tab-routes').setAttribute('aria-selected', String(r)); $('tab-nodes').setAttribute('aria-selected', String(!r)); $('panel-routes').hidden = !r; $('panel-nodes').hidden = r; }
-$('tab-routes').addEventListener('click', () => setTab('routes'));
-$('tab-nodes').addEventListener('click', () => setTab('nodes'));
-$('ctx-pill').addEventListener('click', () => { setTab('nodes'); $('tab-nodes').scrollIntoView({ block: 'start', behavior: motion() }); });
+function openRoutes() { const d = $('route-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); } requestAnimationFrame(() => d.querySelector('.row')?.focus()); }
+function closeRoutes() { const d = $('route-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
+$('route-dialog-close').addEventListener('click', closeRoutes);
+$('route-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeRoutes(); });
 $('bar-about').addEventListener('click', () => { if (view !== 'home') goHome(); setTimeout(() => $('about').scrollIntoView({ block: 'center', behavior: motion() }), 30); });
 
 /* ---------- 节点条 ---------- */
@@ -418,7 +487,7 @@ function setPane(p) {
 }
 $('sw-read').addEventListener('click', () => setPane('read'));
 $('sw-chat').addEventListener('click', () => setPane('chat'));
-function goHome(push = true) { setView('home'); if (push && location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} } }
+function goHome(push = true) { stopSpeaking(); spokenFor = null; setView('home'); if (push && location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} } }
 $('go-home').addEventListener('click', () => goHome());
 
 /* ---------- 选择节点 ---------- */
@@ -447,9 +516,17 @@ function renderExhibit() {
   const i = indexOf(selected), top = el('div', 'art-top'), main = el('div', 'art-main');
   const kicker = el('div', 'kicker'); kicker.append(el('span', '', '第 ' + (i + 1) + ' / ' + nodes.length + ' 站'), el('span', '', '·'), el('span', '', n.date), el('span', '', '·'), el('span', '', PHASES[phaseOf(n)]));
   const ri = route.indexOf(selected); if (ri >= 0) kicker.append(el('span', 'badge', '路线第 ' + (ri + 1) + ' 站'));
-  const h = el('h2', '', n.title || n.name); h.tabIndex = -1; h.id = 'exhibit-title';
-  main.append(kicker, h, el('p', 'lede', n.text || ''));
-  const url = safeLink(n.url); if (url) main.append(srcLink(url, n.source || '查看原文'));
+  const dec = decisionOf(n.id), pending = dec && !decided.has(n.id);
+  const stamp = el('div', 'stamp'); stamp.append(el('span', 'stamp-date', n.date || ''), el('span', 'stamp-place', n.name), el('span', 'stamp-rel', relTime(n)));
+  if (TTS) { const sp = el('button', 'speak', '▶ 朗读'); sp.type = 'button'; sp.setAttribute('aria-label', '朗读本站讲解'); sp.addEventListener('click', () => speak(narration(n))); stamp.append(sp); }
+  const h = el('h2', '', pending ? '抉择时刻' : n.title || n.name); h.tabIndex = -1; h.id = 'exhibit-title';
+  main.append(kicker, stamp, h);
+  if (pending) main.append(decisionCard(n, dec));
+  else {
+    main.append(el('p', 'lede', n.text || ''));
+    const url = safeLink(n.url); if (url) main.append(srcLink(url, n.source || '查看原文'));
+    if (dec) main.append(decisionCard(n, dec));
+  }
   const loc = el('figure', 'locator'); loc.setAttribute('aria-hidden', 'true');
   loc.innerHTML = '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><path class="land" d="M8 29 Q12 11 30 15 L38 8 Q50 11 55 18 Q68 13 73 21 L89 22 L94 34 L85 45 L89 59 L79 66 L75 83 L62 85 L56 92 L42 86 L34 88 L23 77 L12 72 L7 59 L3 47 Z"/></svg>';
   const dots = el('div', 'loc-dots');
@@ -457,11 +534,12 @@ function renderExhibit() {
   loc.append(dots, el('figcaption', 'loc-cap', '位置示意 · 非精确地图'));
   top.append(main, loc);
   const parts = [top];
-  if ((n.extra || []).length) {
+  if ((n.extra || []).length && !pending) {
     const more = el('section', 'more'); more.append(el('h3', '', '延伸资料 · ' + n.extra.length + ' 条'));
     for (const e of n.extra) { const item = el('div', 'more-item'); item.append(el('p', '', e.text)); const u = safeLink(e.url); if (u) item.append(srcLink(u, e.source)); more.append(item); }
     parts.push(more);
   }
+  const quiz = quizOf(n.id); if (quiz && !pending) parts.push(quizCard(n, quiz));
   if ((n.questions || []).length) {
     const ask = el('div', 'ask-here'); ask.append(el('span', '', '关于这一站，可以问：'));
     const choices = el('span', 'chips'); fillSuggestions(choices); ask.append(choices);
@@ -473,7 +551,44 @@ function renderExhibit() {
   nav.append(pb, nb); parts.push(nav);
   exhibit.replaceChildren(...parts);
   exhibit.style.animation = 'none'; void exhibit.offsetWidth; exhibit.style.animation = '';
+  if (ttsOn && view === 'session' && spokenFor !== selected) { spokenFor = selected; speak(narration(n)); }
 }
+let spokenFor = null;
+function refsOf(ids) { const box = el('div', 'refs'); const seen = new Set(); for (const id of ids) { const e = evidenceOf(id); const u = e && safeLink(e.url); if (u && !seen.has(u)) { seen.add(u); box.append(srcLink(u, e.title, 'ref')); } } return box; }
+function decisionCard(n, d) {
+  const card = el('section', 'card decision'); card.id = 'decision-card';
+  const label = el('div', 'card-label', '抉择时刻'); const t = draftTag(d); if (t) label.append(t); card.append(label);
+  const choice = decided.get(n.id);
+  if (choice == null) card.append(el('p', '', d.situation), el('p', 'q', d.question));
+  const list = el('div', 'choices');
+  d.options.forEach((opt, i) => { const b = el('button', 'choice' + (choice === i ? ' picked' : '')); b.type = 'button'; b.disabled = choice != null; b.append(el('i', '', String.fromCharCode(65 + i)), document.createTextNode(opt)); b.addEventListener('click', () => { decided.set(n.id, i); shownKey = null; spokenFor = n.id; renderExhibit(); if (ttsOn) speak('历史上的决定。' + d.outcome); addMessage('小征', '你的判断是「' + opt + '」。历史上的决定是：' + d.outcome + '\n左边已展开这一站的完整讲解。', d.sources.map(evidenceOf).filter(Boolean), { quiet: true, actions: stopActions(n) }); }); list.append(b); });
+  card.append(list);
+  if (choice != null) {
+    const r = el('div', 'reveal'); r.append(el('h4', '', '历史上的决定'), el('p', '', d.outcome), refsOf(d.sources)); card.append(r);
+  } else {
+    const skip = el('button', 'skip-link', '不判断了，直接看讲解'); skip.type = 'button'; skip.addEventListener('click', () => { decided.set(n.id, -1); shownKey = null; spokenFor = n.id; renderExhibit(); }); card.append(skip);
+  }
+  return card;
+}
+function quizCard(n, q) {
+  const card = el('section', 'card quiz'); card.id = 'quiz-card';
+  const label = el('div', 'card-label', '小测一下'); const t = draftTag(q); if (t) label.append(t); card.append(label, el('p', 'q', q.question));
+  const picked = quizAnswers.get(n.id), list = el('div', 'choices');
+  q.options.forEach((opt, i) => { const cls = picked == null ? '' : i === q.answer ? ' right' : i === picked ? ' wrong' : ''; const b = el('button', 'choice' + cls); b.type = 'button'; b.disabled = picked != null; b.append(el('i', '', picked != null && i === q.answer ? '✓' : String.fromCharCode(65 + i)), document.createTextNode(opt)); b.addEventListener('click', () => { quizAnswers.set(n.id, i); const fresh = quizCard(n, q); card.replaceWith(fresh); fresh.querySelector('.reveal h4')?.setAttribute('tabindex', '-1'); fresh.querySelector('.reveal h4')?.focus({ preventScroll: true }); }); list.append(b); });
+  card.append(list);
+  if (picked != null) { const r = el('div', 'reveal'); r.append(el('h4', '', picked === q.answer ? '回答正确' : '正确答案是「' + q.options[q.answer] + '」'), refsOf([q.source])); card.append(r); }
+  return card;
+}
+function stopActions(n) {
+  const acts = [];
+  const d = decisionOf(n.id); if (d && !decided.has(n.id)) acts.push({ label: '先做个判断', primary: true, run: () => reveal('decision-card') });
+  const idx = route.indexOf(n.id);
+  if (route.length && idx >= 0 && !finished) acts.push({ label: idx === route.length - 1 ? '完成参观' : '下一站：' + find(route[idx + 1]).name, primary: !acts.length, run: () => { if (selected === n.id) advance(false); } });
+  acts.push({ label: '再讲讲这一站', run: () => askChip('请再讲讲「' + n.name + '」这一站的背景和意义。') });
+  if (quizOf(n.id) && !quizAnswers.has(n.id)) acts.push({ label: '小测一下', run: () => reveal('quiz-card') });
+  return acts;
+}
+function reveal(id) { if (mobile()) setPane('read'); requestAnimationFrame(() => { const c = $(id); if (c) { c.scrollIntoView({ block: 'center', behavior: motion() }); c.querySelector('button')?.focus({ preventScroll: true }); } }); }
 function renderStrip() {
   for (const [id, b] of stopEls) { const on = id === selected; b.classList.toggle('active', on); b.classList.toggle('seen', !on && viewed.has(id)); b.classList.toggle('in-route', !on && route.includes(id) && !completed.has(id)); if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); }
   const b = stopEls.get(selected), s = $('strip');
@@ -481,7 +596,7 @@ function renderStrip() {
 }
 function renderChips() {
   const n = find(selected);
-  for (const id of ['chat-chips', 'home-chips']) fillSuggestions($(id));
+  for (const id of ['chat-chips']) fillSuggestions($(id));
   const label = n ? n.name + ' · ' + n.date : ''; $('ctx-text').textContent = '围绕：' + label; $('ctx-text2').textContent = label;
 }
 function renderTour() {
@@ -504,10 +619,13 @@ function renderHome() {
   renderChips(); $('bar-mid').replaceChildren();
   const r = $('resume'); r.hidden = !route.length && !messages.querySelector('.msg.user') && viewed.size === 0;
   if (!r.hidden) $('resume-text').textContent = route.length ? routeName + (finished ? ' · 已完成' : ' · 当前在「' + find(selected).name + '」') : '自由浏览 · 当前在「' + find(selected).name + '」';
-  document.querySelectorAll('#panel-nodes .row').forEach(b => b.classList.toggle('seen', viewed.has(b.dataset.node)));
 }
 function render() { renderStrip(); renderExhibit(); renderChips(); renderTour(); }
 $('resume-go').addEventListener('click', () => choose(selected));
+$('start-main').addEventListener('click', openRoutes);
+$('start-ask').addEventListener('click', () => { homeQ.focus(); homeQ.scrollIntoView({ block: 'center', behavior: motion() }); });
+$('start-browse').addEventListener('click', () => { choose(selected); addMessage('小征', '好的，你可以用上方的节点条按时间自由浏览，也可以随时问我。现在是 ' + find(selected).date + ' 的「' + find(selected).name + '」。', [], { quiet: true, actions: stopActions(find(selected)) }); });
+if (TTS) { $('tts-toggle').hidden = false; $('tts-toggle').setAttribute('aria-pressed', String(ttsOn)); $('tts-toggle').addEventListener('click', () => setTts(!ttsOn)); }
 
 /* ---------- 导览 ---------- */
 function makeSummary(seen) { return '长征路上 · 参观小结\n\n本次打开过 ' + seen.length + ' 个节点：' + seen.map(n => n.name).join('、') + '。\n\n' + seen.map(n => n.date + ' · ' + n.name + '\n' + n.text + '\n资料：' + n.source + '\n' + n.url).join('\n\n') + '\n\n说明：节点图为示意，不代表各路红军的完整路线。'; }
@@ -517,7 +635,8 @@ function applyPlan(ids, reason, name) {
   if (route[0] === selected) { chatHistory = []; contextVersion++; }
   selectNode(route[0]); visited.add(selected); shownKey = null;
   setView('session'); setPane('read'); syncHash(); $('read-pane').scrollTo({ top: 0 }); window.scrollTo({ top: 0 });
-  addMessage('小征', '好的，我们按这条路线参观：' + route.map(id => find(id).name).join(' → ') + '。' + (reason ? reason + '。' : '') + '\n现在从「' + find(selected).name + '」开始，读完讲解有疑问就问我，准备好了点「下一站」。', [], { quiet: true });
+  const first = find(selected), firstDec = decisionOf(first.id) && !decided.has(first.id);
+  addMessage('小征', '好的，我们按这条路线参观：' + route.map(id => find(id).name).join(' → ') + '。' + (reason ? reason + '。' : '') + '\n第一站是 ' + first.date + ' 的「' + first.name + '」。' + (firstDec ? '这里有一个抉择时刻，先想一想再看讲解。' : '讲解区有这一站的经过和原文出处，读完有疑问随时问我。'), [], { quiet: true, actions: stopActions(first) });
   $('tour-name').focus({ preventScroll: true });
 }
 function advance(skip) {
@@ -529,16 +648,31 @@ function advance(skip) {
   if (index === route.length - 1) {
     const seen = [...visited].map(find).filter(Boolean); const refs = [...new Map(seen.map(n => [n.url, { title: n.source, url: n.url }])).values()];
     summaryText = makeSummary(seen); finished = true;
-    addMessage('小征', '参观结束。你打开过 ' + seen.length + ' 个节点：' + seen.map(n => n.name).join('、') + '。\n\n回顾：\n' + seen.map(n => n.date + ' · ' + n.name + '：' + n.text).join('\n\n') + '\n\n可以复制或下载小结，也可以继续提问。', refs);
+    const first = seen[0], last = seen[seen.length - 1];
+    addMessage('小征', '参观结束。这一路你走过 ' + seen.length + ' 站：' + seen.map(n => n.name).join(' → ') + (first && last && first !== last ? '，从 ' + first.date + ' 到 ' + last.date : '') + '。\n\n回顾：\n' + seen.map(n => n.date + ' · ' + n.name + '：' + n.text).join('\n\n') + '\n\n可以复制或下载小结，也可以继续提问。', refs, { actions: [{ label: '换一条路线', primary: true, run: () => { goHome(); openRoutes(); } }, { label: '复制小结', run: () => $('copy-summary').click() }] });
     render(); return;
   }
   const prev = find(selected); selectNode(route[index + 1]); const next = find(selected);
-  addMessage('小征', (skip ? '已跳过「' + prev.name + '」。' : '接下来，') + '我们来到「' + next.name + '」。' + (next.text || ''), next.url ? [{ title: next.source || '查阅资料', url: next.url }] : [], { quiet: true });
+  addMessage('小征', transition(prev, next, skip), [], { quiet: true, actions: stopActions(next) });
   render(); syncHash(); $('read-pane').scrollTo({ top: 0, behavior: motion() }); if (mobile()) window.scrollTo({ top: 0, behavior: motion() });
+}
+function transition(prev, next, skip) {
+  const pos = route.indexOf(next.id), left = route.length - pos - 1;
+  const from = skip ? '跳过「' + prev.name + '」，' : '从「' + prev.name + '」（' + prev.date + '）继续前行，';
+  const pending = decisionOf(next.id) && !decided.has(next.id);
+  const where = '来到' + (next.date ? ' ' + next.date + ' 的' : '') + '「' + next.name + '」' + (pending ? '。' : '：' + (next.title || next.name) + '。');
+  const rest = left > 0 ? '这是路线第 ' + (pos + 1) + ' 站，之后还有 ' + left + ' 站。' : '这是路线的最后一站。';
+  return from + where + rest + (pending ? '这里有一个抉择时刻：先看看当时的处境，想一想你会怎么选。' : '讲解区有这一站的经过和原文出处，读完有疑问随时问我。');
+}
+function runAction(action) {
+  if (!action || typeof action !== 'object') return;
+  if (action.type === 'goto' && find(action.node)) choose(action.node);
+  else if ((action.type === 'next' || action.type === 'skip') && route.length && !finished) { advance(action.type === 'skip'); if (mobile()) setPane('read'); }
+  else if (action.type === 'route') { const r = ROUTES.find(x => x.key === action.route); const ids = r ? routeFor(r.key) : []; if (ids.length) applyPlan(ids, '', r.title); }
 }
 $('next').addEventListener('click', () => advance(false));
 $('skip').addEventListener('click', () => advance(true));
-$('restart').addEventListener('click', () => { goHome(); setTab('routes'); });
+$('restart').addEventListener('click', () => { goHome(); openRoutes(); });
 
 /* AI 规划 */
 function setPlanNote(text, err = false) { const note = $('plan-status'); note.textContent = text || 'AI 会在现有 ' + nodes.length + ' 个节点中挑选 3 站，并按时间排序。'; note.classList.toggle('err', err); }
@@ -553,7 +687,7 @@ $('custom-plan').addEventListener('click', async () => {
     const data = await fetchJSON('/api/plan', { preference, length: len }); if (version !== planVersion) return; const ids = data.route;
     if (!Array.isArray(ids) || !ids.length || ids.length !== (len === 'short' ? 3 : nodes.length) || new Set(ids).size !== ids.length || ids.some(id => typeof id !== 'string' || !find(id)) || ids.some((id, i) => i > 0 && indexOf(id) <= indexOf(ids[i - 1]))) throw new Error('规划结果不完整，请重试或选择上方的推荐路线。');
     const reason = typeof data.reason === 'string' ? data.reason.trim().slice(0, 200).replace(/[。！？!?]+$/, '') : '';
-    setPlanNote(''); applyPlan(ids, reason, 'AI 规划路线'); status.textContent = '已生成建议路线，请检查节点是否符合你的想法。';
+    setPlanNote(''); closeRoutes(); applyPlan(ids, reason, 'AI 规划路线'); status.textContent = '已生成建议路线，请检查节点是否符合你的想法。';
   } catch (err) { if (version === planVersion) setPlanNote(err.message || '规划暂时不可用，可选择上方的推荐路线。', true); }
   finally { planning = false; $('custom-plan').disabled = false; $('custom-plan').removeAttribute('aria-busy'); }
 });
@@ -577,6 +711,9 @@ function addMessage(who, text, sources = [], opts = {}) {
   const refs = el('div', 'refs'); for (const s of sources) { const u = safeLink(s.url); if (u) refs.append(srcLink(u, s.title || '查看资料', 'ref')); } if (refs.childNodes.length) body.append(refs);
   const ex = sources.filter(s => typeof s.excerpt === 'string' && s.excerpt.trim());
   if (ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); body.append(d); }
+  const follow = (opts.followups || []).filter(q => typeof q === 'string' && q.trim()).slice(0, 2);
+  if (follow.length) { const box = el('div', 'followups'); for (const q of follow) { const c = el('button', 'chip', q); c.type = 'button'; c.addEventListener('click', () => askChip(q)); box.append(c); } body.append(box); }
+  if (opts.actions && opts.actions.length) { messages.querySelectorAll('.quick button').forEach(b => { b.disabled = true; }); const box = el('div', 'quick'); for (const a of opts.actions) { const b = el('button', 'btn ' + (a.primary ? 'btn-primary' : 'btn-ghost'), a.label); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; a.run(); }); box.append(b); } body.append(box); }
   if (opts.retry) { const r = el('button', 'btn btn-ghost retry', '重试这个问题'); r.type = 'button'; r.addEventListener('click', () => { if (busy) return; const cur = input.value.trim(); if (cur && (cur !== opts.retry || selected !== opts.retryNode)) { status.textContent = '输入框已有未发送的问题，请先处理后再重试。'; input.focus(); return; } if (opts.retryNode && selected !== opts.retryNode) choose(opts.retryNode, { keepPane: true }); r.disabled = true; input.value = ''; autosize(input); ask(opts.retry); }); body.append(r); }
   row.append(body); messages.append(row); scrollToMsg(row);
   if (!mine && !opts.quiet && mobile() && view === 'session' && pane !== 'chat') $('chat-dot').hidden = false;
@@ -607,16 +744,19 @@ async function ask(question) {
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id, { keepPane: true }); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
   busy = true; shownKey = null; renderExhibit(); renderChips(); $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); status.textContent = '小征正在查阅资料并思考…';
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
-  let payload = JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior });
-  while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior }); }
+  const tour = route.length ? { route, visited: [...visited] } : undefined;
+  const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour });
+  let payload = build();
+  while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
   const typing = showTyping();
   try {
     const data = await fetchJSON('/api/chat', JSON.parse(payload)); typing.remove();
     if (typeof data.answer !== 'string' || !data.answer.trim()) throw new Error('暂未获得回答，请换个问法试试。');
-    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { node: find(questionNode)?.name || '未知' });
+    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { node: data.type === 'history' || !data.type ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [] });
     markQuestionAnswered(questionNode, question);
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
+    if (requestVersion === contextVersion) runAction(data.action);
   } catch (err) {
     typing.remove(); const sameContext = requestVersion === contextVersion; if (sameContext && err.code === 'HISTORY_INVALID') chatHistory = []; if (sameContext && !input.value) { input.value = question; autosize(input); } updateCount();
     addMessage('小征', err.message || '连接失败，请稍后再试。', [], { node: find(questionNode)?.name || '未知', error: true, retry: err.notConfigured || err.code === 'SESSION_INVALID' ? null : question, retryNode: questionNode });
