@@ -20,6 +20,12 @@ npm run check:sources
 DEEPSEEK_API_KEY=你的密钥 npm run eval
 ```
 
+回答依据审计：用常规题、诱导编造题和多轮施压题检查回答是否只来自知识库，逐句比对所引资料并标出可疑句子，生成《回答依据审计-日期》：
+
+```sh
+DEEPSEEK_API_KEY=你的密钥 npm run audit
+```
+
 本地预览打开 `http://127.0.0.1:4173`。本地预览默认不载入 API 密钥，能浏览页面和路线，模型问答会提示尚未配置；不要把密钥写入源码或前端。线上密钥由 Sites 服务端环境变量管理，包含 `DEEPSEEK_API_KEY` 和独立随机的 `HISTORY_SIGNING_KEY`；不得写入源码或前端。
 
 ## 代码与材料
