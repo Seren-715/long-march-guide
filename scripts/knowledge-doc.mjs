@@ -1,4 +1,5 @@
 import {nodes} from '../src/data.js';
+import {stories} from '../src/stories.js';
 import {writeFile} from 'node:fs/promises';
 const extraCount=nodes.reduce((sum,n)=>sum+(n.extra||[]).length,0);
 const lines=['# 知识库说明','', `本版包含以下 ${nodes.length} 个经过整理的历史节点；条目只覆盖所列事实，不代表完整长征史。核对日期：2026-11-14。`, '', '| 节点 | 日期 | 项目条目 | 资料来源 |','| --- | --- | --- | --- |',...nodes.map(n=>`| ${n.name} | ${n.date} | ${n.text}${(n.extra||[]).map(e=>' '+e.text).join('')} | [${n.source}](${n.url})${(n.extra||[]).map(e=>'；['+e.source+']('+e.url+')').join('')} |`),'',
@@ -11,4 +12,5 @@ const lines=['# 知识库说明','', `本版包含以下 ${nodes.length} 个经�
 '- 红四方面军长征起点有“1935 年 3 月强渡嘉陵江”和“1935 年 5 月撤离川陕苏区”两种口径；本库采用 3 月强渡嘉陵江的表述。',
 '- 将台堡今属宁夏西吉；会宁、将台堡是 1936 年三军会师地，不是中央红军主力的终点。','',
 '资料可能变更或失效，提交前应逐条复核文章可访问性与对应事实。'].join('\n');
-await writeFile(new URL('../docs/知识库说明.md',import.meta.url),lines);
+const storyPart=['','## 长征故事','',`另收 ${stories.length} 个有来源的真人真事（src/stories.js），挂在相应节点上，在讲解区“长征故事”中展示；已审核（reviewed: true）的故事同时作为小征回答时可引用的资料。课文、小说的文学化改写不收。`,'','| 故事 | 节点 | 日期 | 内容 | 来源 | 提示 |','| --- | --- | --- | --- | --- | --- |',...stories.map(st=>`| ${st.title}${st.reviewed?'':'（草稿）'} | ${nodes.find(n=>n.id===st.node)?.name||st.node} | ${st.date} | ${st.text} | [${st.source}](${st.url}) | ${st.note||''} |`)].join('\n');
+await writeFile(new URL('../docs/知识库说明.md',import.meta.url),lines+'\n'+storyPart+'\n');

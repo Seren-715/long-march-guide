@@ -8,9 +8,10 @@
 
 import { writeFile } from 'node:fs/promises';
 import { nodes } from '../src/data.js';
+import { stories } from '../src/stories.js';
 
 const THRESHOLD = Number(process.env.KB_THRESHOLD) || 0.8;
-const entries = nodes.flatMap(n => [{ id: n.id, text: n.text, source: n.source, url: n.url }, ...(n.extra || []).map(e => ({ ...e }))]);
+const entries = [...nodes.flatMap(n => [{ id: n.id, text: n.text, source: n.source, url: n.url }, ...(n.extra || []).map(e => ({ ...e }))]), ...stories.map(st => ({ id: st.id, text: st.text, source: st.source, url: st.url }))];
 const urls = [...new Set(entries.map(e => e.url))];
 
 function decode(buf, contentType) {

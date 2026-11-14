@@ -38,6 +38,7 @@ npm run check:kb
 
 - `src/data.js`：节点、资料与建议问题。
 - `src/page.html`：交互界面。
+- `src/stories.js`：长征故事（真人真事），挂在节点上展示，已审核的同时作为问答资料；只收有权威来源的报道或党史叙述，`reviewed` 规则同上。
 - `scripts/map/build_map.py`：沙盘鸟瞰图的 Blender 建模与渲染脚本，输出 `src/assets/longmarch-map.webp` 和 `src/map-layout.json`。重新生成：`python -m venv venv && ./venv/bin/pip install bpy numpy && ./venv/bin/python scripts/map/build_map.py`（只更新坐标可加 `--no-render`）。这是地形示意，不画边界、不标行政区。
 - `src/guide-content.js`：“抉择时刻”与每站小题。只能依据 `src/data.js` 的资料撰写并注明资料 ID；`reviewed: false` 的条目为草稿，页面默认不显示，在网址后加 `?draft=1` 可预览，人工对照原文核对后改为 `true` 即上线。`npm test` 会检查资料 ID、答案序号，以及文字中的数字是否出现在所列资料中。
 - `src/server.js`：Worker 请求处理与模型调用。
