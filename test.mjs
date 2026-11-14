@@ -4,7 +4,7 @@ import { nodes } from './src/data.js';
 const sessionId='123e4567-e89b-42d3-a456-426614174000';
 const env={DEEPSEEK_API_KEY:'test',HISTORY_SIGNING_KEY:'test-signing-key-for-unit-tests'};
 const make=(body,headers={})=>new Request('http://localhost/api/chat',{method:'POST',headers:{'content-type':'application/json',...headers},body:typeof body==='string'?body:JSON.stringify({sessionId,...body})});
-let res=await worker.fetch(new Request('http://localhost/'),{});assert.equal(res.status,200);const html=await res.text();assert.match(html,/吴起镇/);assert.match(html,/将台堡/);assert.match(html,/腊子口/);assert.match(html,/夹金山/);assert.match(html,/直罗镇/);assert.doesNotMatch(html,/__DATA__/);
+let res=await worker.fetch(new Request('http://localhost/'),{});assert.equal(res.status,200);const html=await res.text();assert.match(html,/吴起镇/);assert.match(html,/将台堡/);assert.match(html,/腊子口/);assert.match(html,/夹金山/);assert.match(html,/直罗镇/);assert.doesNotMatch(html,/__DATA__/);assert.doesNotMatch(html,/__NODE_COUNT__|__SOURCE_COUNT__/);assert.match(html,new RegExp('content="[^"]*'+nodes.length+' 个历史节点、'+nodes.reduce((s,n)=>s+1+(n.extra||[]).length,0)+' 条整理史料'));
 assert.ok(nodes.length>=14);assert.equal(new Set(nodes.map(n=>n.id)).size,nodes.length);
 const extraIds=nodes.flatMap(n=>(n.extra||[]).map(e=>e.id));assert.equal(new Set(extraIds).size,extraIds.length);
 for(const n of nodes){assert.ok(n.id&&n.name&&n.text&&n.source&&n.url);assert.match(n.url,/^https?:\/\//);assert.ok(Array.isArray(n.questions)&&n.questions.length>=1);for(const e of n.extra||[]){assert.ok(e.id&&e.text&&e.source&&e.url);assert.match(e.url,/^https?:\/\//);}}
