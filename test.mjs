@@ -221,6 +221,25 @@ body=await (await worker.fetch(make({question:'遵义会议什么时候开的',n
 log=script([toolReply([toolCall('search_materials',{query:'彝海结盟'}),toolCall('read_materials',{ids:['wuqi_summary','nope']},'c2')]),reply({type:'history',answer:'中央红军行程 2.5 万里到达陕北。',sources:['wuqi_summary']})]);
 body=await (await worker.fetch(make({question:'走了多少里',node:'start',free:true}),env)).json();
 assert.match(log[1].messages.at(-2).content,/luding_yihai/);assert.match(log[1].messages.at(-1).content,/2\.5 万里/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['wuqi_summary']);assert.match(body.steps[0].text,/检索“彝海结盟”/);
+// 常用称谓可检索到对应人物，不改变资料原文。
+log=script([toolReply([toolCall('search_materials',{query:'周总理'})]),reply({type:'history',answer:'周恩来病倒后由担架队抬过草地。',sources:['story_zhou_enlai']})]);
+body=await (await worker.fetch(make({question:'周总理过草地',node:'start',free:true}),env)).json();
+assert.match(log[1].messages.at(-1).content,/周恩来/);assert.match(body.answer,/担架队/);
+// 已有证据却漏写 sources 时，提醒模型补全，不能由服务端猜测引用。
+log=script([reply({type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:[]}),reply({type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})]);
+body=await (await worker.fetch(make({question:'遵义会议什么时候开的',node:'zunyi'}),env)).json();
+assert.equal(log.length,2);assert.deepEqual(body.sources.flatMap(s=>s.ids),['zunyi']);
+// 引用直接资料可解释草地伤亡原因，仍不能把相关原因自行排出主次。
+log=script([reply({type:'history',answer:'过草地时许多战士因为饥饿、寒冷、疾病和沼泽牺牲。',sources:['caodi_losses']})]);
+body=await (await worker.fetch(make({question:'为什么过草地有战士牺牲',node:'caodi'}),env)).json();assert.match(body.answer,/饥饿/);assert.equal(log.length,1);
+log=script([reply({type:'history',answer:'过草地时许多战士牺牲，主要因为饥饿。',sources:['caodi_losses']})]);
+body=await (await worker.fetch(make({question:'为什么过草地有战士牺牲',node:'caodi'}),env)).json();assert.match(body.answer,/资料不足/);
+// 大炮损失不应误判为草地人员伤亡。
+log=script([reply({type:'history',answer:'彭德怀说宁可损失一百门大炮，也要把因肝脓疡病倒的周恩来抬出去。',sources:['story_zhou_enlai']})]);
+body=await (await worker.fetch(make({question:'周恩来过草地发生了什么',node:'caodi'}),env)).json();assert.match(body.answer,/大炮/);assert.equal(log.length,1);
+// 不将各路长征总体跨两年误写为红二方面军自身历时两年。
+log=script([reply({type:'history',answer:'红二方面军1935年11月至1936年10月，红四方面军1935年3月至1936年10月，都历时约两年。',sources:['start_route_dates']})]);
+body=await (await worker.fetch(make({question:'长征为什么有一年也有两年的说法？',node:'start'}),env)).json();assert.match(body.answer,/资料不足/);
 // 页面操作：定制路线按时间排序；出题不泄露；一次回答只执行第一个操作
 log=script([toolReply([toolCall('plan_route',{nodes:['lazikou','xiangjiang','luding','nope'],title:'险战速览'})]),reply({type:'chat',answer:'排好了，马上出发。',sources:[]})]);
 body=await (await worker.fetch(make({question:'我只有十分钟',node:'start',free:true}),env)).json();assert.deepEqual(body.action,{type:'plan',route:['xiangjiang','luding','lazikou'],title:'险战速览'});assert.match(body.steps[0].text,/规划路线：湘江 → 泸定桥 → 腊子口/);

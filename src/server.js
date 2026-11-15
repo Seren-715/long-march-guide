@@ -63,7 +63,9 @@ const TOOLS=[
 const materialLines=list=>list.map(e=>`[${e.id}] ${e.name}：${e.text}`).join('\n');
 const gramsOf=s=>{const x=String(s).replace(/[\s，。、；：！？“”‘’（）《》·—…,.;:!?"'()\-]/g,'');const out=new Set();for(let i=0;i<x.length-1;i++)out.add(x.slice(i,i+2));if(x.length===1)out.add(x);return out;};
 function searchEvidence(query){
-  const grams=[...gramsOf(query)];if(!grams.length)return [];
+  const aliases=[['周总理','周恩来'],['毛主席','毛泽东'],['朱总司令','朱德'],['彝海会盟','彝海结盟']];
+  let expanded=query;for(const [alias,name] of aliases)expanded=expanded.replaceAll(alias,name);
+  const grams=[...new Set([...gramsOf(query),...gramsOf(expanded)])];if(!grams.length)return [];
   return evidence.map(e=>{const hay=e.name+e.text;let score=0;for(const g of grams){if(e.name.includes(g))score+=3;else if(hay.includes(g))score+=1;}return {e,score};}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.e);
 }
 function runTool(name,args,state){
@@ -153,8 +155,10 @@ function unsupportedTitles(answer,ids,question){
 function observedRisks(answer,ids,question){
   const compact=squash(answer), q=squash(question), issues=[];
   const cited=ids.map(id=>evidence.find(e=>e.id===id)?.text||'').join('');
-  if ((/草地/.test(compact)||/草地/.test(q)) && /(?:损失|伤亡|牺牲|死亡).{0,24}(?:主要|因为|由于|导致)/.test(compact) && !/(?:资料|记载).{0,12}(?:未说明|没有说明|不足)/.test(compact)) issues.push('资料未说明草地损失的主要原因，不要据环境和补给困难自行归因');
+  const casualties=compact.replace(/损失(?:\d+|[零〇一二两三四五六七八九十百千万]+)门(?:大炮|炮)/g,'');
+  if ((/草地/.test(compact)||/草地/.test(q)) && /(?:损失|伤亡|牺牲|死亡).{0,24}(?:主要|因为|由于|导致)/.test(casualties) && (!ids.includes('caodi_losses')||/主要/.test(casualties)) && !/(?:资料|记载).{0,12}(?:未说明|没有说明|不足)/.test(compact)) issues.push('请引用直接说明伤亡原因的资料，不要推断主要原因');
   if (/1934年11月下旬至12月初/.test(compact) && /三道封锁线/.test(compact)) issues.push('三道封锁线对应的时间是1934年10月下旬至12月初，不能更改时段');
+  if (/红二方面军.{0,80}(?:历时|走了|用了|持续|长征)(?:约|近|将近|大约)?两年/.test(compact)) issues.push('红二方面军长征为1935年11月至1936年10月，不能说历时两年；两年是1934年至1936年各路长征的总体时段');
   if (/伤亡|死亡|牺牲/.test(q) && /湘江/.test(compact) && /(?:8\.6|8．6)/.test(compact) && /3万/.test(compact)) issues.push('伤亡问题中不要使用从出发到突破封锁后的兵力变化代替湘江单场战役伤亡；可说明资料没有给出战役伤亡人数');
   if (/塔山湾/.test(compact) && !/塔山湾/.test(cited)) issues.push('关于塔山湾的表述没有引用相应资料');
   if (/事实上确立.{0,24}领导地位/.test(compact) && !/事实上确立.{0,24}领导地位/.test(squash(cited))) issues.push('关于事实上确立领导地位的表述缺少支持该事实的资料');
@@ -272,7 +276,8 @@ export default {async fetch(request, env) {
 ${free?'观众在首页直接提问，没有正在参观的节点；请根据问题本身，用工具选取相关资料作答。':`当前参观节点是 ${current.name}（${current.id}）。${visit}`}
 
 一、工作方式：你手里只有资料目录和下方“已取出的资料”。目录里每条资料只列出开头几个字，用来判断该取哪些，不能当作依据。回答历史问题前，先判断已取出的资料够不够；不够就调用 read_stop（按节点取全部资料）、read_materials（按资料 ID 取若干条）或 search_materials（按关键词检索），可以多次调用，直到能回答或确认资料里没有。涉及总体情况（总里程、总时间、胜利结束）、多支部队或多个节点的问题，要把目录里相关的资料都取出来再答。不要凭记忆作答：sources 只能填本次已取出的资料 ID，其余一律无效。需要操作页面时调用对应工具，不要只在文字里说“带你去”。可以在同一轮里同时调用多个取资料的工具；页面操作每次回答只做一个。
-二、最终回答先判断问题类型 type：
+二、先确定观众实际问了什么，直接回答该问题，不自行增加需要逐项回答的额外问题或相关话题。单一事实问题优先用一两句话回答；除非用户要求展开，否则不堆砌其他人物、事件和背景。例如用户只问某条河在哪里，就只回答其地理位置，不主动讲渡河过程、时间、意义或资料缺口。只有用户实际问到的部分缺少依据，才说明该部分资料不足；不要因为你自己想到的延伸问题缺少资料而拒答。用户问题有多项时，保留有依据的答案，只指出实际被问到且无法回答的部分。
+最终回答先判断问题类型 type：
 - "history"：与长征相关的史实、原因、意义、比较、总结等问题；问候、感谢里同时提出了这类问题的，也按 history 回答其中的历史部分。只依据已取出的资料作答，逐项回答用户提出的各个问题；用户明确问到的某一项在资料中没有依据时，简短说明这一项资料里没有具体提到，不得遗漏也不得编造；用户没有问到的内容，不要主动提“资料没有记载”“其他细节资料中没有”“资料有限”之类的话，直接讲资料里有的即可，结尾也不要加这类声明。尽量沿用资料原文的说法；资料未说明的事实必须明确说不知道，不得猜测或编造，可以同时给出资料里相关的事实。不要自行推算时间间隔、数量或比例，不要做资料之外的评价、假设或推测。sources 必须列出回答中每一项事实所依据的资料 ID；不可用没有支持该事实的资料代替。严格保留时间、部队、事件及人数的适用范围，不把长征初期的兵力变化写成单场战役的伤亡数字。回答中的日期、数量等数字必须原样出自所引资料。
 - "chat"：单纯的问候、感谢、询问你是谁或本站怎么用。简短友好地回应，可介绍你能讲解的内容和操作方式；不陈述任何史实（包括时间、人物、事件和评价），sources 为空。不需要调用工具。
 - "off_topic"：与长征学习无关。礼貌说明你只讲解长征，并建议一个可以问的方向；sources 为空。不需要调用工具。
@@ -312,12 +317,13 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         result=checkReply(parsed,question,state.current,state.loaded);
         const failed=result.badNumbers.length||result.badTitles.length||result.risks.length;
         // 自称是历史回答却没有引用任何已取出的资料：提醒先查资料再答（只提醒一次）。
-        const unread=result.type==='history'&&!result.ids.length&&Array.isArray(parsed.sources)&&parsed.sources.length>0;
+        const abstained=/(?:资料|文献|记载|知识库).{0,20}(?:没有|未|不足|无法|尚无)/.test(parsed.answer);
+        const unread=result.type==='history'&&!result.ids.length&&((Array.isArray(parsed.sources)&&parsed.sources.length>0)||!abstained);
         if((unread&&!nudged)||(failed&&!corrected)){
           if(unread)nudged=true;else corrected=true;
-          const issues=unread?'你引用的资料还没有取出，请先调用 read_stop、read_materials 或 search_materials 取资料':[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:'',...result.risks].filter(Boolean).join('；');
+          const issues=unread?'你引用的资料还没有取出或尚未列出，请列出已查阅且支持回答的资料 ID；必要时调用 read_stop、read_materials 或 search_materials 取资料':[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:'',...result.risks].filter(Boolean).join('；');
           step({kind:'verify',text:unread?'核对出处：引用的资料尚未查阅，先去查资料':'核对未通过，重新作答',detail:unread?'':[result.badNumbers.length?'数字 '+result.badNumbers.join('、')+' 不在资料中':'',result.badTitles.length?'文件名与资料不一致':'',result.risks.length?'表述超出资料':''].filter(Boolean).join('；'),ok:false});
-          messages.push({role:'assistant',content},{role:'user',content:`系统校验：${issues}。请只使用所引资料中原样出现的数字和名称重新回答，不要自行推算；如果这些数字出自别的节点的资料，先用工具把那条资料取出来并列入 sources；资料没有的就说明不知道，仍输出同样格式的 JSON。`});
+          messages.push({role:'assistant',content},{role:'user',content:`系统校验：${issues}。请重新回答用户实际提出的问题，删除无关的延伸内容；只使用所引资料中原样出现的数字和名称，不要自行推算。如果用户问到的内容出自别的资料，先用工具取出并列入 sources；只有用户实际问到的内容确实缺少依据时才说明不知道。仍输出同样格式的 JSON。`});
           result=unread?null:result;
           continue;
         }
