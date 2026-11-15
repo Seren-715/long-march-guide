@@ -264,14 +264,13 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .art-nav{display:flex;justify-content:space-between;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border2)}
 .art-nav .btn{max-width:48%;overflow:hidden}
 
-.starts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 18px}
+.starts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 18px}
 .start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:var(--bg);transition:background .15s,border-color .15s,transform .15s}
-.start:hover{background:var(--hover);transform:translateY(-1px)}
-.start.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary);box-shadow:0 8px 24px color-mix(in srgb,var(--primary) 28%,transparent)}
-.start.primary:hover{background:var(--primary);opacity:.9}
+.start:focus-visible,.start:active{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+@media (hover:hover){.start:hover{background:var(--primary);color:var(--on-primary);border-color:var(--primary);transform:translateY(-1px)}.start:hover span{color:inherit}}
+.start:focus-visible span,.start:active span{color:inherit}
 .start b{font-size:15px;font-weight:600}
 .start span{font-size:12px;color:var(--text3)}
-.start.primary span{color:inherit;opacity:.7}
 .or{display:flex;align-items:center;gap:12px;margin:0 0 14px;font-size:12px;color:var(--text3)}
 .or:before,.or:after{content:"";flex:1;height:1px;background:var(--border2)}
 .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
@@ -363,8 +362,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <h1>今天想了解<em>长征</em>的哪一段？</h1>
 <p class="home-sub">我是 AI 讲解员小征。可以跟我逐站参观，也可以直接提问——回答只依据整理好的 <span data-count="sources">__SOURCE_COUNT__</span> 条节点资料，并附上出处。</p>
 <div class="starts" role="group" aria-label="开始方式">
-<button type="button" class="start primary" id="start-main" aria-haspopup="dialog"><b>跟着小征参观</b><span>选一条路线，逐站讲解</span></button>
-<button type="button" class="start" id="start-ask"><b>我有问题想问</b><span>回答附原文出处</span></button>
+<button type="button" class="start" id="start-main" aria-haspopup="dialog"><b>跟着小征参观</b><span>选一条路线，逐站讲解</span></button>
 <button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
 <button type="button" class="start" id="start-people" aria-haspopup="dialog"><b>人物视角</b><span>从人物故事认识长征</span></button>
 </div>
@@ -783,7 +781,6 @@ function renderMap() {
 function render() { renderStrip(); renderMap(); renderExhibit(); renderChips(); renderTour(); }
 $('resume-go').addEventListener('click', () => choose(selected));
 $('start-main').addEventListener('click', openRoutes);
-$('start-ask').addEventListener('click', () => { homeQ.focus(); homeQ.scrollIntoView({ block: 'center', behavior: motion() }); });
 $('start-browse').addEventListener('click', () => { setMapOpen(true); choose(selected); addMessage('小征', '好的，你可以点沙盘上的地点，或用上方的节点条按时间自由浏览，也可以随时问我。现在是 ' + find(selected).date + ' 的「' + find(selected).name + '」。', [], { quiet: true, actions: stopActions(find(selected)) }); });
 if (TTS) { $('tts-toggle').hidden = false; $('tts-toggle').setAttribute('aria-pressed', String(ttsOn)); $('tts-toggle').addEventListener('click', () => setTts(!ttsOn)); }
 
