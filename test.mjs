@@ -140,6 +140,27 @@ body=await (await worker.fetch(make({question:'毛儿盖会议通过了什么？
 globalThis.fetch=async()=>reply({type:'history',answer:'遵义会议通过了《遵义宣言》。',sources:['zunyi']});
 body=await (await worker.fetch(make({question:'遵义会议通过了什么文件？',node:'zunyi'}),env)).json();assert.match(body.answer,/资料不足/);
 
+// 已观察问题：无依据的草地主要伤亡原因、跨时段数字和漏引用均须重试或保守拒答。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'过草地损失大，主要因为草地环境险恶、粮食断绝。',sources:['caodi']})};
+body=await (await worker.fetch(make({question:'红军过草地为什么损失很大？',node:'caodi'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1?{type:'history',answer:'1934年11月下旬至12月初，红军连续突破三道封锁线。',sources:['xiangjiang_lines']}:{type:'history',answer:'1934年10月下旬至12月初，中央红军连续突破三道封锁线。',sources:['xiangjiang_lines']})};
+body=await (await worker.fetch(make({question:'红军何时突破封锁线？',node:'xiangjiang'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/10月下旬/);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'红四方面军从塔山湾强渡嘉陵江。',sources:['start']})};
+body=await (await worker.fetch(make({question:'各路红军都从瑞金出发吗？',node:'start'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'遵义会议事实上确立了毛泽东在党中央和红军的领导地位。',sources:['zunyi']})};
+body=await (await worker.fetch(make({question:'遵义会议为什么重要？',node:'zunyi'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'湘江战役后中央红军由出发时的8.6万余人减至3万余人。',sources:['xiangjiang_lines']})};
+body=await (await worker.fetch(make({question:'湘江战役伤亡多少人？',node:'xiangjiang'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);
+
+// 已引用到支持条目或明确保留资料边界时，不应被这些定向规则拦截。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'红四方面军从塔山湾强渡嘉陵江。',sources:['huining_red4']})};
+body=await (await worker.fetch(make({question:'红四方面军怎样开始长征？',node:'huining'}),env)).json();assert.equal(attempts,1);assert.match(body.answer,/塔山湾/);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'资料未说明草地损失的主要原因；草地是沼泽，战士们断粮后寻找野菜充饥。',sources:['caodi']})};
+body=await (await worker.fetch(make({question:'草地损失的原因是什么？',node:'caodi'}),env)).json();assert.equal(attempts,1);assert.match(body.answer,/未说明/);assert.ok(body.sources.length);
+
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'不能推测伤亡人数。湘江战役中由出发时的8.6万余人减至3万余人。',sources:['xiangjiang_lines']})};
+body=await (await worker.fetch(make({question:'如果资料没有记录，能推测伤亡人数吗？',node:'jinsha'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);
+
 // —— 长征故事 ——
 {
   const nodeIds=new Set(nodes.map(n=>n.id));const kbIds=new Set(nodes.flatMap(n=>[n.id,...(n.extra||[]).map(e=>e.id)]));

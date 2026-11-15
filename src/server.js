@@ -68,6 +68,17 @@ function unsupportedTitles(answer,ids,question){
   const pool=squash(ids.map(id=>evidence.find(e=>e.id===id).text).join('')+question);
   return [...new Set([...String(answer).matchAll(/《([^》]{2,60})》/g)].map(m=>m[1]).filter(t=>!pool.includes(squash(t))))];
 }
+// 针对验收中已观察到的几类高风险表述做保守拦截；这不是通用事实核验。
+function observedRisks(answer,ids,question){
+  const compact=squash(answer), q=squash(question), issues=[];
+  const cited=ids.map(id=>evidence.find(e=>e.id===id)?.text||'').join('');
+  if ((/草地/.test(compact)||/草地/.test(q)) && /(?:损失|伤亡|牺牲|死亡).{0,24}(?:主要|因为|由于|导致)/.test(compact) && !/(?:资料|记载).{0,12}(?:未说明|没有说明|不足)/.test(compact)) issues.push('资料未说明草地损失的主要原因，不要据环境和补给困难自行归因');
+  if (/1934年11月下旬至12月初/.test(compact) && /三道封锁线/.test(compact)) issues.push('三道封锁线对应的时间是1934年10月下旬至12月初，不能更改时段');
+  if (/伤亡|死亡|牺牲/.test(q) && /湘江/.test(compact) && /(?:8\.6|8．6)/.test(compact) && /3万/.test(compact)) issues.push('伤亡问题中不要使用从出发到突破封锁后的兵力变化代替湘江单场战役伤亡；可说明资料没有给出战役伤亡人数');
+  if (/塔山湾/.test(compact) && !/塔山湾/.test(cited)) issues.push('关于塔山湾的表述没有引用相应资料');
+  if (/事实上确立.{0,24}领导地位/.test(compact) && !/事实上确立.{0,24}领导地位/.test(squash(cited))) issues.push('关于事实上确立领导地位的表述缺少支持该事实的资料');
+  return issues;
+}
 // 闲聊或无关回答不附出处，因此不得陈述史实：删除其中带史实迹象的陈述句，保留“你可以问我……”这类引导句。
 const HISTORY_HINT=/红[一二三四六]|红军|方面军|军团|会议|战役|战斗|会师|渡江|渡河|毛泽东|周恩来|朱德|张闻天|刘伯承|\d{4}\s*年/;
 const SUGGESTION=/可以问|想了解|不妨|比如|例如|你可以|带你|选择|路线|节点|问我|陪你/;
@@ -97,14 +108,14 @@ function checkReply(parsed,question,current){
   let answer=stripLinks(parsed.answer).slice(0,1200);
   // 自称闲聊却引用资料或带年份时，按历史问题处理，避免绕过来源要求。
   if(type!=='history'&&(ids.length||/\d{3,}/.test(answer)))type='history';
-  let badNumbers=[],badTitles=[];
+  let badNumbers=[],badTitles=[],risks=[];
   if(type==='history'){
     if(!ids.length||!answer){answer=NO_DATA;ids=[];}
-    else{badNumbers=unsupportedNumbers(answer,ids,question);badTitles=unsupportedTitles(answer,ids,question);}
+    else{badNumbers=unsupportedNumbers(answer,ids,question);badTitles=unsupportedTitles(answer,ids,question);risks=observedRisks(answer,ids,question);}
   }else{
     ids=[];answer=(dropUnsourcedFacts(answer)||'我是长征讲解员小征，可以问我长征相关的问题。').slice(0,300);
   }
-  return {type,ids,answer,badNumbers,badTitles,action:cleanAction(parsed.action,current),followups:cleanFollowups(parsed.followups,question)};
+  return {type,ids,answer,badNumbers,badTitles,risks,action:cleanAction(parsed.action,current),followups:cleanFollowups(parsed.followups,question)};
 }
 
 // 沙盘鸟瞰图（构建时由 scripts/generate.mjs 以 base64 填入）
@@ -190,15 +201,15 @@ ${context}`;
       let parsed=null;if(choice?.finish_reason!=='length'){try{parsed=JSON.parse(content)}catch{parsed=null}}
       if(!parsed||typeof parsed.answer!=='string'||!parsed.answer.trim())continue;
       result=checkReply(parsed,question,current.id);
-      if((result.badNumbers.length||result.badTitles.length)&&attempt===0){
-        const issues=[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:''].filter(Boolean).join('；');
+      if((result.badNumbers.length||result.badTitles.length||result.risks.length)&&attempt===0){
+        const issues=[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:'',...result.risks].filter(Boolean).join('；');
         messages=[...base,{role:'assistant',content},{role:'user',content:`系统校验：${issues}。请只使用所引资料中原样出现的数字和名称重新回答，不要自行推算，资料没有的就说明不知道，仍输出同样格式的 JSON。`}];
         continue;
       }
       break;
     }
     if(!result) return json({error:'讲解员回复格式异常，请重试。'},502);
-    if(result.badNumbers.length||result.badTitles.length){result.answer=NO_DATA;result.ids=[];}
+    if(result.badNumbers.length||result.badTitles.length||result.risks.length){result.answer=NO_DATA;result.ids=[];}
     const {type,ids,answer,action,followups}=result;
     const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
     const grouped=new Map();

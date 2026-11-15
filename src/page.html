@@ -264,7 +264,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .art-nav{display:flex;justify-content:space-between;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border2)}
 .art-nav .btn{max-width:48%;overflow:hidden}
 
-.starts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 18px}
+.starts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 18px}
 .start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:var(--bg);transition:background .15s,border-color .15s,transform .15s}
 .start:hover{background:var(--hover);transform:translateY(-1px)}
 .start.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary);box-shadow:0 8px 24px color-mix(in srgb,var(--primary) 28%,transparent)}
@@ -352,7 +352,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <header class="bar">
 <button type="button" class="brand" id="go-home" aria-label="长征路上，回到首页"><span class="seal" aria-hidden="true">征</span>长征路上</button>
 <div class="bar-mid" id="bar-mid"></div>
-<div class="bar-right"><button type="button" class="btn btn-text" id="tts-toggle" aria-pressed="false" hidden title="切换节点时自动朗读讲解">语音讲解</button><button type="button" class="btn btn-text" id="bar-about">资料说明</button></div>
+<div class="bar-right"><button type="button" class="btn btn-text" id="bar-people" aria-haspopup="dialog">人物</button><button type="button" class="btn btn-text" id="tts-toggle" aria-pressed="false" hidden title="切换节点时自动朗读讲解">语音讲解</button><button type="button" class="btn btn-text" id="bar-about">资料说明</button></div>
 </header>
 
 <main class="home" id="home">
@@ -364,6 +364,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <button type="button" class="start primary" id="start-main" aria-haspopup="dialog"><b>跟着小征参观</b><span>选一条路线，逐站讲解</span></button>
 <button type="button" class="start" id="start-ask"><b>我有问题想问</b><span>回答附原文出处</span></button>
 <button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
+<button type="button" class="start" id="start-people" aria-haspopup="dialog"><b>人物视角</b><span>从人物故事认识长征</span></button>
 </div>
 <form class="composer" id="home-form">
 <label class="sr-only" for="home-q">向小征提问</label>
@@ -385,6 +386,11 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="plan-row"><input class="input" id="preference" maxlength="200" placeholder="例如：我想看翻雪山、过草地那一段" enterkeyhint="go" aria-describedby="plan-status"><button type="button" class="btn btn-ghost" id="custom-plan">生成路线</button></div>
 <p class="plan-note" id="plan-status" role="status"></p></div>
 </div>
+</dialog>
+
+<dialog class="route-dialog" id="people-dialog" aria-labelledby="people-title">
+<div class="dialog-head"><div><h2 id="people-title">人物视角</h2><p>从已有故事出发，看看人物与哪些节点相关</p></div><button type="button" class="dialog-close" id="people-close" aria-label="关闭">×</button></div>
+<div class="dialog-body"><p class="plan-note">节点是讲解分类，不表示故事一定发生在该节点地点。只展示已有资料。</p><div id="people-list"></div><div id="person-detail" hidden></div></div>
 </dialog>
 
 <main class="session" id="session" data-pane="read" hidden>
@@ -504,6 +510,54 @@ function closeRoutes() { const d = $('route-dialog'); if (d.open) { if (d.close)
 $('route-dialog-close').addEventListener('click', closeRoutes);
 $('route-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeRoutes(); });
 $('bar-about').addEventListener('click', () => { if (view !== 'home') goHome(); setTimeout(() => $('about').scrollIntoView({ block: 'center', behavior: motion() }), 30); });
+
+/* ---------- 人物视角：仅关联经审核、明确提到人物的故事 ---------- */
+const PEOPLE = [
+  { name: '毛泽东', stories: ['story_zhu_de_zunyi', 'story_mao_lamp'] },
+  { name: '周恩来', stories: ['story_zhu_de_zunyi', 'story_mao_lamp', 'story_zhou_enlai'] },
+  { name: '朱德', stories: ['story_zhu_de_zunyi', 'story_mao_lamp'] },
+  { name: '张闻天', stories: ['story_zhang_wentian_zunyi'] },
+  { name: '邓小平', stories: ['story_deng_redstar'] },
+  { name: '张思德', stories: ['story_zhang_side_grass'] },
+  { name: '贺龙', stories: ['story_he_jiesheng', 'story_helong_renbishi'] },
+  { name: '刘伯承', stories: ['story_yihai'] },
+  { name: '贺子珍', stories: ['story_he_zizhen'] },
+  { name: '陈树湘', stories: ['story_chen_shuxiang'] }
+];
+function personStories(person) { return person.stories.map(id => STORIES.find(t => t.id === id && t.reviewed === true)).filter(t => t && find(t.node)); }
+function personList() {
+  const container = $('people-list'), detail = $('person-detail'); container.hidden = false; detail.hidden = true; detail.replaceChildren();
+  const ul = el('ul', 'rows');
+  for (const person of PEOPLE) {
+    const items = personStories(person); if (!items.length) continue;
+    const li = el('li'), b = el('button', 'row'), main = el('span', 'row-main'); b.type = 'button';
+    const names = [...new Set(items.map(t => find(t.node).name))];
+    main.append(el('span', 'row-title', person.name), el('span', 'row-sub', names.join(' · ')));
+    b.append(main, el('span', 'row-meta', items.length + ' 个故事'), chev()); b.addEventListener('click', () => personDetail(person)); li.append(b); ul.append(li);
+  }
+  container.replaceChildren(ul);
+}
+function personDetail(person) {
+  const detail = $('person-detail'); $('people-list').hidden = true; detail.hidden = false; detail.replaceChildren();
+  const back = el('button', 'btn btn-ghost', '← 返回人物'); back.type = 'button'; back.addEventListener('click', () => { personList(); $('people-list button')?.focus(); });
+  const title = el('h3', '', person.name + ' · 相关故事'); title.tabIndex = -1;
+  const info = el('p', 'plan-note', '请选择故事，进入对应的讲解节点；可在故事卡片查看原文出处。');
+  const ul = el('ul', 'rows');
+  for (const t of personStories(person)) {
+    const li = el('li'), b = el('button', 'row'), main = el('span', 'row-main'); b.type = 'button';
+    main.append(el('span', 'row-title', t.title), el('span', 'row-sub', find(t.node).name + ' · ' + t.date));
+    b.append(main, chev()); b.addEventListener('click', () => { closePeople(); choose(t.node); const pending = decisionOf(t.node) && !decided.has(t.node); if (pending) { addMessage('小征', '「' + t.title + '」收录在这一站。请先完成或跳过抉择，就能查看故事和出处。', [], { quiet: true }); reveal('decision-card'); } else { requestAnimationFrame(() => { const card = document.getElementById('story-' + t.id); if (card) { card.scrollIntoView({ block: 'center', behavior: motion() }); card.tabIndex = -1; card.focus({ preventScroll: true }); } }); } });
+    li.append(b); ul.append(li);
+  }
+  detail.append(back, title, info, ul); title.focus();
+}
+function openPeople() { personList(); const d = $('people-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); } requestAnimationFrame(() => $('people-list button')?.focus()); }
+function closePeople() { const d = $('people-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
+$('start-people').addEventListener('click', openPeople);
+$('bar-people').addEventListener('click', openPeople);
+$('people-close').addEventListener('click', closePeople);
+$('people-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closePeople(); });
+
 
 /* ---------- 节点条 ---------- */
 (function buildStrip() {
@@ -734,16 +788,22 @@ function advance(skip) {
     render(); return;
   }
   const prev = find(selected); selectNode(route[index + 1]); const next = find(selected);
-  addMessage('小征', transition(prev, next, skip), [], { quiet: true, actions: stopActions(next) });
+  const connection = skip ? null : connections[prev.id + '>' + next.id];
+  addMessage('小征', transition(prev, next, skip), connection ? connection.sources.map(evidenceOf).filter(Boolean) : [], { quiet: true, actions: stopActions(next) });
   render(); syncHash(); $('read-pane').scrollTo({ top: 0, behavior: motion() }); if (mobile()) window.scrollTo({ top: 0, behavior: motion() });
 }
+const connections = {
+  'tongdao>zunyi': { text: '通道转兵后，黎平会议调整了战略方针；猴场会议决定强渡乌江、攻占遵义。', sources: ['tongdao_liming', 'tongdao_houchang'] },
+  'zunyi>chishui': { text: '遵义会议后，1935 年 1 月下旬至 3 月，中央红军在川黔滇边境地区四渡赤水河。', sources: ['chishui'] }
+};
 function transition(prev, next, skip) {
   const pos = route.indexOf(next.id), left = route.length - pos - 1;
   const from = skip ? '跳过「' + prev.name + '」，' : '从「' + prev.name + '」（' + prev.date + '）继续前行，';
   const pending = decisionOf(next.id) && !decided.has(next.id);
   const where = '来到' + (next.date ? ' ' + next.date + ' 的' : '') + '「' + next.name + '」' + (pending ? '。' : '：' + (next.title || next.name) + '。');
   const rest = left > 0 ? '这是路线第 ' + (pos + 1) + ' 站，之后还有 ' + left + ' 站。' : '这是路线的最后一站。';
-  return from + where + rest + (pending ? '这里有一个抉择时刻：先看看当时的处境，想一想你会怎么选。' : '讲解区有这一站的经过和原文出处，读完有疑问随时问我。');
+  const connection = skip ? null : connections[prev.id + '>' + next.id];
+  return from + (connection ? connection.text : '') + where + rest + (pending ? '这里有一个抉择时刻：先看看当时的处境，想一想你会怎么选。' : '讲解区有这一站的经过和原文出处，读完有疑问随时问我。');
 }
 function runAction(action) {
   if (!action || typeof action !== 'object') return;
