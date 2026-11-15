@@ -408,7 +408,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <header class="bar">
 <button type="button" class="brand" id="go-home" aria-label="长征路上，回到首页"><span class="seal" aria-hidden="true">征</span>长征路上</button>
 <div class="bar-mid" id="bar-mid"></div>
-<div class="bar-right"><button type="button" class="btn btn-text" id="bar-people" aria-haspopup="dialog">人物</button><button type="button" class="btn btn-text" id="tts-toggle" aria-pressed="false" hidden title="切换节点时自动朗读讲解">语音讲解</button><button type="button" class="btn btn-text" id="bar-about">资料说明</button></div>
+<div class="bar-right"><button type="button" class="btn btn-text" id="return-chat" hidden>返回对话</button><button type="button" class="btn btn-text" id="bar-people" aria-haspopup="dialog">人物</button><button type="button" class="btn btn-text" id="tts-toggle" aria-pressed="false" hidden title="切换节点时自动朗读讲解">语音讲解</button><button type="button" class="btn btn-text" id="bar-about">资料说明</button></div>
 </header>
 
 <main class="home" id="home">
@@ -495,6 +495,7 @@ const fromHash = () => { try { return decodeURIComponent(location.hash.slice(1))
 const initialHash = fromHash();
 let selected = (find(initialHash) ? initialHash : nodes[0]?.id) || '';
 let view = 'home', pane = 'read', chatOnly = false, lastRelated = null;
+let hasFreeConversation = false, freeChatSnapshot = null;
 let route = [], routeName = '', completed = new Set(), visited = new Set(), viewed = new Set(), finished = false;
 let chatHistory = [], busy = false, contextVersion = 0, summaryText = '', planVersion = 0, planning = false;
 const askedByNode = new Map(), suggestionTurns = new Map();
@@ -657,7 +658,7 @@ $('strip').addEventListener('keydown', e => {
 
 /* ---------- 视图 ---------- */
 function setView(v) {
-  view = v; document.body.dataset.view = v; $('home').hidden = v !== 'home'; $('session').hidden = v !== 'session'; updateSelectionAudio();
+  view = v; document.body.dataset.view = v; $('home').hidden = v !== 'home'; $('session').hidden = v !== 'session'; updateSelectionAudio(); updateReturnChat();
   if (v === 'home') { renderHome(); window.scrollTo(0, 0); }
   else { render(); setPane(pane); }
 }
@@ -680,10 +681,21 @@ function renderSide() {
   if (mentioned.length) { const sec = el('div', 'side-sec'); sec.append(el('h3', '', '对话中提到的地点')); for (const id of mentioned) { const n = find(id); const b = el('button', 'side-place'); b.type = 'button'; b.append(el('i'), document.createTextNode(n.name), el('small', '', n.date)); b.addEventListener('click', () => choose(id)); sec.append(b); } side.append(sec); }
   const foot = el('p', 'side-foot'); foot.append(document.createTextNode('回答只依据整理好的 ' + sourceCount + ' 条史料并附出处。')); const ab = el('button', '', '资料说明 →'); ab.type = 'button'; ab.addEventListener('click', () => $('bar-about').click()); foot.append(ab); side.append(foot);
 }
+function updateReturnChat() { $('return-chat').hidden = !hasFreeConversation || (view === 'session' && chatOnly); }
 function setChatOnly(on) {
-  chatOnly = on; $('session').classList.toggle('chat-only', on); if (on) renderSide();
+  if (chatOnly && !on) { freeChatSnapshot = { node: selected, history: chatHistory.slice() }; contextVersion++; }
+  chatOnly = on; if (on) hasFreeConversation = true;
+  $('session').classList.toggle('chat-only', on); if (on) renderSide();
   if (on) { const mid = $('bar-mid'); mid.replaceChildren(el('span', 'crumb', '与小征对话')); }
+  updateReturnChat();
 }
+$('return-chat').addEventListener('click', () => {
+  if (!hasFreeConversation) return;
+  stopSpeaking(); if (freeChatSnapshot) { selected = freeChatSnapshot.node; chatHistory = freeChatSnapshot.history.slice(); }
+  contextVersion++; setChatOnly(true); setView('session'); setPane('chat');
+  if (location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} }
+  status.textContent = ''; input.focus({ preventScroll: true });
+});
 $('open-reading').addEventListener('click', () => choose(lastRelated && find(lastRelated) ? lastRelated : selected));
 // 由资料 ID 找到对应的讲解节点（节点本身、延伸资料、长征故事）
 function nodeOfSource(id) { if (find(id)) return id; for (const n of nodes) if ((n.extra || []).some(e => e.id === id)) return n.id; const t = STORIES.find(x => x.id === id); return t && find(t.node) ? t.node : null; }
@@ -694,7 +706,7 @@ function setPane(p) {
 }
 $('sw-read').addEventListener('click', () => setPane('read'));
 $('sw-chat').addEventListener('click', () => setPane('chat'));
-function goHome(push = true) { stopSpeaking(); spokenFor = null; setView('home'); if (push && location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} } }
+function goHome(push = true) { if (chatOnly) { freeChatSnapshot = { node: selected, history: chatHistory.slice() }; contextVersion++; } stopSpeaking(); spokenFor = null; setView('home'); if (push && location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} } }
 $('go-home').addEventListener('click', () => goHome());
 
 /* ---------- 选择节点 ---------- */
@@ -707,8 +719,8 @@ function syncHash() { if (selected && fromHash() !== selected) { try { history.p
 function choose(id, opts = {}) {
   if (!find(id)) return;
   if (planning) { planVersion++; setPlanNote('你已切换节点，本次规划结果将不应用。'); }
-  selectNode(id);
   if (chatOnly) setChatOnly(false);
+  selectNode(id);
   if (view !== 'session') setView('session'); else render();
   if (mobile() && !opts.keepPane) setPane('read');
   if (!opts.keepMap) { $('read-pane').scrollTo({ top: 0 }); if (mobile() && !opts.keepPane) window.scrollTo({ top: 0 }); }
@@ -872,6 +884,7 @@ if (TTS) { $('tts-toggle').hidden = false; $('tts-toggle').setAttribute('aria-pr
 /* ---------- 导览 ---------- */
 function makeSummary(seen) { return '长征路上 · 参观小结\n\n本次打开过 ' + seen.length + ' 个节点：' + seen.map(n => n.name).join('、') + '。\n\n' + seen.map(n => n.date + ' · ' + n.name + '\n' + n.text + '\n资料：' + n.source + '\n' + n.url).join('\n\n') + '\n\n说明：节点图为示意，不代表各路红军的完整路线。'; }
 function applyPlan(ids, reason, name) {
+  if (chatOnly) setChatOnly(false);
   route = ids; routeName = name || '我的路线'; completed = new Set(); visited = new Set(); summaryText = ''; finished = false; resetLabels();
   if (!route.length) { status.textContent = '暂无可用节点。'; return; }
   if (route[0] === selected) { chatHistory = []; contextVersion++; }

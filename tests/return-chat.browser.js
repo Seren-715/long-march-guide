@@ -1,0 +1,14 @@
+async page => {
+ let calls=[];await page.route('**/api/chat',async r=>{calls.push(r.request().postDataJSON());await r.fulfill({json:{answer:'测试对话回答',type:'history',sources:[{id:'zunyi',ids:['zunyi'],title:'资料',url:'https://www.12371.cn/'}],historyToken:'original-token'}})});
+ async function start(width){await page.setViewportSize({width,height:850});await page.goto('http://127.0.0.1:4173/');await page.locator('#home-q').fill('第一条问题');await page.locator('#home-form').evaluate(e=>e.requestSubmit());await page.locator('#send:not([disabled])').waitFor();await page.locator('#question').fill('未发送草稿');}
+ async function back(){if(!await page.locator('#return-chat').isVisible())throw Error('缺少返回按钮');await page.locator('#return-chat').click();if(!await page.locator('#session').evaluate(e=>e.classList.contains('chat-only')))throw Error('没有恢复对话模式');if(await page.locator('#question').inputValue()!=='未发送草稿')throw Error('草稿丢失');if(!(await page.locator('#messages').innerText()).includes('第一条问题'))throw Error('消息丢失');}
+ const passed=[];
+ await start(1440);await page.locator('#side-tools').getByRole('button',{name:/沙盘自由浏览/}).click();await back();passed.push('沙盘');
+ await page.locator('#side-tools').getByRole('button',{name:/抉择时刻/}).click();await back();passed.push('抉择');
+ await page.locator('#side-tools').getByRole('button',{name:/跟着小征参观/}).click();await page.locator('#route-rows').getByRole('button',{name:/转折与决策/}).click();if(await page.locator('#session').evaluate(e=>e.classList.contains('chat-only')))throw Error('路线未进入讲解');await back();passed.push('路线');
+ await page.locator('#side-tools').getByRole('button',{name:/人物视角/}).click();await page.locator('#people-list').getByRole('button',{name:/张闻天/}).click();await page.locator('#person-detail').getByRole('button',{name:/张闻天在遵义会议上发言/}).click();await back();passed.push('人物');
+ await page.getByRole('button',{name:'打开讲解：遵义'}).first().click();await back();passed.push('关联节点');
+ await page.locator('#question').fill('继续追问');await page.locator('#chat-form').evaluate(e=>e.requestSubmit());await page.locator('#send:not([disabled])').waitFor();const last=calls.at(-1);if(!last.free||last.node!=='start'||last.historyTokens[0]!=='original-token')throw Error('自由对话上下文未恢复 '+JSON.stringify(last));
+ await page.locator('#question').fill('首页返回前草稿');await page.locator('#go-home').click();if(!await page.locator('#return-chat').isVisible())throw Error('首页缺少返回对话');await page.locator('#return-chat').click();if(await page.locator('#question').inputValue()!=='首页返回前草稿')throw Error('首页返回草稿丢失');
+ await start(390);await page.getByRole('button',{name:'打开讲解：遵义'}).first().click();await back();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);if(overflow)throw Error('手机宽度溢出');return {passed,historyRestored:true,mobileReturn:true,overflow};
+}
