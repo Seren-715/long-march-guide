@@ -408,7 +408,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <header class="bar">
 <button type="button" class="brand" id="go-home" aria-label="长征路上，回到首页"><span class="seal" aria-hidden="true">征</span>长征路上</button>
 <div class="bar-mid" id="bar-mid"></div>
-<div class="bar-right"><button type="button" class="btn btn-text" id="return-chat" hidden>返回对话</button><button type="button" class="btn btn-text" id="bar-people" aria-haspopup="dialog">人物</button><button type="button" class="btn btn-text" id="tts-toggle" aria-pressed="false" hidden title="切换节点时自动朗读讲解">语音讲解</button><button type="button" class="btn btn-text" id="bar-about">资料说明</button></div>
+<div class="bar-right"><button type="button" class="btn btn-text" id="return-chat" hidden>返回对话</button><button type="button" class="btn btn-text" id="bar-people" aria-haspopup="dialog">人物</button><button type="button" class="btn btn-text" id="tts-toggle" aria-pressed="false" hidden title="切换节点时自动朗读讲解">语音讲解</button><button type="button" class="btn btn-text" id="bar-about" aria-haspopup="dialog">资料说明</button></div>
 </header>
 
 <main class="home" id="home">
@@ -444,6 +444,10 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 </dialog>
 
 <div class="selection-audio" id="selection-audio" role="group" aria-label="选中文本朗读" hidden><button type="button" class="btn btn-primary" id="read-selection">朗读选中内容</button><button type="button" class="btn btn-ghost" id="stop-audio" hidden>停止朗读</button></div>
+<dialog class="route-dialog" id="about-dialog" aria-labelledby="about-dialog-title">
+<div class="dialog-head"><div><h2 id="about-dialog-title">资料说明</h2></div><button type="button" class="dialog-close" id="about-dialog-close" aria-label="关闭">×</button></div>
+<div class="dialog-body" id="about-dialog-content"></div>
+</dialog>
 <dialog class="route-dialog" id="people-dialog" aria-labelledby="people-title">
 <div class="dialog-head"><div><h2 id="people-title">人物视角</h2><p>从已有故事出发，看看人物与哪些节点相关</p></div><button type="button" class="dialog-close" id="people-close" aria-label="关闭">×</button></div>
 <div class="dialog-body"><p class="plan-note">节点是讲解分类，不表示故事一定发生在该节点地点。只展示已有资料。</p><div id="people-list"></div><div id="person-detail" hidden></div></div>
@@ -590,7 +594,15 @@ function openRoutes() { const d = $('route-dialog'); if (!d.open) { if (d.showMo
 function closeRoutes() { const d = $('route-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
 $('route-dialog-close').addEventListener('click', closeRoutes);
 $('route-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeRoutes(); });
-$('bar-about').addEventListener('click', () => { if (view !== 'home') goHome(); setTimeout(() => $('about').scrollIntoView({ block: 'center', behavior: motion() }), 30); });
+function openAbout() {
+  const d = $('about-dialog'); $('about-dialog-content').replaceChildren(...[...$('about').children].map(p => p.cloneNode(true)));
+  if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
+  $('about-dialog-close').focus();
+}
+function closeAbout() { const d = $('about-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
+$('bar-about').addEventListener('click', openAbout);
+$('about-dialog-close').addEventListener('click', closeAbout);
+$('about-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeAbout(); });
 
 /* ---------- 人物视角：仅关联经审核、明确提到人物的故事 ---------- */
 const PEOPLE = [
