@@ -98,6 +98,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 
 .rows{list-style:none;margin:0;padding:0;border:1px solid var(--border);border-radius:14px;overflow:hidden}
 .rows li+li{border-top:1px solid var(--border2)}
+.person-story p,.person-story>a{margin:0 16px 12px}
 .row{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:14px 16px;transition:background .12s}
 .row:hover{background:var(--hover)}
 .row-icon{flex:none;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);display:grid;place-items:center;font-size:13px;font-weight:600;color:var(--text2);background:var(--bg)}
@@ -525,8 +526,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="dialog-body" id="about-dialog-content"></div>
 </dialog>
 <dialog class="route-dialog" id="people-dialog" aria-labelledby="people-title">
-<div class="dialog-head"><div><h2 id="people-title">人物档案</h2><p>从已有故事出发，看看人物与哪些节点相关</p></div><button type="button" class="dialog-close" id="people-close" aria-label="关闭">×</button></div>
-<div class="dialog-body"><p class="plan-note">节点是讲解分类，不表示故事一定发生在该节点地点。只展示已有资料。</p><div id="people-list"></div><div id="person-detail" hidden></div></div>
+<div class="dialog-head"><div><h2 id="people-title">人物档案</h2><p>认识长征中的人物，阅读与他们相关的故事</p></div><button type="button" class="dialog-close" id="people-close" aria-label="关闭">×</button></div>
+<div class="dialog-body"><p class="plan-note">人物简介按已整理资料逐步补充；节点是讲解分类，不表示故事一定发生在该节点地点。</p><div id="people-list"></div><div id="person-detail" hidden></div></div>
 </dialog>
 
 <main class="session" id="session" data-pane="read" hidden>
@@ -681,17 +682,18 @@ $('about-dialog').addEventListener('click', e => { if (e.target === e.currentTar
 /* ---------- 人物档案：仅关联经审核、明确提到人物的故事 ---------- */
 const PEOPLE = [
   { name: '毛泽东', stories: ['story_zhu_de_zunyi', 'story_mao_lamp'] },
-  { name: '周恩来', stories: ['story_zhu_de_zunyi', 'story_mao_lamp', 'story_zhou_enlai'] },
+  { name: '周恩来', bio: 'zunyi_person_zhou_enlai', stories: ['story_zhu_de_zunyi', 'story_mao_lamp', 'story_zhou_enlai'] },
   { name: '朱德', stories: ['story_zhu_de_zunyi', 'story_mao_lamp'] },
-  { name: '张闻天', stories: ['story_zhang_wentian_zunyi'] },
-  { name: '邓小平', stories: ['story_deng_redstar'] },
-  { name: '张思德', stories: ['story_zhang_side_grass'] },
-  { name: '贺龙', stories: ['story_he_jiesheng', 'story_helong_renbishi'] },
-  { name: '刘伯承', stories: ['story_yihai'] },
-  { name: '贺子珍', stories: ['story_he_zizhen'] },
-  { name: '陈树湘', stories: ['story_chen_shuxiang'] }
+  { name: '张闻天', bio: 'zunyi_person_zhang_wentian', stories: ['story_zhang_wentian_zunyi'] },
+  { name: '邓小平', bio: 'start_person_deng_xiaoping', stories: ['story_deng_redstar'] },
+  { name: '张思德', bio: 'caodi_person_zhang_side', stories: ['story_zhang_side_grass'] },
+  { name: '贺龙', bio: 'jiangtaibao_person_he_long', stories: ['story_he_jiesheng', 'story_helong_renbishi'] },
+  { name: '刘伯承', bio: 'yihai_person_liu_bocheng', stories: ['story_yihai'] },
+  { name: '贺子珍', bio: 'jinsha_person_he_zizhen', stories: ['story_he_zizhen'] },
+  { name: '陈树湘', bio: 'xiangjiang_person_chen_shuxiang', stories: ['story_chen_shuxiang'] }
 ];
 function personStories(person) { return person.stories.map(id => STORIES.find(t => t.id === id && t.reviewed === true)).filter(t => t && find(t.node)); }
+function personBio(person) { return nodes.flatMap(n => n.extra || []).find(e => e.id === person.bio) || null; }
 function personList() {
   const container = $('people-list'), detail = $('person-detail'); container.hidden = false; detail.hidden = true; detail.replaceChildren();
   const ul = el('ul', 'rows');
@@ -700,23 +702,27 @@ function personList() {
     const li = el('li'), b = el('button', 'row'), main = el('span', 'row-main'); b.type = 'button';
     const names = [...new Set(items.map(t => find(t.node).name))];
     main.append(el('span', 'row-title', person.name), el('span', 'row-sub', names.join(' · ')));
-    b.append(main, el('span', 'row-meta', items.length + ' 个故事'), chev()); b.addEventListener('click', () => personDetail(person)); li.append(b); ul.append(li);
+    b.append(main, el('span', 'row-meta', (personBio(person) ? '' : '简介待补 · ') + items.length + ' 个故事'), chev()); b.addEventListener('click', () => personDetail(person)); li.append(b); ul.append(li);
   }
   container.replaceChildren(ul);
 }
 function personDetail(person) {
   const detail = $('person-detail'); $('people-list').hidden = true; detail.hidden = false; detail.replaceChildren();
   const back = el('button', 'btn btn-ghost', '← 返回人物'); back.type = 'button'; back.addEventListener('click', () => { personList(); $('people-list button')?.focus(); });
-  const title = el('h3', '', person.name + ' · 相关故事'); title.tabIndex = -1;
-  const info = el('p', 'plan-note', '请选择故事，进入对应的讲解节点；可在故事卡片查看原文出处。');
+  const title = el('h3', '', person.name); title.tabIndex = -1;
+  const bio = personBio(person), intro = el('section', 'more'); intro.append(el('h3', '', '长征时期简介'));
+  if (bio) { intro.append(el('p', '', bio.text)); const u = safeLink(bio.url); if (u) intro.append(srcLink(u, bio.source)); }
+  else intro.append(el('p', 'plan-note', '人物简介待补充；下方可先阅读现有相关故事。'));
+  if (bio) { const q = person.name + '在长征中做了什么？', askPerson = el('button', 'chip', q); askPerson.type = 'button'; askPerson.disabled = busy; askPerson.addEventListener('click', () => { closePeople(); if (view === 'home') ask(q, { fromHome: true }); else askChip(q); }); intro.append(el('p', 'plan-note', '可以问小征'), askPerson); }
+  const info = el('p', 'plan-note', '以下是与人物相关的故事，节点为资料分类；点击故事可进入对应节点。');
   const ul = el('ul', 'rows');
   for (const t of personStories(person)) {
-    const li = el('li'), b = el('button', 'row'), main = el('span', 'row-main'); b.type = 'button';
+    const li = el('li', 'person-story'), b = el('button', 'row'), main = el('span', 'row-main'); b.type = 'button';
     main.append(el('span', 'row-title', t.title), el('span', 'row-sub', find(t.node).name + ' · ' + t.date));
     b.append(main, chev()); b.addEventListener('click', () => { closePeople(); choose(t.node); const pending = decisionOf(t.node) && !decided.has(t.node); if (pending) { addMessage('小征', '「' + t.title + '」收录在这一站。请先完成或跳过抉择，就能查看故事和出处。', [], { quiet: true }); reveal('decision-card'); } else { requestAnimationFrame(() => { const card = document.getElementById('story-' + t.id); if (card) { card.scrollIntoView({ block: 'center', behavior: motion() }); card.tabIndex = -1; card.focus({ preventScroll: true }); } }); } });
-    li.append(b); ul.append(li);
+    li.append(b, el('p', '', t.text)); if (t.note) li.append(el('p', 'plan-note', t.note)); const u = safeLink(t.url); if (u) li.append(srcLink(u, t.source)); ul.append(li);
   }
-  detail.append(back, title, info, ul); title.focus();
+  detail.append(back, title, intro, el('h3', '', '长征中的相关故事'), info, ul); title.focus();
 }
 function openPeople() { personList(); const d = $('people-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); } requestAnimationFrame(() => $('people-list button')?.focus()); }
 function closePeople() { const d = $('people-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
