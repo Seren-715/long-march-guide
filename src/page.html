@@ -350,8 +350,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .hpin-body i{position:absolute;inset:0;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#fff;border:2px solid var(--accent);box-shadow:0 3px 8px rgba(120,30,20,.22);transition:background .2s}
 .hpin-body b{position:absolute;inset:0;display:grid;place-items:center;font:700 11px/1 var(--font);color:var(--accent);font-variant-numeric:tabular-nums;transition:color .2s}
 .hpin:after{content:"";position:absolute;left:8px;bottom:-3px;width:14px;height:6px;border-radius:50%;background:rgba(120,30,20,.28);opacity:0}
-.hpin.in .hpin-body{animation:pin-drop .62s cubic-bezier(.3,.9,.4,1) both}
-.hpin.in:after{animation:pin-ring .7s ease-out .4s both}
+.hpin.in .hpin-body{animation:pin-drop .46s cubic-bezier(.3,.9,.4,1) both}
+.hpin.in:after{animation:pin-ring .55s ease-out .28s both}
 .hpin.done .hpin-body i,.hpin.now .hpin-body i,.hpin:hover .hpin-body i{background:var(--accent)}
 .hpin.done .hpin-body b,.hpin.now .hpin-body b,.hpin:hover .hpin-body b{color:#fff}
 .hpin span{position:absolute;left:32px;top:2px;white-space:nowrap;font-size:12px;font-weight:600;color:var(--text);background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:999px;opacity:0;transition:opacity .25s;pointer-events:none}
@@ -1017,9 +1017,9 @@ $('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
     const id = ++run; stage.classList.remove('static', 'all'); pins.forEach(b => b.classList.remove('in', 'now', 'done')); line.setAttribute('points', '');
     for (let i = 0; i < list.length; i++) {
       if (id !== run) return;
-      if (i) await extend(i - 1, 420, id); if (id !== run) return;
+      if (i) await extend(i - 1, 150, id); if (id !== run) return;
       pins.forEach(x => x.classList.remove('now')); pins[i].classList.add('in', 'now'); if (i) pins[i - 1].classList.add('done'); caption(list[i]);
-      await wait(i === list.length - 1 ? 1500 : 760);
+      await wait(i === list.length - 1 ? 700 : 230);
     }
     if (id === run) finish();
   }
