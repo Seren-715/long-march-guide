@@ -330,9 +330,25 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .mpin.active i:after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;border:2px solid #b3261e;animation:pulse 1.8s ease-out infinite}
 .mpin.active span{background:#b3261e;color:#fff}
 .mpin.in-route:not(.active) i{box-shadow:0 0 0 3px rgba(179,38,30,.3),0 2px 6px rgba(60,20,10,.35)}
-.mdot{position:absolute;transform:translate(-50%,-50%);width:18px;height:18px;padding:0;border:0;background:none;z-index:1;cursor:pointer;display:grid;place-items:center}
-.mdot i{display:block;width:10px;height:10px;border-radius:50%;background:#fffaf6;border:2px solid #b3261e;box-shadow:0 1px 4px rgba(60,20,10,.4);transition:transform .15s}
-.mdot:hover i,.mdot:focus-visible i{transform:scale(1.35);background:#b3261e}
+/* 主力路线上的站点和途经点：定位标（圆头加尖角，尖角指向地点）；不在主力路线上的站点保持圆点 */
+.mpin.main{margin-top:-15px}
+.mpin.main i{background:none;border-color:transparent;box-shadow:none;isolation:isolate}
+.mpin.main i:before{content:"";position:absolute;inset:-2px;z-index:-1;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#fffaf6;border:2px solid #b3261e;box-shadow:0 2px 6px rgba(60,20,10,.35);transition:background .15s}
+.mpin.main.seen i,.mpin.main.active i{background:none}
+.mpin.main.seen i:before,.mpin.main.active i:before{background:#b3261e}
+.mpin.main.active i{box-shadow:none}
+.mpin.main.active i:before{box-shadow:0 0 0 4px rgba(179,38,30,.25),0 3px 10px rgba(60,20,10,.45)}
+.mpin.main.active i:after{display:none}
+.mpin.main.in-route:not(.active) i{box-shadow:none}
+.mpin.main.in-route:not(.active) i:before{box-shadow:0 0 0 3px rgba(179,38,30,.3),0 2px 6px rgba(60,20,10,.35)}
+.map-legend{position:absolute;right:10px;bottom:8px;z-index:2;display:flex;gap:12px;font-size:11px;color:#5e504b;background:rgba(255,250,246,.85);padding:3px 10px;border-radius:999px}
+.map-legend span{display:inline-flex;align-items:center;gap:5px}
+.map-legend i{display:inline-block;width:9px;height:9px;background:#fffaf6;border:1.5px solid #b3261e}
+.map-legend .lg-pin{border-radius:50% 50% 50% 0;transform:rotate(-45deg) translate(1px,-1px)}
+.map-legend .lg-dot{border-radius:50%}
+.mdot{position:absolute;transform:translate(-50%,-50%);margin-top:-8px;width:18px;height:18px;padding:0;border:0;background:none;z-index:1;cursor:pointer;display:grid;place-items:center}
+.mdot i{display:block;width:11px;height:11px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#fffaf6;border:2px solid #b3261e;box-shadow:0 1px 4px rgba(60,20,10,.4);transition:transform .15s}
+.mdot:hover i,.mdot:focus-visible i{transform:rotate(-45deg) scale(1.35);background:#b3261e}
 .map-tip{position:absolute;z-index:4;transform:translate(-50%,calc(-100% - 18px));background:#2a1d1a;color:#fff;font-size:12px;line-height:1.5;padding:6px 10px;border-radius:8px;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
 .map-tip small{display:block;color:#e9c9c1}
 .home-map{margin:34px 0 0}
@@ -482,6 +498,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
   .mpin.left,.mpin:not(.left){transform:translate(-50%,-50%)}
   .mpin.active span{display:inline}
   .mpin i{width:19px;height:19px;font-size:10px;border-width:1.5px}
+  .map-legend{top:8px;bottom:auto;right:8px}
+  .mpin.main{margin-top:-13px}
   .mpin.active i{width:22px;height:22px}
   .map-label{font-size:10px}
   .map-note{font-size:10px;left:6px;bottom:6px}
@@ -585,7 +603,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 </div>
 <section class="map3d" id="map3d" aria-label="长征途经地区地形示意沙盘">
 <div class="map-stage" id="map-stage"><img src="/assets/longmarch-map.webp" alt="长征途经地区的地形示意沙盘：西部横断山脉高耸、金沙江与大渡河切出深谷，北面是黄土高原，东南为丘陵。非精确地图。" width="1600" height="1000" loading="lazy" decoding="async"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="map-route"></polyline></svg></div>
-<div class="map-note">地形示意 · 非精确地图 · 虚线仅示意中央红军主力经过各站的先后，不是行军路线</div>
+<div class="map-note">地形示意 · 非精确地图 · 虚线仅示意中央红军主力经过各处的先后，不是行军路线</div><div class="map-legend" aria-hidden="true"><span><i class="lg-pin"></i>主力路线</span><span><i class="lg-dot"></i>其他节点</span></div>
 </section>
 <article class="article" id="exhibit" aria-live="polite"></article>
 </section>
@@ -977,9 +995,10 @@ let mapOpen = true; try { mapOpen = localStorage.getItem('lmg-map') !== '0'; } c
   $('map-route').setAttribute('points', MAP.route.map(([x, y]) => x + ',' + mapY(y)).join(' '));
   for (const l of MAP.labels || []) { const d = el('div', 'map-label ' + (l.kind || ''), l.text); d.style.left = l.at[0] + '%'; d.style.top = mapY(l.at[1]) + '%'; d.setAttribute('aria-hidden', 'true'); stage.append(d); }
   const tip = el('div', 'map-tip'); tip.hidden = true; stage.append(tip);
+  const MAIN = new Set((MAP.points || []).filter(p => p.primary).map(p => p.node));   // 在主力路线上的站点
   nodes.forEach((n, i) => {
     const at = MAP.nodes[n.id]; if (!at) return;
-    const b = el('button', 'mpin' + (PIN_LEFT.has(n.id) ? ' left' : '')); b.type = 'button'; b.dataset.node = n.id;
+    const b = el('button', 'mpin' + (PIN_LEFT.has(n.id) ? ' left' : '') + (MAIN.has(n.id) ? ' main' : '')); b.type = 'button'; b.dataset.node = n.id;
     b.style.left = at[0] + '%'; b.style.top = mapY(at[1]) + '%';
     b.setAttribute('aria-label', '第 ' + (i + 1) + ' 站：' + n.name + '，' + n.date);
     b.append(el('i', '', i + 1), el('span', '', n.name));
