@@ -180,7 +180,7 @@ function cleanTour(tour){
 }
 function checkReply(parsed,question,current,loaded){
   let type=TYPES.has(parsed.type)?parsed.type:'history';
-  let ids=Array.isArray(parsed.sources)?[...new Set(parsed.sources.filter(id=>typeof id==='string'&&evidence.some(e=>e.id===id)&&(!loaded||loaded.has(id))))].slice(0,6):[];
+  let ids=Array.isArray(parsed.sources)?[...new Set(parsed.sources.filter(id=>typeof id==='string'&&evidence.some(e=>e.id===id)&&(!loaded||loaded.has(id))))].slice(0,8):[];
   let answer=stripLinks(parsed.answer).slice(0,1200);
   // 自称闲聊却引用资料或带年份时，按历史问题处理，避免绕过来源要求。
   if(type!=='history'&&(ids.length||/\d{3,}/.test(answer)))type='history';
@@ -321,7 +321,14 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         break;
       }
       if(!result) return {status:502,body:{error:'讲解员回复格式异常，请重试。'}};
-      if(result.badNumbers.length||result.badTitles.length||result.risks.length){result.answer=NO_DATA;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
+      if(result.badNumbers.length||result.badTitles.length||result.risks.length){
+        // 重答后仍有对不上出处的数字或文件名：只删掉含这些内容的句子，保留核对通过的部分；删完没有内容或涉及高风险表述时，才整体改为“资料不足”。
+        const parts=result.risks.length?[]:result.answer.split(/(?<=[。！？!?；;\n])/),kept=parts.filter(s=>!unsupportedNumbers(s,result.ids,question).length&&!unsupportedTitles(s,result.ids,question).length);
+        const rest=kept.join('').trim();
+        if(rest&&kept.length<parts.length&&/[\u4e00-\u9fff]{6,}/.test(rest)){result.answer=rest;step({kind:'verify',text:'删去未能核对的内容',detail:`${parts.length-kept.length} 句`,ok:false});step({kind:'verify',text:'核对出处与数字',detail:`引用 ${result.ids.length} 条资料，通过`,ok:true});}
+        else{result.answer=NO_DATA;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
+        result.badNumbers=[];result.badTitles=[];result.risks=[];
+      }
       else if(result.type==='history'&&result.ids.length)step({kind:'verify',text:'核对出处与数字',detail:`引用 ${result.ids.length} 条资料，通过`,ok:true});
       const {type,ids,answer,followups}=result,action=state.action||result.action;
       const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,question,answer:answer.slice(0,800),sources:ids,at:Date.now()});

@@ -264,10 +264,23 @@ assert.match(html,/"avatar":\{"eyes":\[/);
 
 // —— 主力路线 23 处：顺序固定，每处都对应一个存在的讲解节点，14 个节点各有且只有一个主标点（不在主力路线上的三个除外） ——
 const layoutMap=JSON.parse(await (await import('node:fs/promises')).readFile(new URL('./src/map-layout.json',import.meta.url),'utf8'));
-assert.deepEqual(layoutMap.points.map(p=>p.name),['中央苏区','于都','血战湘江','通道会议','黎平会议','猴场会议','强渡乌江','遵义会议','四渡赤水','威逼昆明','巧渡金沙江','会理会议','礼州会议','彝海结盟','强渡大渡河','飞夺泸定桥','翻越夹金山','毛儿盖会议','过草地','激战腊子口','占领哈达铺','翻越六盘山','抵达吴起镇']);
+assert.deepEqual(layoutMap.points.map(p=>p.name),['中央苏区','于都','血战湘江','通道会议','黎平会议','猴场会议','强渡乌江','遵义会议','四渡赤水','威逼昆明','巧渡金沙江','会理会议','礼州会议','彝海结盟','强渡大渡河','飞夺泸定桥','翻越夹金山','毛儿盖会议','过草地','激战腊子口','到达哈达铺','翻越六盘山','抵达吴起镇']);
 for(const p of layoutMap.points){assert.ok(nodes.some(n=>n.id===p.node),p.name);assert.equal(p.lonlat.length,2);assert.equal(p.at.length,2);}
 const primaries=layoutMap.points.filter(p=>p.primary).map(p=>p.node);assert.equal(new Set(primaries).size,primaries.length);
 assert.deepEqual(nodes.map(n=>n.id).filter(id=>!primaries.includes(id)).sort(),['huining','jiangtaibao','zhiluozhen']);
 assert.deepEqual(Object.keys(layoutMap.nodes).sort(),nodes.map(n=>n.id).sort());
 assert.match(html,/"points":\[\{"name":"中央苏区"/);
+
+// —— 数据一致性：扩展资料的 ID 前缀与所属节点一致（历史遗留的例外逐个列出）；节点 x/y 取自沙盘布局，不能都挤在同一点 ——
+const prefixOk=new Set(['wuqi_distance_method']);
+for(const n of nodes)for(const e of n.extra||[])assert.ok(e.id.startsWith(n.id+'_')||prefixOk.has(e.id),'扩展资料 '+e.id+' 的前缀与所属节点 '+n.id+' 不一致');
+assert.equal(new Set(nodes.map(n=>n.x+','+n.y)).size>=nodes.length-3,true);
+for(const n of nodes){assert.equal(n.x,Math.round(layoutMap.nodes[n.id][0]));assert.equal(n.y,Math.round(layoutMap.nodes[n.id][1]));}
+
+// —— 重答后仍有对不上的数字：只删含该数字的句子，保留核对通过的句子；全部对不上时才改为资料不足 ——
+globalThis.fetch=async()=>reply({type:'history',answer:'遵义会议于1935年1月15日至17日在贵州遵义召开。会议开了99天。',sources:['zunyi']});
+body=await (await worker.fetch(make({question:'遵义会议什么时候开的',node:'zunyi'}),env)).json();
+assert.equal(body.answer,'遵义会议于1935年1月15日至17日在贵州遵义召开。');assert.deepEqual(body.sources.flatMap(s=>s.ids),['zunyi']);assert.ok(body.steps.some(s=>/删去未能核对的内容/.test(s.text)));
+globalThis.fetch=async()=>reply({type:'history',answer:'遵义会议开了99天。',sources:['zunyi']});
+body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'zunyi'}),env)).json();assert.equal(body.answer,'现有资料不足以可靠回答这个问题，请换个问法或查阅节点资料。');assert.deepEqual(body.sources,[]);
 globalThis.fetch=original;console.log('API and evidence tests passed');
