@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import worker from './worker/index.js';
 import { nodes } from './src/data.js';
-import { decisions, quizzes } from './src/guide-content.js';
+import { decisions } from './src/guide-content.js';
 import { stories } from './src/stories.js';
 // 测试替身：多数用例里模型一步给出带 sources 的最终回答。智能体要求先用工具取出资料才能引用，
 // 所以对带 tools 的请求，这里在最终回答前自动补一轮 read_stop 工具调用，再交还原定的回答。
@@ -29,7 +29,7 @@ const make=(body,headers={})=>new Request('http://localhost/api/chat',{method:'P
 let res=await worker.fetch(new Request('http://localhost/'),{});assert.equal(res.status,200);const html=await res.text();assert.match(html,/吴起镇/);assert.match(html,/将台堡/);assert.match(html,/腊子口/);assert.match(html,/夹金山/);assert.match(html,/直罗镇/);assert.doesNotMatch(html,/__DATA__/);assert.doesNotMatch(html,/__NODE_COUNT__|__SOURCE_COUNT__/);assert.match(html,new RegExp('content="[^"]*'+nodes.length+' 个历史节点、'+nodes.reduce((s,n)=>s+1+(n.extra||[]).length,0)+' 条整理史料'));
 assert.ok(nodes.length>=14);assert.equal(new Set(nodes.map(n=>n.id)).size,nodes.length);
 const extraIds=nodes.flatMap(n=>(n.extra||[]).map(e=>e.id));assert.equal(new Set(extraIds).size,extraIds.length);
-for(const n of nodes){assert.ok(n.id&&n.name&&n.text&&n.source&&n.url);assert.match(n.url,/^https?:\/\//);assert.ok(Array.isArray(n.questions)&&n.questions.length>=4);assert.equal(new Set(n.questions).size,n.questions.length);for(const e of n.extra||[]){assert.ok(e.id&&e.text&&e.source&&e.url);assert.match(e.url,/^https?:\/\//);}}
+for(const n of nodes){assert.ok(n.id&&n.name&&n.text&&n.source&&n.url);assert.match(n.url,/^https?:\/\//);assert.ok(Array.isArray(n.questions)&&n.questions.length>=3);assert.equal(new Set(n.questions).size,n.questions.length);for(const e of n.extra||[]){assert.ok(e.id&&e.text&&e.source&&e.url);assert.match(e.url,/^https?:\/\//);}}
 assert.equal((await worker.fetch(new Request('http://localhost/',{method:'HEAD'}),{})).status,200);
 res=await worker.fetch(new Request('http://localhost/assets/longmarch-map.webp'),{});assert.equal(res.status,200);assert.equal(res.headers.get('content-type'),'image/webp');{const buf=new Uint8Array(await res.arrayBuffer());assert.ok(buf.length>10000);assert.equal(String.fromCharCode(...buf.slice(8,12)),'WEBP');}
 assert.match(html,/"map":\{"nodes"/);
@@ -125,19 +125,15 @@ assert.equal((await worker.fetch(make({question:'你好',node:'zunyi'},{'cf-conn
     assert.ok(d.sources.length&&d.sources.every(x=>texts.has(x)),'抉择资料 ID 无效：'+id);
     grounded('抉择 '+id+' 处境',d.situation,d.sources);grounded('抉择 '+id+' 结果',d.outcome,d.sources);
   }
-  for(const [id,q] of Object.entries(quizzes)){
-    assert.ok(nodeIds.has(id),'小题节点不存在：'+id);assert.equal(typeof q.reviewed,'boolean');
-    assert.ok(q.question&&Array.isArray(q.options)&&q.options.length>=2&&Number.isInteger(q.answer)&&q.answer>=0&&q.answer<q.options.length);
-    assert.equal(new Set(q.options).size,q.options.length);assert.ok(texts.has(q.source),'小题资料 ID 无效：'+id);
-    grounded('小题 '+id,q.question+' '+q.options[q.answer],[q.source]);
-  }
+  // 小测功能已移除：页面数据里不应再带小题
+  assert.doesNotMatch(html,/"quizzes"/);
   assert.match(html,/"guide":\{"decisions"/);
 }
 
 // —— 依据约束：汉字数字、闲聊夹带史实 ——
 attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'从中央苏区出发到遵义会议，相隔约三个月。',sources:['start','zunyi']})};
 body=await (await worker.fetch(make({question:'隔了多久？',node:'zunyi'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);
-globalThis.fetch=async()=>reply({type:'history',answer:'孙继先挑选了十七名勇士强渡大渡河。',sources:['luding_dadu']});
+globalThis.fetch=async()=>reply({type:'history',answer:'孙继先挑选了十七名勇士强渡大渡河。',sources:['dadu']});
 body=await (await worker.fetch(make({question:'强渡大渡河有多少勇士？',node:'luding'}),env)).json();assert.match(body.answer,/十七名/);assert.equal(body.sources.length,1);
 globalThis.fetch=async()=>reply({type:'history',answer:'红军第一次渡过赤水河是在1935年1月29日，四渡赤水在川黔滇边境进行。',sources:['chishui_detail','chishui']});
 body=await (await worker.fetch(make({question:'首渡何时？',node:'chishui'}),env)).json();assert.match(body.answer,/第一次/);
@@ -155,7 +151,7 @@ globalThis.fetch=async()=>reply({type:'chat',answer:'红军翻越了夹金山。
 body=await (await worker.fetch(make({question:'聊聊',node:'jiajin'}),env)).json();assert.doesNotMatch(body.answer,/夹金山/);assert.match(body.answer,/小征/);
 
 // 书名必须与资料原文一致
-attempts=0;globalThis.fetch=async(url,options)=>{attempts++;seen=JSON.parse(options.body);return reply(attempts===1?{type:'history',answer:'毛儿盖会议通过《关于目前战略方针的补充决定》。',sources:['caodi_maogai']}:{type:'history',answer:'毛儿盖会议通过《关于目前战略方针之补充决定》。',sources:['caodi_maogai']})};
+attempts=0;globalThis.fetch=async(url,options)=>{attempts++;seen=JSON.parse(options.body);return reply(attempts===1?{type:'history',answer:'毛儿盖会议通过《关于目前战略方针的补充决定》。',sources:['maoergai']}:{type:'history',answer:'毛儿盖会议通过《关于目前战略方针之补充决定》。',sources:['maoergai']})};
 body=await (await worker.fetch(make({question:'毛儿盖会议通过了什么？',node:'caodi'}),env)).json();assert.equal(attempts,2);assert.match(seen.messages.at(-1).content,/书名/);assert.match(body.answer,/之补充决定/);
 globalThis.fetch=async()=>reply({type:'history',answer:'遵义会议通过了《遵义宣言》。',sources:['zunyi']});
 body=await (await worker.fetch(make({question:'遵义会议通过了什么文件？',node:'zunyi'}),env)).json();assert.match(body.answer,/资料不足/);
@@ -220,7 +216,7 @@ body=await (await worker.fetch(make({question:'遵义会议什么时候开的',n
 // 检索、按 ID 读取
 log=script([toolReply([toolCall('search_materials',{query:'彝海结盟'}),toolCall('read_materials',{ids:['wuqi_summary','nope']},'c2')]),reply({type:'history',answer:'中央红军行程 2.5 万里到达陕北。',sources:['wuqi_summary']})]);
 body=await (await worker.fetch(make({question:'走了多少里',node:'start',free:true}),env)).json();
-assert.match(log[1].messages.at(-2).content,/luding_yihai/);assert.match(log[1].messages.at(-1).content,/2\.5 万里/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['wuqi_summary']);assert.match(body.steps[0].text,/检索“彝海结盟”/);
+assert.match(log[1].messages.at(-2).content,/yihai/);assert.match(log[1].messages.at(-1).content,/2\.5 万里/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['wuqi_summary']);assert.match(body.steps[0].text,/检索“彝海结盟”/);
 // 常用称谓可检索到对应人物，不改变资料原文。
 log=script([toolReply([toolCall('search_materials',{query:'周总理'})]),reply({type:'history',answer:'周恩来病倒后由担架队抬过草地。',sources:['story_zhou_enlai']})]);
 body=await (await worker.fetch(make({question:'周总理过草地',node:'start',free:true}),env)).json();
@@ -245,10 +241,10 @@ log=script([toolReply([toolCall('plan_route',{nodes:['lazikou','xiangjiang','lud
 body=await (await worker.fetch(make({question:'我只有十分钟',node:'start',free:true}),env)).json();assert.deepEqual(body.action,{type:'plan',route:['xiangjiang','luding','lazikou'],title:'险战速览'});assert.match(body.steps[0].text,/规划路线：湘江 → 泸定桥 → 腊子口/);
 log=script([toolReply([toolCall('plan_route',{nodes:['zunyi']})]),reply({type:'chat',answer:'请多选几站。',sources:[]})]);
 body=await (await worker.fetch(make({question:'排路线',node:'start',free:true}),env)).json();assert.equal(body.action,null);
-log=script([toolReply([toolCall('open_stop',{node:'luding'}),toolCall('show_quiz',{node:'luding'},'c2')]),reply({type:'chat',answer:'这就带你去。',sources:[]})]);
-body=await (await worker.fetch(make({question:'带我去泸定桥',node:'zunyi'}),env)).json();assert.deepEqual(body.action,{type:'goto',node:'luding'});assert.match(log[1].messages.at(-1).content,/不要透露题目答案/);
-log=script([toolReply([toolCall('show_quiz',{node:'zunyi'})]),reply({type:'chat',answer:'题目打开了，试试看。',sources:[]})]);
-body=await (await worker.fetch(make({question:'考考我',node:'zunyi'}),env)).json();assert.deepEqual(body.action,{type:'quiz',node:'zunyi'});
+log=script([toolReply([toolCall('open_stop',{node:'luding'}),toolCall('start_route',{route:'full'},'c2')]),reply({type:'chat',answer:'这就带你去。',sources:[]})]);
+body=await (await worker.fetch(make({question:'带我去泸定桥',node:'zunyi'}),env)).json();assert.deepEqual(body.action,{type:'goto',node:'luding'});
+log=script([toolReply([toolCall('show_quiz',{node:'zunyi'})]),reply({type:'chat',answer:'现在没有小测了，可以直接问我。',sources:[]})]);
+body=await (await worker.fetch(make({question:'考考我',node:'zunyi'}),env)).json();assert.equal(body.action,null);assert.match(log[1].messages.at(-1).content,/没有这个工具/);assert.ok(!log[0].tools.some(x=>x.function.name==='show_quiz'));
 log=script([toolReply([toolCall('tour_control',{action:'next'})]),reply({type:'chat',answer:'你还没有选路线。',sources:[]})]);
 body=await (await worker.fetch(make({question:'下一站吧',node:'zunyi'}),env)).json();assert.equal(body.action,null);assert.match(log[1].messages.at(-1).content,/没有选择参观路线/);
 // 工具调用有上限，不会无限循环

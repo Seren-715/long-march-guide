@@ -326,6 +326,9 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .mpin:hover i{transform:scale(1.15)}
 .mpin.seen i{background:#b3261e;color:#fff}
 .mpin.active{z-index:3}
+.mpin.quiet span{display:none}
+.mpin.quiet:hover span,.mpin.quiet:focus-visible span,.mpin.quiet.active span{display:inline}
+.mpin:hover{z-index:4}
 .mpin.active i{background:#b3261e;color:#fff;transform:scale(1.25);box-shadow:0 0 0 4px rgba(179,38,30,.25),0 3px 10px rgba(60,20,10,.45)}
 .mpin.active i:after{content:"";position:absolute;width:22px;height:22px;border-radius:50%;border:2px solid #b3261e;animation:pulse 1.8s ease-out infinite}
 .mpin.active span{background:#b3261e;color:#fff}
@@ -603,7 +606,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 </div>
 <section class="map3d" id="map3d" aria-label="长征途经地区地形示意沙盘">
 <div class="map-stage" id="map-stage"><img src="/assets/longmarch-map.webp" alt="长征途经地区的地形示意沙盘：西部横断山脉高耸、金沙江与大渡河切出深谷，北面是黄土高原，东南为丘陵。非精确地图。" width="1600" height="1000" loading="lazy" decoding="async"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="map-route"></polyline></svg></div>
-<div class="map-note">地形示意 · 非精确地图 · 虚线仅示意中央红军主力经过各处的先后，不是行军路线</div><div class="map-legend" aria-hidden="true"><span><i class="lg-pin"></i>主力路线</span><span><i class="lg-dot"></i>其他节点</span></div>
+<div class="map-note">地形示意 · 非精确地图 · 虚线仅示意中央红军主力经过各处的先后，不是行军路线</div><div class="map-legend" aria-hidden="true"><span><i class="lg-pin"></i>主力路线</span><span><i class="lg-dot"></i>到陕北后与会师</span></div>
 </section>
 <article class="article" id="exhibit" aria-live="polite"></article>
 </section>
@@ -638,8 +641,7 @@ const GUIDE = DATA.guide && typeof DATA.guide === 'object' ? DATA.guide : {};
 const DRAFT = new URLSearchParams(location.search).has('draft');
 const visible = item => !!item && (item.reviewed === true || DRAFT);
 const decisionOf = id => visible(GUIDE.decisions?.[id]) ? GUIDE.decisions[id] : null;
-const quizOf = id => visible(GUIDE.quizzes?.[id]) ? GUIDE.quizzes[id] : null;
-const decided = new Map(), quizAnswers = new Map();
+const decided = new Map();
 const STORIES = Array.isArray(DATA.stories) ? DATA.stories : [];
 const storiesOf = id => STORIES.filter(t => t.node === id && visible(t));
 const told = new Set();
@@ -899,7 +901,6 @@ function renderExhibit() {
     for (const t of tales) { const c = el('article', 'story-card'); c.id = 'story-' + t.id; const h = el('h4', '', t.title); h.append(el('small', '', t.date)); const tag = draftTag(t); if (tag) h.append(tag); c.append(h); if (t.note) c.append(el('span', 'story-note', '讲解提示：' + t.note)); c.append(el('p', '', t.text)); const u = safeLink(t.url); if (u) c.append(srcLink(u, t.source)); box.append(c); }
     parts.push(box);
   }
-  const quiz = quizOf(n.id); if (quiz && !pending) parts.push(quizCard(n, quiz));
   if ((n.questions || []).length) {
     const ask = el('div', 'ask-here'); ask.append(el('span', '', '关于这一站，可以问：'));
     const choices = el('span', 'chips'); fillSuggestions(choices); ask.append(choices);
@@ -930,15 +931,6 @@ function decisionCard(n, d) {
   }
   return card;
 }
-function quizCard(n, q) {
-  const card = el('section', 'card quiz'); card.id = 'quiz-card';
-  const label = el('div', 'card-label', '小测一下'); const t = draftTag(q); if (t) label.append(t); card.append(label, el('p', 'q', q.question));
-  const picked = quizAnswers.get(n.id), list = el('div', 'choices');
-  q.options.forEach((opt, i) => { const cls = picked == null ? '' : i === q.answer ? ' right' : i === picked ? ' wrong' : ''; const b = el('button', 'choice' + cls); b.type = 'button'; b.disabled = picked != null; b.append(el('i', '', picked != null && i === q.answer ? '✓' : String.fromCharCode(65 + i)), document.createTextNode(opt)); b.addEventListener('click', () => { quizAnswers.set(n.id, i); const fresh = quizCard(n, q); card.replaceWith(fresh); fresh.querySelector('.reveal h4')?.setAttribute('tabindex', '-1'); fresh.querySelector('.reveal h4')?.focus({ preventScroll: true }); }); list.append(b); });
-  card.append(list);
-  if (picked != null) { const r = el('div', 'reveal'); r.append(el('h4', '', picked === q.answer ? '回答正确' : '正确答案是「' + q.options[q.answer] + '」'), refsOf([q.source])); card.append(r); }
-  return card;
-}
 function stopActions(n) {
   const acts = [];
   const d = decisionOf(n.id); if (d && !decided.has(n.id)) acts.push({ label: '先做个判断', primary: true, run: () => reveal('decision-card') });
@@ -946,7 +938,6 @@ function stopActions(n) {
   if (route.length && idx >= 0 && !finished) acts.push({ label: idx === route.length - 1 ? '完成参观' : '下一站：' + find(route[idx + 1]).name, primary: !acts.length, run: () => { if (selected === n.id) advance(false); } });
   acts.push({ label: '再讲讲这一站', run: () => askChip('请再讲讲「' + n.name + '」这一站的背景和意义。') });
   if (storiesOf(n.id).length && !(d && !decided.has(n.id))) acts.push({ label: '听小征讲个故事', run: () => tellStory(n) });
-  if (quizOf(n.id) && !quizAnswers.has(n.id)) acts.push({ label: '小测一下', run: () => reveal('quiz-card') });
   return acts;
 }
 function reveal(id) { if (mobile()) setPane('read'); requestAnimationFrame(() => { const c = $(id); if (c) { c.scrollIntoView({ block: 'center', behavior: motion() }); c.querySelector('button')?.focus({ preventScroll: true }); } }); }
@@ -996,37 +987,45 @@ let mapOpen = true; try { mapOpen = localStorage.getItem('lmg-map') !== '0'; } c
   for (const l of MAP.labels || []) { const d = el('div', 'map-label ' + (l.kind || ''), l.text); d.style.left = l.at[0] + '%'; d.style.top = mapY(l.at[1]) + '%'; d.setAttribute('aria-hidden', 'true'); stage.append(d); }
   const tip = el('div', 'map-tip'); tip.hidden = true; stage.append(tip);
   const MAIN = new Set((MAP.points || []).filter(p => p.primary).map(p => p.node));   // 在主力路线上的站点
+  // 站点较多且有几处挨得很近：按沙盘当前的实际大小让标记互相避让（各退一半，并有弱力拉回原位），再给地名挑不遮挡的一侧；
+  // 两侧都放不下的只在悬停和选中时显示。窗口大小变化或展开沙盘时重新排一次。
+  const ids = nodes.filter(n => MAP.nodes[n.id]).map(n => n.id);
+  function layoutPins() {
+    const W = stage.clientWidth, H = stage.clientHeight; if (!W || !H) return;
+    const small = W < 700, pw = small ? 21 : 25, ph = small ? 23 : 27;
+    const T = ids.map(id => [MAP.nodes[id][0] / 100 * W, mapY(MAP.nodes[id][1]) / 100 * H]), P = T.map(p => p.slice());
+    for (let it = 0; it < 500; it++) {
+      let moved = false;
+      for (let a = 0; a < P.length; a++) for (let c = a + 1; c < P.length; c++) { const dx = P[c][0] - P[a][0], dy = P[c][1] - P[a][1], ox = pw - Math.abs(dx), oy = ph - Math.abs(dy); if (ox > 0 && oy > 0) { moved = true; if (ox / pw < oy / ph) { const m = ox / 2 + .3, s = dx >= 0 ? 1 : -1; P[a][0] -= s * m; P[c][0] += s * m; } else { const m = oy / 2 + .3, s = dy >= 0 ? 1 : -1; P[a][1] -= s * m; P[c][1] += s * m; } } }
+      if (!moved) break;
+      for (let a = 0; a < P.length; a++) { P[a][0] += (T[a][0] - P[a][0]) * .02; P[a][1] += (T[a][1] - P[a][1]) * .02; }
+    }
+    const hit = (a, c) => a[0] < c[2] && c[0] < a[2] && a[1] < c[3] && c[1] < a[3];
+    const boxes = P.map((p, k) => MAIN.has(ids[k]) ? [p[0] - 13, p[1] - 28, p[0] + 13, p[1] + 2] : [p[0] - 12, p[1] - 12, p[0] + 12, p[1] + 12]), placed = [];
+    P.forEach((p, k) => {
+      const b = mapPins.get(ids[k]); if (!b) return;
+      const w = find(ids[k]).name.length * 12 + 16, cy = MAIN.has(ids[k]) ? p[1] - 15 : p[1]; let best = 'r', score = 9;
+      for (const s of ['r', 'l']) { const x = s === 'r' ? p[0] + 15 : p[0] - 15 - w, box = [x, cy - 11, x + w, cy + 11]; let sc = 0; boxes.forEach((q, j) => { if (j !== k && hit(box, q)) sc += 2; }); placed.forEach(q => { if (hit(box, q)) sc += 1; }); if (x < 0 || x + w > W) sc += 3; if (sc < score) { score = sc; best = s; } if (!sc) break; }
+      const x = best === 'r' ? p[0] + 15 : p[0] - 15 - w; if (!score) placed.push([x, cy - 11, x + w, cy + 11]);
+      b.style.left = (p[0] / W * 100).toFixed(2) + '%'; b.style.top = (p[1] / H * 100).toFixed(2) + '%'; b.classList.toggle('left', best === 'l'); b.classList.toggle('quiet', score > 0);
+    });
+  }
   nodes.forEach((n, i) => {
     const at = MAP.nodes[n.id]; if (!at) return;
-    const b = el('button', 'mpin' + (PIN_LEFT.has(n.id) ? ' left' : '') + (MAIN.has(n.id) ? ' main' : '')); b.type = 'button'; b.dataset.node = n.id;
+    const b = el('button', 'mpin' + (MAIN.has(n.id) ? ' main' : '')); b.type = 'button'; b.dataset.node = n.id;
     b.style.left = at[0] + '%'; b.style.top = mapY(at[1]) + '%';
     b.setAttribute('aria-label', '第 ' + (i + 1) + ' 站：' + n.name + '，' + n.date);
     b.append(el('i', '', i + 1), el('span', '', n.name));
     b.addEventListener('click', () => choose(n.id, { keepMap: true }));
-    const show = () => { const pending = decisionOf(n.id) && !decided.has(n.id); tip.replaceChildren(document.createTextNode(n.date + ' · ' + n.name), el('small', '', pending ? '抉择时刻' : n.title || '')); tip.style.left = at[0] + '%'; tip.style.top = mapY(at[1]) + '%'; tip.hidden = false; };
+    const show = () => { const pending = decisionOf(n.id) && !decided.has(n.id); tip.replaceChildren(document.createTextNode(n.date + ' · ' + n.name), el('small', '', pending ? '抉择时刻' : n.title || '')); tip.style.left = b.style.left; tip.style.top = b.style.top; tip.hidden = false; };
     b.addEventListener('mouseenter', show); b.addEventListener('focus', show);
     b.addEventListener('mouseleave', () => { tip.hidden = true; }); b.addEventListener('blur', () => { tip.hidden = true; });
     stage.append(b); mapPins.set(n.id, b);
   });
-  // 主力路线上不单独成站的途经点：小圆点，点击进入所属的一站。与站点标记太近时略微挪开，避免被遮住。
-  const way = (MAP.points || []).filter(p => !p.primary && find(p.node) && Array.isArray(p.at));
-  if (way.length) {
-    const W = 1040, H = 546, px = a => [a[0] / 100 * W, mapY(a[1]) / 100 * H];
-    const fixed = nodes.map(n => MAP.nodes[n.id]).filter(Boolean).map(px), pos = way.map(p => px(p.at));
-    for (let it = 0; it < 40; it++) pos.forEach((a, i) => {
-      for (const f of fixed) { const dx = a[0] - f[0], dy = a[1] - f[1], d = Math.hypot(dx, dy) || .01; if (d < 19) { a[0] += dx / d * (19 - d); a[1] += dy / d * (19 - d); } }
-      pos.forEach((c, j) => { if (j === i) return; const dx = a[0] - c[0], dy = a[1] - c[1], d = Math.hypot(dx, dy) || .01; if (d < 14) { a[0] += dx / d * (14 - d) / 2; a[1] += dy / d * (14 - d) / 2; } });
-    });
-    way.forEach((p, i) => {
-      const n = find(p.node), b = el('button', 'mdot'); b.type = 'button'; b.style.left = (pos[i][0] / W * 100).toFixed(2) + '%'; b.style.top = (pos[i][1] / H * 100).toFixed(2) + '%';
-      b.setAttribute('aria-label', p.name + (p.date ? '，' + p.date : '') + '，在「' + n.name + '」一站讲解'); b.append(el('i'));
-      b.addEventListener('click', () => choose(n.id, { keepMap: true }));
-      const show = () => { tip.replaceChildren(document.createTextNode((p.date ? p.date + ' · ' : '') + p.name), el('small', '', '在「' + n.name + '」一站讲解')); tip.style.left = b.style.left; tip.style.top = b.style.top; tip.hidden = false; };
-      b.addEventListener('mouseenter', show); b.addEventListener('focus', show); b.addEventListener('mouseleave', () => { tip.hidden = true; }); b.addEventListener('blur', () => { tip.hidden = true; });
-      stage.append(b);
-    });
-  }
-  setMapOpen(mapOpen);
+  setMapOpen(mapOpen); layoutPins();
+  // 沙盘从隐藏变为可见、或大小变化时重新排版
+  let lastW = 0; const again = () => { const w = stage.clientWidth; if (w && w !== lastW) { lastW = w; layoutPins(); } };
+  if ('ResizeObserver' in window) new ResizeObserver(again).observe(stage); else addEventListener('resize', again);
 })();
 function setMapOpen(open) { mapOpen = open; $('map3d').hidden = !open || !MAP; $('map-toggle').setAttribute('aria-expanded', String(open)); $('map-toggle').textContent = open ? '收起沙盘' : '沙盘'; try { localStorage.setItem('lmg-map', open ? '1' : '0'); } catch {} }
 $('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
@@ -1137,7 +1136,7 @@ function advance(skip) {
   render(); syncHash(); $('read-pane').scrollTo({ top: 0, behavior: motion() }); if (mobile()) window.scrollTo({ top: 0, behavior: motion() });
 }
 const connections = {
-  'tongdao>zunyi': { text: '通道转兵后，黎平会议调整了战略方针；猴场会议决定强渡乌江、攻占遵义。', sources: ['tongdao_liming', 'tongdao_houchang'] },
+  'tongdao>zunyi': { text: '通道转兵后，黎平会议调整了战略方针；猴场会议决定强渡乌江、攻占遵义。', sources: ['liping', 'houchang'] },
   'zunyi>chishui': { text: '遵义会议后，1935 年 1 月下旬至 3 月，中央红军在川黔滇边境地区四渡赤水河。', sources: ['chishui'] }
 };
 function transition(prev, next, skip) {
@@ -1154,7 +1153,6 @@ function runAction(action) {
   if (action.type === 'goto' && find(action.node)) choose(action.node);
   else if ((action.type === 'next' || action.type === 'skip') && route.length && !finished) { advance(action.type === 'skip'); if (mobile()) setPane('read'); }
   else if (action.type === 'plan' && Array.isArray(action.route)) { const ids = action.route.filter(id => typeof id === 'string' && find(id)); if (ids.length >= 2) applyPlan(ids, '', typeof action.title === 'string' && action.title ? action.title.slice(0, 12) : '小征为你安排的路线'); }
-  else if (action.type === 'quiz' && find(action.node) && quizOf(action.node)) { if (chatOnly || action.node !== selected) choose(action.node); reveal(decisionOf(action.node) && !decided.has(action.node) ? 'decision-card' : 'quiz-card'); }
   else if (action.type === 'route') { const r = ROUTES.find(x => x.key === action.route); const ids = r ? routeFor(r.key) : []; if (ids.length) applyPlan(ids, '', r.title); }
 }
 $('next').addEventListener('click', () => advance(false));
@@ -1321,7 +1319,7 @@ async function ask(question, opts = {}) {
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     guideTalk(data.answer); if (ttsOn) speak(data.answer);
-    if (requestVersion === contextVersion && data.action && typeof data.action === 'object' && ['goto', 'plan', 'quiz', 'route', 'next', 'skip'].includes(data.action.type)) setGuide('point', '这边请', 2800);
+    if (requestVersion === contextVersion && data.action && typeof data.action === 'object' && ['goto', 'plan', 'route', 'next', 'skip'].includes(data.action.type)) setGuide('point', '这边请', 2800);
     if (requestVersion === contextVersion) runAction(data.action);
   } catch (err) {
     typing.remove(); setGuide('idle', '刚才没连上，可以再试一次'); const sameContext = requestVersion === contextVersion; if (sameContext && err.code === 'HISTORY_INVALID') chatHistory = []; if (sameContext && !input.value) { input.value = question; autosize(input); } updateCount();

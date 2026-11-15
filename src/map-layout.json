@@ -7,6 +7,10 @@
    82.93,
    79.19
   ],
+  "yudu": [
+   80.13,
+   78.66
+  ],
   "xiangjiang": [
    59.43,
    81.02
@@ -14,6 +18,18 @@
   "tongdao": [
    55.16,
    77.42
+  ],
+  "liping": [
+   52.36,
+   76.85
+  ],
+  "houchang": [
+   44.9,
+   70.53
+  ],
+  "wujiang": [
+   44.58,
+   69.65
   ],
   "zunyi": [
    43.12,
@@ -23,9 +39,29 @@
    39.5,
    64.65
   ],
+  "kunming": [
+   23.17,
+   83.52
+  ],
   "jinsha": [
    22.88,
    76.02
+  ],
+  "huili": [
+   22.26,
+   71.74
+  ],
+  "lizhou": [
+   23.63,
+   63.15
+  ],
+  "yihai": [
+   24.49,
+   59.45
+  ],
+  "dadu": [
+   25.23,
+   56.7
   ],
   "luding": [
    25.89,
@@ -35,6 +71,10 @@
    27.86,
    46.71
   ],
+  "maoergai": [
+   31.14,
+   42.89
+  ],
   "caodi": [
    30.8,
    37.8
@@ -42,6 +82,14 @@
   "lazikou": [
    34.7,
    37.64
+  ],
+  "hadapu": [
+   35.77,
+   36.39
+  ],
+  "liupan": [
+   42.42,
+   28.62
   ],
   "wuqi": [
    48.73,
@@ -78,8 +126,8 @@
   {
    "name": "于都",
    "date": "1934.10",
-   "node": "start",
-   "primary": false,
+   "node": "yudu",
+   "primary": true,
    "at": [
     80.13,
     78.66
@@ -120,8 +168,8 @@
   {
    "name": "黎平会议",
    "date": "1934.12",
-   "node": "tongdao",
-   "primary": false,
+   "node": "liping",
+   "primary": true,
    "at": [
     52.36,
     76.85
@@ -134,8 +182,8 @@
   {
    "name": "猴场会议",
    "date": "1935.01",
-   "node": "tongdao",
-   "primary": false,
+   "node": "houchang",
+   "primary": true,
    "at": [
     44.9,
     70.53
@@ -148,8 +196,8 @@
   {
    "name": "强渡乌江",
    "date": "1935.01",
-   "node": "zunyi",
-   "primary": false,
+   "node": "wujiang",
+   "primary": true,
    "at": [
     44.58,
     69.65
@@ -190,8 +238,8 @@
   {
    "name": "威逼昆明",
    "date": "1935.04",
-   "node": "jinsha",
-   "primary": false,
+   "node": "kunming",
+   "primary": true,
    "at": [
     23.17,
     83.52
@@ -218,8 +266,8 @@
   {
    "name": "会理会议",
    "date": "1935.05",
-   "node": "jinsha",
-   "primary": false,
+   "node": "huili",
+   "primary": true,
    "at": [
     22.26,
     71.74
@@ -231,9 +279,9 @@
   },
   {
    "name": "礼州会议",
-   "date": "",
-   "node": "luding",
-   "primary": false,
+   "date": "1935.05",
+   "node": "lizhou",
+   "primary": true,
    "at": [
     23.63,
     63.15
@@ -246,8 +294,8 @@
   {
    "name": "彝海结盟",
    "date": "1935.05",
-   "node": "luding",
-   "primary": false,
+   "node": "yihai",
+   "primary": true,
    "at": [
     24.49,
     59.45
@@ -260,8 +308,8 @@
   {
    "name": "强渡大渡河",
    "date": "1935.05",
-   "node": "luding",
-   "primary": false,
+   "node": "dadu",
+   "primary": true,
    "at": [
     25.23,
     56.7
@@ -302,8 +350,8 @@
   {
    "name": "毛儿盖会议",
    "date": "1935.08",
-   "node": "caodi",
-   "primary": false,
+   "node": "maoergai",
+   "primary": true,
    "at": [
     31.14,
     42.89
@@ -344,8 +392,8 @@
   {
    "name": "占领哈达铺",
    "date": "1935.09",
-   "node": "lazikou",
-   "primary": false,
+   "node": "hadapu",
+   "primary": true,
    "at": [
     35.77,
     36.39
@@ -357,9 +405,9 @@
   },
   {
    "name": "翻越六盘山",
-   "date": "",
-   "node": "wuqi",
-   "primary": false,
+   "date": "1935.10",
+   "node": "liupan",
+   "primary": true,
    "at": [
     42.42,
     28.62

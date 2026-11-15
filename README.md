@@ -1,8 +1,8 @@
 # 长征路上
 
-长征主题互动虚拟讲解员。作品以中央红军主力长征为主线，另展示红军三大主力会师与红二十五军先到陕北；地图为节点示意。知识库包含 14 个节点、49 条扩展资料（共 63 条引用），规则路线、知识条目和界面均使用 JavaScript，DeepSeek 问答通过服务端 Worker 调用。
+长征主题互动虚拟讲解员。作品以中央红军主力长征为主线，另展示红军三大主力会师与红二十五军先到陕北；地图为节点示意。知识库包含 26 个节点、49 条扩展资料（共 63 条引用），规则路线、知识条目和界面均使用 JavaScript，DeepSeek 问答通过服务端 Worker 调用。
 
-讲解员“小征”是一个工具调用智能体：模型自己决定查阅哪些资料（按节点、按编号、关键词检索）、要不要操作页面（打开某一站、下一站、定制路线、出小测题），回答只能引用本次取出的资料，并经服务端核对出处、数字和文件名；处理过程在对话中实时显示。
+讲解员“小征”是一个工具调用智能体：模型自己决定查阅哪些资料（按节点、按编号、关键词检索）、要不要操作页面（打开某一站、下一站、定制路线），回答只能引用本次取出的资料，并经服务端核对出处、数字和文件名；处理过程在对话中实时显示。
 
 ## 本地运行
 
@@ -42,7 +42,7 @@ npm run check:kb
 - `src/page.html`：交互界面。
 - `src/stories.js`：长征故事（真人真事），挂在节点上展示，已审核的同时作为问答资料；只收有权威来源的报道或党史叙述，`reviewed` 规则同上。
 - `scripts/map/build_map.py`：沙盘鸟瞰图的 Blender 建模与渲染脚本，输出 `src/assets/longmarch-map.webp` 和 `src/map-layout.json`。重新生成：`python -m venv venv && ./venv/bin/pip install bpy numpy && ./venv/bin/python scripts/map/build_map.py`（只更新坐标可加 `--no-render`）。这是地形示意，不画边界、不标行政区。
-- `src/guide-content.js`：“抉择时刻”与每站小题。只能依据 `src/data.js` 的资料撰写并注明资料 ID；`reviewed: false` 的条目为草稿，页面默认不显示，在网址后加 `?draft=1` 可预览，人工对照原文核对后改为 `true` 即上线。`npm test` 会检查资料 ID、答案序号，以及文字中的数字是否出现在所列资料中。
+- `src/guide-content.js`：“抉择时刻”。只能依据 `src/data.js` 的资料撰写并注明资料 ID；`reviewed: false` 的条目为草稿，页面默认不显示，在网址后加 `?draft=1` 可预览，人工对照原文核对后改为 `true` 即上线。`npm test` 会检查资料 ID、答案序号，以及文字中的数字是否出现在所列资料中。
 - `src/server.js`：Worker 请求处理与模型调用。
 - `scripts/generate.mjs`：将源文件合成为部署入口 `worker/index.js`。
 - `scripts/check-sources.mjs`：联网检查知识库全部来源 URL 的可达性（不替代语义核对）。
