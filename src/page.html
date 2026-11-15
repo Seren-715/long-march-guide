@@ -143,8 +143,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .session.chat-only .chat-pane{border-right:0;background:var(--bg);width:100%;max-width:820px;margin:0 auto}
 .session.chat-only .chat-only-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px 6px;font-size:13px;color:var(--text3)}
 .side-tools{display:none}
-@media (min-width:1080px){
-  .session.chat-only{grid-template-columns:minmax(240px,272px) minmax(0,820px);justify-content:center;column-gap:36px;padding:0 24px}
+@media (min-width:820px){
+  .session.chat-only{display:grid;grid-template-columns:clamp(180px,23vw,272px) minmax(0,820px);height:calc(100vh - var(--bar));height:calc(100dvh - var(--bar));justify-content:center;column-gap:clamp(16px,3vw,36px);padding:0 24px}
   .session.chat-only .chat-pane{max-width:none;margin:0}
   .session.chat-only .side-tools{display:flex;flex-direction:column;gap:22px;overflow-y:auto;scrollbar-width:thin;padding:18px 2px 24px}
 }
