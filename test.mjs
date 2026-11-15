@@ -223,6 +223,9 @@ body=await (await worker.fetch(make({question:'周恩来过草地发生了什么
 // 不将各路长征总体跨两年误写为红二方面军自身历时两年。
 log=script([reply({type:'history',answer:'红二方面军1935年11月至1936年10月，红四方面军1935年3月至1936年10月，都历时约两年。',sources:['start_route_dates']})]);
 body=await (await worker.fetch(make({question:'长征为什么有一年也有两年的说法？',node:'start'}),env)).json();assert.match(body.answer,/资料不足/);
+// 已发现不同文献对授旗时间的分歧：不应先断言当晚再补充争议。
+log=script([reply({type:'history',answer:'彝海结盟当晚，刘伯承授旗给小叶丹。',sources:['yihai_banner']}),reply({type:'history',answer:'关于授旗时间，两份资料说法不同：一份记为当晚，另一份记为次日。',sources:['yihai_banner','yihai_banner_next']})]);
+body=await (await worker.fetch(make({question:'彝海结盟何时授旗？',node:'yihai'}),env)).json();assert.equal(log.length,2);assert.match(body.answer,/说法不同/);assert.equal(body.sources.length,2);
 // 页面操作：定制路线按时间排序；出题不泄露；一次回答只执行第一个操作
 log=script([toolReply([toolCall('plan_route',{nodes:['lazikou','xiangjiang','luding','nope'],title:'险战速览'})]),reply({type:'chat',answer:'排好了，马上出发。',sources:[]})]);
 body=await (await worker.fetch(make({question:'我只有十分钟',node:'start',free:true}),env)).json();assert.deepEqual(body.action,{type:'plan',route:['xiangjiang','luding','lazikou'],title:'险战速览'});assert.match(body.steps[0].text,/规划路线：湘江 → 泸定桥 → 腊子口/);
