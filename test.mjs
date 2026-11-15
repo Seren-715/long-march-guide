@@ -241,4 +241,9 @@ res=await worker.fetch(make({question:'遵义会议什么时候开的',node:'sta
 const lines=(await res.text()).trim().split('\n').map(l=>JSON.parse(l));assert.ok(lines.length>=3);assert.match(lines[0].step.text,/查阅「遵义」/);assert.equal(lines.at(-1).done.type,'history');assert.equal(lines.at(-1).done.steps.length,lines.length-1);
 globalThis.fetch=async()=>new Response('x',{status:500});res=await worker.fetch(make({question:'你好',node:'zunyi',stream:true}),env);assert.equal(JSON.parse((await res.text()).trim()).status,502);
 autoRead=true;
+
+// —— 讲解员形象素材 ——
+for(const name of ['idle','read','point','eyes','mouth1','mouth2']){res=await worker.fetch(new Request('http://localhost/assets/avatar/'+name+'.webp'),{});assert.equal(res.status,200);assert.equal(res.headers.get('content-type'),'image/webp');const buf=new Uint8Array(await res.arrayBuffer());assert.equal(String.fromCharCode(...buf.slice(0,4)),'RIFF');}
+assert.equal((await worker.fetch(new Request('http://localhost/assets/avatar/nope.webp'),{})).status,404);assert.equal((await worker.fetch(new Request('http://localhost/assets/avatar/constructor.webp'),{})).status,404);
+assert.match(html,/"avatar":\{"eyes":\[/);
 globalThis.fetch=original;console.log('API and evidence tests passed');

@@ -47,7 +47,7 @@ a{color:inherit}
 /* 顶栏 */
 .bar{position:sticky;top:0;z-index:20;height:var(--bar);display:flex;align-items:center;gap:12px;padding:0 16px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid transparent;transition:border-color .2s}
 body[data-view=session] .bar{border-bottom-color:var(--border)}
-.brand{display:flex;align-items:center;gap:8px;height:36px;padding:0 8px;border-radius:8px;font-weight:600;font-size:15px}
+.brand{display:flex;align-items:center;gap:8px;height:36px;padding:0 8px;border-radius:8px;font-weight:600;font-size:15px;white-space:nowrap;flex:none}
 .brand:hover{background:var(--hover)}
 .bar-mid{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);overflow:hidden}
 .bar-mid .crumb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -56,7 +56,7 @@ body[data-view=session] .bar{border-bottom-color:var(--border)}
 
 /* 首页 */
 .home{min-height:calc(100vh - var(--bar))}
-.home-inner{max-width:720px;margin:0 auto;padding:14vh 20px 48px}
+.home-inner{max-width:720px;margin:0 auto;padding:8vh 20px 48px}
 .home-mark{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;font-size:12px;letter-spacing:.3em;color:var(--accent);font-weight:600}
 .home-mark .seal{width:30px;height:30px;font-size:17px;border-radius:7px;letter-spacing:0;transform:rotate(-4deg)}
 .home h1{font-family:var(--serif);font-size:clamp(28px,3.8vw,40px);line-height:1.3;font-weight:700;letter-spacing:.02em;text-align:center;margin:0 0 12px}
@@ -136,12 +136,35 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .chat-pane{background:var(--bg2);border-right:1px solid var(--border)}
 .read-pane{overflow-y:auto;scrollbar-width:thin}
 .pane-switch{display:none}
-.chat-only-bar{display:none}
+.chat-only-bar{display:flex;align-items:center;gap:12px;padding:10px 16px 8px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text3)}
+.guide-id{display:grid;gap:1px;min-width:0;flex:1}
+.guide-id b{font-size:14px;color:var(--text);font-weight:600}
+.guide-id b small{font-weight:400;color:var(--text3);font-size:12px;margin-left:6px}
+.guide-id span{font-size:12px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#open-reading{display:none}
+/* 讲解员形象：整图 + 眼睛/嘴的小块 + 两个姿势图，按状态切换 */
+.av{display:block;position:relative;flex:none;overflow:hidden;border-radius:50%;background:var(--accent-soft);border:1px solid var(--accent-line);aspect-ratio:1}
+.av-canvas{position:absolute;left:-33.4%;top:-15%;width:166.8%;aspect-ratio:2/3;transform-origin:50% 60%;animation:av-breathe 4.2s ease-in-out infinite}
+.av-canvas img{position:absolute;display:block;max-width:none;user-select:none;-webkit-user-drag:none;transition:opacity .22s}
+.av-idle,.av-read,.av-point{left:0;top:0;width:100%;height:100%}
+.av-read,.av-point,.av-eyes,.av-m1,.av-m2{opacity:0}
+.av-point{transform:translateX(8%)}
+.av-eyes,.av-m1,.av-m2{transition:none!important}
+.av[data-eyes="1"] .av-eyes{opacity:1}
+.av[data-mouth="1"] .av-m1{opacity:1}
+.av[data-mouth="2"] .av-m2{opacity:1}
+.av[data-pose="read"] .av-read,.av[data-pose="point"] .av-point{opacity:1}
+.av[data-pose="read"] .av-idle,.av[data-pose="point"] .av-idle,.av[data-pose="read"] .av-eyes,.av[data-pose="point"] .av-eyes,.av[data-pose="read"] .av-m1,.av[data-pose="read"] .av-m2,.av[data-pose="point"] .av-m1,.av[data-pose="point"] .av-m2{opacity:0}
+@keyframes av-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.012) translateY(-.4%)}}
+.av-sm{width:48px}
+.av-lg{width:124px;margin:0 auto 14px;box-shadow:0 10px 30px rgba(179,38,30,.12)}
+.face{display:inline-block;flex:none;width:22px;height:22px;border-radius:50%;background:var(--accent-soft) url(/assets/avatar/idle.webp) 50% 11%/294% auto no-repeat;border:1px solid var(--accent-line)}
 .session.chat-only{grid-template-columns:minmax(0,1fr)}
 .session.chat-only .read-pane{display:none}
 .session.chat-only #chat-chips,.session.chat-only #chat-form .ctx-pill{display:none}
 .session.chat-only .chat-pane{border-right:0;background:var(--bg);width:100%;max-width:820px;margin:0 auto}
-.session.chat-only .chat-only-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px 6px;font-size:13px;color:var(--text3)}
+.session.chat-only .chat-only-bar{padding:12px 20px 10px;border-bottom:0}
+.session.chat-only #open-reading{display:inline-flex}
 .steps{display:grid;gap:5px;margin:2px 0 10px;padding:0;list-style:none;font-size:12.5px;color:var(--text3)}
 .steps li{display:flex;align-items:baseline;gap:7px;line-height:1.5}
 .steps li:before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--accent-line);transform:translateY(-1px)}
@@ -203,6 +226,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .msg{margin-bottom:20px;animation:fade .2s var(--ease)}
 .msg-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:4px}
 .msg-head .seal{width:20px;height:20px;font-size:11px;border-radius:5px}
+.msg-head .face{width:24px;height:24px}
 .msg.user{display:flex;justify-content:flex-end}
 .msg.user .msg-body{max-width:85%;background:var(--active);border-radius:18px;padding:8px 14px}
 .msg.bot .msg-body{padding-left:28px}
@@ -396,6 +420,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
   .bar-mid{display:none}
 }
 @media (max-width:560px){
+  .bar{gap:4px;padding:0 10px}.bar-right .btn-text{padding:0 7px;font-size:13px}
   .home-inner{padding-top:7vh}
   .starts{grid-template-columns:1fr}
   .start{flex-direction:row;align-items:baseline;justify-content:space-between;gap:10px}
@@ -422,6 +447,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 
 <main class="home" id="home">
 <div class="home-inner">
+<div id="home-av" aria-hidden="true"></div>
 <div class="home-mark" aria-hidden="true"><span class="seal">征</span>1934 — 1936</div>
 <h1>今天想了解<em>长征</em>的哪一段？</h1>
 <p class="home-sub">我是 AI 讲解员小征。可以跟我逐站参观，也可以直接提问——回答只依据整理好的 <span data-count="sources">__SOURCE_COUNT__</span> 条节点资料，并附上出处。</p>
@@ -466,7 +492,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="pane-switch" role="tablist" aria-label="切换视图"><button type="button" role="tab" id="sw-read" aria-selected="true">讲解</button><button type="button" role="tab" id="sw-chat" aria-selected="false">对话<span class="dot" id="chat-dot" hidden></span></button></div>
 <aside class="side-tools" id="side-tools" aria-label="功能入口"></aside>
 <section class="pane chat-pane" id="chat-pane" aria-label="与小征的对话">
-<div class="chat-only-bar"><span>正在与小征对话</span><button type="button" class="btn btn-ghost" id="open-reading">打开讲解 →</button></div>
+<div class="chat-only-bar"><span id="guide-av"></span><div class="guide-id"><b>小征<small>讲解员</small></b><span id="guide-status" aria-live="polite">有问题随时问我</span></div><button type="button" class="btn btn-ghost" id="open-reading">打开讲解 →</button></div>
 <div class="chat-scroll"><div class="messages" id="messages" aria-live="polite"></div><button type="button" class="to-latest" id="to-latest" hidden>↓ 最新</button></div>
 <div class="dock">
 <div class="chips" id="chat-chips"></div>
@@ -1001,7 +1027,7 @@ function addMessage(who, text, sources = [], opts = {}) {
   const mine = who === '你'; const row = el('div', 'msg ' + (mine ? 'user' : 'bot') + (opts.error ? ' error' : ''));
   const body = el('div', 'msg-body');
   if (mine) body.append(el('span', 'sr-only', '你：'));
-  else { const head = el('div', 'msg-head'); const s = el('span', 'seal', '征'); s.setAttribute('aria-hidden', 'true'); head.append(s, el('span', '', who)); row.append(head); }
+  else { const head = el('div', 'msg-head'); const s = el('span', 'face'); s.setAttribute('aria-hidden', 'true'); head.append(s, el('span', '', who)); row.append(head); }
   if (opts.node) body.append(el('span', 'asked-at', '提问时的节点：' + opts.node));
   if (opts.steps && opts.steps.length) body.append(stepList(opts.steps));
   body.append(el('div', 'msg-text', text));
@@ -1017,6 +1043,34 @@ function addMessage(who, text, sources = [], opts = {}) {
   if (!mine && !opts.quiet && mobile() && view === 'session' && pane !== 'chat') $('chat-dot').hidden = false;
   return row;
 }
+/* ---------- 讲解员形象 ---------- */
+const AV = DATA.avatar && Array.isArray(DATA.avatar.eyes) && Array.isArray(DATA.avatar.mouth) ? DATA.avatar : null;
+const avatars = [];
+function makeAvatar(cls) {
+  const box = el('span', 'av ' + cls); box.dataset.pose = 'idle'; box.setAttribute('aria-hidden', 'true');
+  const canvas = el('span', 'av-canvas');
+  const img = (name, c, at) => { const i = document.createElement('img'); i.className = c; i.src = '/assets/avatar/' + name + '.webp'; i.alt = ''; i.decoding = 'async'; i.draggable = false; if (at) { i.style.left = at[0] + '%'; i.style.top = at[1] + '%'; i.style.width = at[2] + '%'; i.style.height = at[3] + '%'; } canvas.append(i); };
+  img('idle', 'av-idle'); if (AV) { img('eyes', 'av-eyes', AV.eyes); img('mouth1', 'av-m1', AV.mouth); img('mouth2', 'av-m2', AV.mouth); } img('read', 'av-read'); img('point', 'av-point');
+  box.append(canvas); avatars.push(box); return box;
+}
+let guidePose = 'idle', talkUntil = 0, poseTimer = 0, mouthStep = 0;
+const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function setGuide(pose, text, holdMs) {
+  clearTimeout(poseTimer); guidePose = pose; for (const a of avatars) a.dataset.pose = pose;
+  if (text != null) $('guide-status').textContent = text;
+  if (holdMs) poseTimer = setTimeout(() => setGuide('idle', busy ? null : '有问题随时问我'), holdMs);
+}
+function guideTalk(text) { talkUntil = Date.now() + Math.min(7000, 1200 + String(text || '').length * 45); if (guidePose !== 'point') setGuide('idle', '正在为你讲解'); }
+// 说话时嘴在闭、微张、张开之间切换；语音朗读进行时也算说话
+setInterval(() => {
+  const talking = guidePose === 'idle' && !still() && (speaking || Date.now() < talkUntil);
+  const m = talking ? [0, 1, 2, 1][mouthStep++ % 4] : 0;
+  for (const a of avatars) a.dataset.mouth = m;
+  if (!talking && !busy && guidePose === 'idle' && talkUntil && Date.now() >= talkUntil && !speaking) { talkUntil = 0; $('guide-status').textContent = '有问题随时问我'; }
+}, 150);
+(function blink() { setTimeout(() => { if (!still() && guidePose === 'idle') { for (const a of avatars) a.dataset.eyes = 1; setTimeout(() => { for (const a of avatars) a.dataset.eyes = 0; }, 130); } blink(); }, 2600 + Math.random() * 3200); })();
+$('guide-av').replaceWith(makeAvatar('av-sm')); $('home-av').append(makeAvatar('av-lg'));
+
 function stepItem(s, live) { const li = el('li', (s.kind === 'act' ? 'act' : s.kind === 'verify' ? (s.ok ? 'ok' : 'bad') : '') + (live ? ' live' : '')); li.append(el('b', '', String(s.text || '').slice(0, 80))); if (s.detail) li.append(document.createTextNode(' · ' + String(s.detail).slice(0, 80))); return li; }
 function stepList(steps) { const ul = el('ul', 'steps'); ul.setAttribute('aria-label', '小征的处理过程'); for (const s of steps) if (s && typeof s === 'object') ul.append(stepItem(s)); return ul; }
 // 流式请求：服务端逐行返回处理步骤，最后一行是结果。不支持流式读取时退回普通请求。
@@ -1035,7 +1089,7 @@ async function askStream(payload, onStep) {
     return result;
   } catch (err) { if (err?.name === 'AbortError') throw new Error('连接超时，请检查网络后再试。'); if (err instanceof TypeError) throw new Error('网络连接失败，请检查网络后再试。'); throw err; } finally { clearTimeout(timer); }
 }
-function showTyping() { const row = el('div', 'msg bot'); const head = el('div', 'msg-head'); const s = el('span', 'seal', '征'); s.setAttribute('aria-hidden', 'true'); head.append(s, el('span', '', '小征正在查阅资料…')); const body = el('div', 'msg-body'); const d = el('span', 'dots'); d.setAttribute('aria-hidden', 'true'); d.append(el('i'), el('i'), el('i')); const ul = el('ul', 'steps'); ul.setAttribute('aria-live', 'polite'); body.append(ul, d); row.append(head, body); messages.append(row); scrollToMsg(row); row.addStep = s => { ul.append(stepItem(s, true)); if (messages.scrollHeight - messages.scrollTop - messages.clientHeight < 160) messages.scrollTop = messages.scrollHeight; }; return row; }
+function showTyping() { const row = el('div', 'msg bot'); const head = el('div', 'msg-head'); const s = el('span', 'face'); s.setAttribute('aria-hidden', 'true'); head.append(s, el('span', '', '小征正在查阅资料…')); const body = el('div', 'msg-body'); const d = el('span', 'dots'); d.setAttribute('aria-hidden', 'true'); d.append(el('i'), el('i'), el('i')); const ul = el('ul', 'steps'); ul.setAttribute('aria-live', 'polite'); body.append(ul, d); row.append(head, body); messages.append(row); scrollToMsg(row); row.addStep = s => { ul.append(stepItem(s, true)); if (messages.scrollHeight - messages.scrollTop - messages.clientHeight < 160) messages.scrollTop = messages.scrollHeight; }; return row; }
 messages.addEventListener('scroll', () => { $('to-latest').hidden = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 80; }, { passive: true });
 $('to-latest').addEventListener('click', () => messages.scrollTo({ top: messages.scrollHeight, behavior: motion() }));
 
@@ -1058,7 +1112,7 @@ async function ask(question, opts = {}) {
   if (/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { if (!route.length) { addMessage('小征', '请先回到首页选一条参观路线。'); return; } advance(question.startsWith('跳过')); return; }
   const jump = question.match(/^(?:带我去|前往|切换到|看看)(.{1,12}?)[。！!\s]*$/);
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id, { keepPane: true }); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
-  busy = true; shownKey = null; renderExhibit(); renderChips(); document.querySelectorAll('.side-q').forEach(x => { x.disabled = true; }); $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); status.textContent = '小征正在查阅资料并思考…';
+  busy = true; shownKey = null; renderExhibit(); renderChips(); document.querySelectorAll('.side-q').forEach(x => { x.disabled = true; }); $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); status.textContent = '小征正在查阅资料并思考…'; setGuide('read', '正在查阅资料…');
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
   const free = chatOnly;
@@ -1067,7 +1121,7 @@ async function ask(question, opts = {}) {
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
   const typing = showTyping();
   try {
-    const liveSteps = []; const data = await askStream(JSON.parse(payload), s => { liveSteps.push(s); typing.addStep(s); }); typing.remove();
+    const liveSteps = []; const data = await askStream(JSON.parse(payload), s => { liveSteps.push(s); typing.addStep(s); if (s && s.text) $('guide-status').textContent = String(s.text).slice(0, 40) + '…'; }); typing.remove();
     if (typeof data.answer !== 'string' || !data.answer.trim()) throw new Error('暂未获得回答，请换个问法试试。');
     const srcIds = (Array.isArray(data.sources) ? data.sources : []).flatMap(x => x.ids || [x.id]);
     const related = free ? [...new Set(srcIds.map(nodeOfSource).filter(Boolean))].slice(0, 3) : [];
@@ -1080,9 +1134,11 @@ async function ask(question, opts = {}) {
     addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [] });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
+    guideTalk(data.answer);
+    if (requestVersion === contextVersion && data.action && typeof data.action === 'object' && ['goto', 'plan', 'quiz', 'route', 'next', 'skip'].includes(data.action.type)) setGuide('point', '这边请', 2800);
     if (requestVersion === contextVersion) runAction(data.action);
   } catch (err) {
-    typing.remove(); const sameContext = requestVersion === contextVersion; if (sameContext && err.code === 'HISTORY_INVALID') chatHistory = []; if (sameContext && !input.value) { input.value = question; autosize(input); } updateCount();
+    typing.remove(); setGuide('idle', '刚才没连上，可以再试一次'); const sameContext = requestVersion === contextVersion; if (sameContext && err.code === 'HISTORY_INVALID') chatHistory = []; if (sameContext && !input.value) { input.value = question; autosize(input); } updateCount();
     addMessage('小征', err.message || '连接失败，请稍后再试。', [], { node: find(questionNode)?.name || '未知', error: true, retry: err.notConfigured || err.code === 'SESSION_INVALID' ? null : question, retryNode: questionNode });
     status.textContent = err.notConfigured ? '模型尚未配置，当前可浏览节点和资料。' : err.code === 'SESSION_INVALID' ? '对话会话无效，请刷新页面后重试。' : !sameContext ? '节点已切换；可在原问题下方返回原节点重试。' : err.code === 'HISTORY_INVALID' ? '上次对话已失效并清空，可重新提问。' : input.value === question ? '本次问题未加入上下文，已保留，可重试。' : '本次问题未加入上下文，可重新输入后重试。';
   } finally { busy = false; shownKey = null; renderExhibit(); renderChips(); document.querySelectorAll('.side-q').forEach(x => { x.disabled = false; }); $('send').disabled = false; $('send').removeAttribute('aria-busy'); if (document.activeElement === document.body && view === 'session') input.focus({ preventScroll: true }); }

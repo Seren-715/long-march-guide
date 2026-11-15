@@ -1,0 +1,15 @@
+{
+ "note": "小块在整图上的位置：left、top、width、height（百分比）。由 scripts/avatar/build_avatar.py 生成。",
+ "eyes": [
+  38.672,
+  14.844,
+  23.242,
+  4.948
+ ],
+ "mouth": [
+  44.141,
+  22.526,
+  13.281,
+  6.51
+ ]
+}

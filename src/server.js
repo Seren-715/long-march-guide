@@ -204,8 +204,15 @@ const MAP_IMAGE_B64='__MAP_IMAGE__';
 let mapBytes=null;
 function mapImage(){if(!mapBytes){const bin=atob(MAP_IMAGE_B64);mapBytes=Uint8Array.from(bin,c=>c.charCodeAt(0));}return mapBytes;}
 
+// 讲解员形象素材（构建时以 base64 填入）
+const AVATAR_B64='__AVATAR__';
+const avatarBytes=new Map();
+function avatarImage(name){if(typeof AVATAR_B64!=='object'||!Object.hasOwn(AVATAR_B64,name))return null;if(!avatarBytes.has(name)){const bin=atob(AVATAR_B64[name]);avatarBytes.set(name,Uint8Array.from(bin,c=>c.charCodeAt(0)));}return avatarBytes.get(name);}
+
 export default {async fetch(request, env) {
   const url = new URL(request.url);
+  const avatar=/^\/assets\/avatar\/([a-z0-9]+)\.webp$/.exec(url.pathname);
+  if (avatar && ['GET','HEAD'].includes(request.method)) { const bytes=avatarImage(avatar[1]); if(bytes) return new Response(request.method==='HEAD'?null:bytes, {headers:{'content-type':'image/webp','cache-control':'public, max-age=86400','x-content-type-options':'nosniff'}}); }
   if (url.pathname === '/assets/longmarch-map.webp' && ['GET','HEAD'].includes(request.method)) return new Response(request.method==='HEAD'?null:mapImage(), {headers:{'content-type':'image/webp','cache-control':'public, max-age=86400','x-content-type-options':'nosniff'}});
   if (url.pathname === '/' && ['GET','HEAD'].includes(request.method)) return new Response(request.method==='HEAD'?null:PAGE, {headers:{'content-type':'text/html; charset=utf-8','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin'}});
   if (!['/api/chat','/api/plan'].includes(url.pathname)) return json({error:'未找到页面。'},404);
