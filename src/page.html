@@ -339,7 +339,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .hm-caption em{font-style:normal;color:var(--accent);font-weight:600;margin-right:6px;font-variant-numeric:tabular-nums}
 .hm-replay{flex:none;border:1px solid var(--border);background:var(--bg);color:var(--text2);border-radius:999px;height:28px;padding:0 12px;font:inherit;font-size:12px;cursor:pointer}
 .hm-replay:hover{border-color:var(--accent-line);color:var(--accent)}
-.hm-stage{position:relative;aspect-ratio:1600/820;overflow:visible;margin-top:14px}
+.hm-stage{position:relative;aspect-ratio:1600/920;overflow:visible;margin-top:18px}
 .hm-stage svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .hm-stage .map-route{stroke:var(--accent-line);opacity:1;stroke-width:1.6}
 /* 定位标：圆头加下方的尖角，尖角指向地点 */
@@ -355,9 +355,10 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .hpin.done .hpin-body b,.hpin.now .hpin-body b,.hpin:hover .hpin-body b{color:#fff}
 .hpin span{position:absolute;left:32px;top:2px;white-space:nowrap;font-size:12px;font-weight:600;color:var(--text);background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:999px;opacity:0;transition:opacity .25s;pointer-events:none}
 .hpin.left span{left:auto;right:32px}
+.hpin.below span{left:50%;top:35px;transform:translateX(-50%)}
 .hpin.now span,.hpin:hover span,.hpin:focus-visible span{opacity:1}
 @media (min-width:640px){.hm-stage.all .hpin span{opacity:1}}
-@media (max-width:639px){.hm-stage{aspect-ratio:1/.92}.hpin span{font-size:11px;padding:1px 6px}}
+@media (max-width:639px){.hm-stage{aspect-ratio:1/1.2}.hpin{width:26px;height:28px}.hpin-body{left:2px;width:22px;height:22px}.hpin-body b{font-size:10px}.hpin:after{left:6px}.hpin span{font-size:11px;padding:1px 6px}}
 .hpin.now,.hpin:hover{z-index:4}
 .hpin:focus-visible .hpin-body i{outline:2px solid var(--accent);outline-offset:2px}
 .hm-stage.static .hpin.in .hpin-body,.hm-stage.static .hpin.in:after{animation:none}
@@ -526,10 +527,10 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 
 <div class="resume" id="resume" hidden><div class="resume-text"><small>继续参观</small><span id="resume-text"></span></div><button type="button" class="btn btn-primary" id="resume-go">继续 →</button></div>
 
-<section class="home-map" id="home-map" aria-label="长征沿途节点示意" hidden>
-<div class="hm-head"><b>从出发到会师</b><span class="hm-caption" id="hm-caption" aria-live="off"></span><button type="button" class="hm-replay" id="hm-replay">重播</button></div>
+<section class="home-map" id="home-map" aria-label="中央红军主力长征路线示意" hidden>
+<div class="hm-head"><b>中央红军主力长征路线</b><span class="hm-caption" id="hm-caption" aria-live="off"></span><button type="button" class="hm-replay" id="hm-replay">重播</button></div>
 <div class="hm-stage" id="hm-stage"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="hm-route"></polyline></svg></div>
-<p class="hm-note">位置为示意，非精确地图；虚线只表示各站的先后。点任意一站，从那里开始参观。</p>
+<p class="hm-note">位置为示意，非精确地图；虚线只表示先后顺序。点任意一处，进入对应一站的讲解。</p>
 </section>
 <div class="about" id="about"><p>长征路上 · 以中央红军主力长征为主线，并展示红军三大主力会师。节点资料整理自公开文章，每条均附原文链接。</p><p>位置图为节点示意，非精确地理地图与行军路线，不代表各路红军的完整路线。</p><p>回答由 AI 根据资料生成，请结合原文核对；提问和参观偏好会发送给 DeepSeek，请勿输入个人敏感信息。</p></div>
 </div>
@@ -992,31 +993,41 @@ $('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
 /* 首页：节点按时间顺序一个个从上方落到沙盘上，虚线随之延伸 */
 (function homeMap() {
   const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // 示意布局：不用底图，按大致方位（东南出发、向西、北上、到陕北和会师）把各站排开，避免互相遮挡。[x%, y%, 地名在左侧]
-  const SPOT = { start: [84, 80], xiangjiang: [68, 88], tongdao: [56, 75], zunyi: [45, 63], chishui: [33, 54, 1], jinsha: [13, 86], luding: [11, 62], jiajin: [16, 44], caodi: [25, 27, 1], lazikou: [38, 19], wuqi: [77, 12], zhiluozhen: [85, 33], huining: [50, 42], jiangtaibao: [63, 30] };
-  const list = nodes.filter(n => SPOT[n.id]); if (list.length < 2) return;
+  // 中央红军主力长征路线（示意布局，不用底图）：[名称, 日期, 点击后进入的节点, x%, y%, 地名位置 r 右 / l 左 / b 下]
+  // 日期只取知识库里有资料的；礼州会议、翻越六盘山暂无资料，不标日期。
+  const ROUTE = [
+    ['中央苏区', '1934.10', 'start', 92, 62, 'l'], ['于都', '1934.10', 'start', 84, 81, 'r'], ['血战湘江', '1934.11—12', 'xiangjiang', 72, 73, 'r'],
+    ['通道会议', '1934.12', 'tongdao', 63, 86, 'r'], ['黎平会议', '1934.12', 'tongdao', 55, 75, 'r'], ['猴场会议', '1935.01', 'tongdao', 48, 64, 'r'],
+    ['强渡乌江', '1935.01', 'zunyi', 43, 53, 'r'], ['遵义会议', '1935.01', 'zunyi', 39, 42, 'r'], ['四渡赤水', '1935.01—03', 'chishui', 30, 40, 'b'],
+    ['威逼昆明', '1935.04', 'jinsha', 23, 91, 'r'], ['巧渡金沙江', '1935.05', 'jinsha', 13, 80, 'r'], ['会理会议', '1935.05', 'jinsha', 8, 69, 'r'],
+    ['礼州会议', '', 'luding', 13, 58, 'r'], ['彝海结盟', '1935.05', 'luding', 8, 47, 'r'], ['强渡大渡河', '1935.05', 'luding', 13, 36, 'r'],
+    ['飞夺泸定桥', '1935.05', 'luding', 8, 25, 'r'], ['翻越夹金山', '1935.06', 'jiajin', 17, 15, 'l'], ['毛儿盖会议', '1935.08', 'caodi', 28, 9, 'b'],
+    ['过草地', '1935.08', 'caodi', 38, 20, 'b'], ['激战腊子口', '1935.09', 'lazikou', 48, 9, 'b'], ['占领哈达铺', '1935.09', 'lazikou', 58, 20, 'b'],
+    ['翻越六盘山', '', 'wuqi', 69, 9, 'b'], ['抵达吴起镇', '1935.10', 'wuqi', 82, 18, 'r'],
+  ];
+  const list = ROUTE.filter(r => find(r[2])).map(r => ({ name: r[0], date: r[1], node: r[2], at: [r[3], r[4]], side: r[5] })); if (list.length < 2) return;
   const sec = $('home-map'), stage = $('hm-stage'), line = $('hm-route'), cap = $('hm-caption'); sec.hidden = false;
   const pins = list.map((n, i) => {
-    const at = SPOT[n.id];
-    const b = el('button', 'hpin' + (at[2] ? ' left' : '')); b.type = 'button'; b.style.left = at[0] + '%'; b.style.top = at[1] + '%';
-    b.setAttribute('aria-label', '从第 ' + (i + 1) + ' 站开始参观：' + n.name + '，' + n.date); const body = document.createElement('em'); body.className = 'hpin-body'; body.append(el('i'), el('b', '', i + 1)); b.append(body, el('span', '', n.name));
-    b.addEventListener('click', () => choose(n.id)); stage.append(b); return b;
+    const at = n.at;
+    const b = el('button', 'hpin' + (n.side === 'l' ? ' left' : n.side === 'b' ? ' below' : '')); b.type = 'button'; b.style.left = at[0] + '%'; b.style.top = at[1] + '%';
+    b.setAttribute('aria-label', '第 ' + (i + 1) + ' 处：' + n.name + (n.date ? '，' + n.date : '') + '。进入「' + find(n.node).name + '」的讲解'); const body = document.createElement('em'); body.className = 'hpin-body'; body.append(el('i'), el('b', '', i + 1)); b.append(body, el('span', '', n.name));
+    b.addEventListener('click', () => choose(n.node)); stage.append(b); return b;
   });
-  const caption = n => { cap.replaceChildren(); if (n) cap.append(el('em', '', n.date), document.createTextNode(n.name + ' · ' + n.title)); };
+  const caption = n => { cap.replaceChildren(); if (n) { if (n.date) cap.append(el('em', '', n.date)); cap.append(document.createTextNode(n.name)); } };
   let run = 0;
   // 虚线：已到达的各站连成折线，最后一段按进度 f 延伸
-  const draw = (k, f) => { const pts = list.slice(0, k + 1).map(n => SPOT[n.id].slice(0, 2)); if (f != null && k + 1 < list.length) { const a = SPOT[list[k].id], c = SPOT[list[k + 1].id]; pts.push([a[0] + (c[0] - a[0]) * f, a[1] + (c[1] - a[1]) * f]); } line.setAttribute('points', pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' ')); };
+  const draw = (k, f) => { const pts = list.slice(0, k + 1).map(n => n.at.slice()); if (f != null && k + 1 < list.length) { const a = list[k].at, c = list[k + 1].at; pts.push([a[0] + (c[0] - a[0]) * f, a[1] + (c[1] - a[1]) * f]); } line.setAttribute('points', pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' ')); };
   const extend = (k, ms, id) => new Promise(done => { const t0 = performance.now(); const tick = now => { if (id !== run) return done(); const f = Math.min(1, (now - t0) / ms); draw(k, f); if (f < 1) requestAnimationFrame(tick); else done(); }; requestAnimationFrame(tick); });
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const finish = () => { pins.forEach(b => { b.classList.remove('now'); b.classList.add('in', 'done'); }); stage.classList.add('all'); draw(list.length - 1); cap.textContent = '点任意一站，从那里开始参观'; };
+  const finish = () => { pins.forEach(b => { b.classList.remove('now'); b.classList.add('in', 'done'); }); stage.classList.add('all'); draw(list.length - 1); cap.textContent = '点任意一处，进入那一站的讲解'; };
   function showAll() { run++; stage.classList.add('static'); finish(); }
   async function play() {
     const id = ++run; stage.classList.remove('static', 'all'); pins.forEach(b => b.classList.remove('in', 'now', 'done')); line.setAttribute('points', '');
     for (let i = 0; i < list.length; i++) {
       if (id !== run) return;
-      if (i) await extend(i - 1, 150, id); if (id !== run) return;
+      if (i) await extend(i - 1, 130, id); if (id !== run) return;
       pins.forEach(x => x.classList.remove('now')); pins[i].classList.add('in', 'now'); if (i) pins[i - 1].classList.add('done'); caption(list[i]);
-      await wait(i === list.length - 1 ? 700 : 230);
+      await wait(i === list.length - 1 ? 700 : 190);
     }
     if (id === run) finish();
   }
