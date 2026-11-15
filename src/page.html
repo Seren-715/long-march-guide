@@ -1017,9 +1017,12 @@ async function ask(question, opts = {}) {
     const srcIds = (Array.isArray(data.sources) ? data.sources : []).flatMap(x => x.ids || [x.id]);
     const related = free ? [...new Set(srcIds.map(nodeOfSource).filter(Boolean))].slice(0, 3) : [];
     if (related.length) lastRelated = related[0];
-    if (free) { for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide(); }
+    if (free) {
+      const matched = nodes.filter(n => (n.questions || []).some(q => normalizeQuestion(q) === normalizeQuestion(question)));
+      if (matched.length) matched.forEach(n => markQuestionAnswered(n.id, question)); else markQuestionAnswered(questionNode, question);
+      for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide();
+    } else markQuestionAnswered(questionNode, question);
     addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { related, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [] });
-    markQuestionAnswered(questionNode, question);
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     if (requestVersion === contextVersion) runAction(data.action);
