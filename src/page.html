@@ -323,6 +323,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .mpin.left{flex-direction:row-reverse;transform:translate(calc(-100% + 11px),-50%)}
 .mpin:not(.left){transform:translate(-11px,-50%)}
 .mpin span{font-size:12px;font-weight:600;color:#3a2420;background:rgba(255,250,246,.88);padding:2px 7px;border-radius:999px;white-space:nowrap;box-shadow:0 1px 3px rgba(60,20,10,.2)}
+.mpin.meet i{background:#f5e6c8;border-color:#b08a4f;color:#7a4d1f}
+.mpin.meet span{background:#fbf3e3;color:#6d4a24}
 .mpin:hover i{transform:scale(1.15)}
 .mpin.seen i{background:#b3261e;color:#fff}
 .mpin.active{z-index:3}
@@ -358,6 +360,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .hpin.now span,.hpin:hover span,.hpin:focus-visible span{opacity:1}
 @media (min-width:640px){.hm-stage.all .hpin span{opacity:1}}
 @media (max-width:639px){.hm-stage{aspect-ratio:1/.92}.hpin span{font-size:11px;padding:1px 6px}}
+.hpin.meet .hpin-body i{background:#f5e6c8;border-color:#b08a4f}
+.hpin.meet .hpin-body b{color:#7a4d1f}
 .hpin.now,.hpin:hover{z-index:4}
 .hpin:focus-visible .hpin-body i{outline:2px solid var(--accent);outline-offset:2px}
 .hm-stage.static .hpin.in .hpin-body,.hm-stage.static .hpin.in:after{animation:none}
@@ -527,9 +531,9 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="resume" id="resume" hidden><div class="resume-text"><small>继续参观</small><span id="resume-text"></span></div><button type="button" class="btn btn-primary" id="resume-go">继续 →</button></div>
 
 <section class="home-map" id="home-map" aria-label="长征沿途节点示意" hidden>
-<div class="hm-head"><b>从出发到会师</b><span class="hm-caption" id="hm-caption" aria-live="off"></span><button type="button" class="hm-replay" id="hm-replay">重播</button></div>
+<div class="hm-head"><b>从出发到陕北，再到三军会师</b><span class="hm-caption" id="hm-caption" aria-live="off"></span><button type="button" class="hm-replay" id="hm-replay">重播</button></div>
 <div class="hm-stage" id="hm-stage"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="hm-route"></polyline></svg></div>
-<p class="hm-note">位置为示意，非精确地图；虚线只表示各站的先后。点任意一站，从那里开始参观。</p>
+<p class="hm-note">位置为示意，非精确地图；虚线只表示中央红军主力各站的先后。会宁、将台堡是 1936 年三军会师点，不接在主力路线后。点任意一站，从那里开始参观。</p>
 </section>
 <div class="about" id="about"><p>长征路上 · 以中央红军主力长征为主线，并展示红军三大主力会师。节点资料整理自公开文章，每条均附原文链接。</p><p>位置图为节点示意，非精确地理地图与行军路线，不代表各路红军的完整路线。</p><p>回答由 AI 根据资料生成，请结合原文核对；提问和参观偏好会发送给 DeepSeek，请勿输入个人敏感信息。</p></div>
 </div>
@@ -580,7 +584,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 </div>
 <section class="map3d" id="map3d" aria-label="长征途经地区地形示意沙盘">
 <div class="map-stage" id="map-stage"><img src="/assets/longmarch-map.webp" alt="长征途经地区的地形示意沙盘：西部横断山脉高耸、金沙江与大渡河切出深谷，北面是黄土高原，东南为丘陵。非精确地图。" width="1600" height="1000" loading="lazy" decoding="async"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="map-route"></polyline></svg></div>
-<div class="map-note">地形示意 · 非精确地图 · 虚线仅示意中央红军主力经过各站的先后，不是行军路线</div>
+<div class="map-note">地形示意 · 非精确地图 · 虚线仅示意中央红军主力各站的先后；会宁、将台堡是 1936 年三军会师点，不在主力路线上</div>
 </section>
 <article class="article" id="exhibit" aria-live="polite"></article>
 </section>
@@ -675,8 +679,8 @@ document.querySelectorAll('[data-count]').forEach(e => { e.textContent = e.datas
 const ROUTES = [
   { key: 'overview', title: '主线速览', desc: '出发、转折、抵达陕北', badge: '推荐', ids: ['start', 'zunyi', 'wuqi'] },
   { key: 'turning', title: '转折与决策', desc: '通道转兵、遵义会议与四渡赤水', ids: ['tongdao', 'zunyi', 'chishui'] },
-  { key: 'journey', title: '时间线探索', desc: '起点、中段、终点各取一站', ids: ['start', 'luding', 'jiangtaibao'] },
-  { key: 'full', title: '完整路线', desc: '按时间顺序走完全部节点' }
+  { key: 'journey', title: '时间线探索', desc: '起点、中段、陕北落脚', ids: ['start', 'luding', 'wuqi'] },
+  { key: 'full', title: '完整路线', desc: '主力路线 + 1936 年三军会师' }
 ];
 function routeFor(key) { const all = nodes.map(n => n.id); const r = ROUTES.find(x => x.key === key); if (!r || !r.ids) return all; return r.ids.filter(id => all.includes(id)); }
 function phaseOf(n) { const d = String(n.date || ''); return d.startsWith('1936') ? 2 : d.slice(0, 7) > '1935.10' ? 1 : 0; }
@@ -974,12 +978,13 @@ let mapOpen = true; try { mapOpen = localStorage.getItem('lmg-map') !== '0'; } c
   const tip = el('div', 'map-tip'); tip.hidden = true; stage.append(tip);
   nodes.forEach((n, i) => {
     const at = MAP.nodes[n.id]; if (!at) return;
-    const b = el('button', 'mpin' + (PIN_LEFT.has(n.id) ? ' left' : '')); b.type = 'button'; b.dataset.node = n.id;
+    const meet = phaseOf(n) === 2;
+    const b = el('button', 'mpin' + (PIN_LEFT.has(n.id) ? ' left' : '') + (meet ? ' meet' : '')); b.type = 'button'; b.dataset.node = n.id;
     b.style.left = at[0] + '%'; b.style.top = mapY(at[1]) + '%';
-    b.setAttribute('aria-label', '第 ' + (i + 1) + ' 站：' + n.name + '，' + n.date);
-    b.append(el('i', '', i + 1), el('span', '', n.name));
+    b.setAttribute('aria-label', meet ? '1936 年会师点：' + n.name + '，' + n.date : '第 ' + (i + 1) + ' 站：' + n.name + '，' + n.date);
+    b.append(el('i', '', meet ? '会' : i + 1), el('span', '', n.name));
     b.addEventListener('click', () => choose(n.id, { keepMap: true }));
-    const show = () => { const pending = decisionOf(n.id) && !decided.has(n.id); tip.replaceChildren(document.createTextNode(n.date + ' · ' + n.name), el('small', '', pending ? '抉择时刻' : n.title || '')); tip.style.left = at[0] + '%'; tip.style.top = mapY(at[1]) + '%'; tip.hidden = false; };
+    const show = () => { const pending = decisionOf(n.id) && !decided.has(n.id); tip.replaceChildren(document.createTextNode(n.date + ' · ' + n.name), el('small', '', pending ? '抉择时刻' : (meet ? '1936 三军会师' : n.title || ''))); tip.style.left = at[0] + '%'; tip.style.top = mapY(at[1]) + '%'; tip.hidden = false; };
     b.addEventListener('mouseenter', show); b.addEventListener('focus', show);
     b.addEventListener('mouseleave', () => { tip.hidden = true; }); b.addEventListener('blur', () => { tip.hidden = true; });
     stage.append(b); mapPins.set(n.id, b);
@@ -992,36 +997,47 @@ $('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
 /* 首页：节点按时间顺序一个个从上方落到沙盘上，虚线随之延伸 */
 (function homeMap() {
   const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // 示意布局：不用底图，按大致方位（东南出发、向西、北上、到陕北和会师）把各站排开，避免互相遮挡。[x%, y%, 地名在左侧]
   const SPOT = { start: [84, 80], xiangjiang: [68, 88], tongdao: [56, 75], zunyi: [45, 63], chishui: [33, 54, 1], jinsha: [13, 86], luding: [11, 62], jiajin: [16, 44], caodi: [25, 27, 1], lazikou: [38, 19], wuqi: [77, 12], zhiluozhen: [85, 33], huining: [50, 42], jiangtaibao: [63, 30] };
-  const list = nodes.filter(n => SPOT[n.id]); if (list.length < 2) return;
+  const routeList = nodes.filter(n => SPOT[n.id] && phaseOf(n) < 2);
+  const meetList = nodes.filter(n => SPOT[n.id] && phaseOf(n) === 2);
+  if (routeList.length < 2) return;
   const sec = $('home-map'), stage = $('hm-stage'), line = $('hm-route'), cap = $('hm-caption'); sec.hidden = false;
-  const pins = list.map((n, i) => {
+  const makePin = (n, label, meet) => {
     const at = SPOT[n.id];
-    const b = el('button', 'hpin' + (at[2] ? ' left' : '')); b.type = 'button'; b.style.left = at[0] + '%'; b.style.top = at[1] + '%';
-    b.setAttribute('aria-label', '从第 ' + (i + 1) + ' 站开始参观：' + n.name + '，' + n.date); const body = document.createElement('em'); body.className = 'hpin-body'; body.append(el('i'), el('b', '', i + 1)); b.append(body, el('span', '', n.name));
+    const b = el('button', 'hpin' + (at[2] ? ' left' : '') + (meet ? ' meet' : '')); b.type = 'button'; b.style.left = at[0] + '%'; b.style.top = at[1] + '%';
+    b.setAttribute('aria-label', meet ? '1936 年会师点：' + n.name + '，' + n.date : '从第 ' + label + ' 站开始参观：' + n.name + '，' + n.date);
+    const body = document.createElement('em'); body.className = 'hpin-body'; body.append(el('i'), el('b', '', label)); b.append(body, el('span', '', n.name));
     b.addEventListener('click', () => choose(n.id)); stage.append(b); return b;
-  });
+  };
+  const mainPins = routeList.map((n, i) => makePin(n, i + 1, false));
+  const meetPins = meetList.map(n => makePin(n, '会', true));
+  const allPins = [...mainPins, ...meetPins];
   const caption = n => { cap.replaceChildren(); if (n) cap.append(el('em', '', n.date), document.createTextNode(n.name + ' · ' + n.title)); };
+  const captionMeet = () => { cap.replaceChildren(); cap.append(el('em', '', '1936.10'), document.createTextNode('会宁会师 · 将台堡会师（不在主力路线上）')); };
   let run = 0;
-  // 虚线：已到达的各站连成折线，最后一段按进度 f 延伸
-  const draw = (k, f) => { const pts = list.slice(0, k + 1).map(n => SPOT[n.id].slice(0, 2)); if (f != null && k + 1 < list.length) { const a = SPOT[list[k].id], c = SPOT[list[k + 1].id]; pts.push([a[0] + (c[0] - a[0]) * f, a[1] + (c[1] - a[1]) * f]); } line.setAttribute('points', pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' ')); };
+  const draw = (k, f) => { const pts = routeList.slice(0, k + 1).map(n => SPOT[n.id].slice(0, 2)); if (f != null && k + 1 < routeList.length) { const a = SPOT[routeList[k].id], c = SPOT[routeList[k + 1].id]; pts.push([a[0] + (c[0] - a[0]) * f, a[1] + (c[1] - a[1]) * f]); } line.setAttribute('points', pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' ')); };
   const extend = (k, ms, id) => new Promise(done => { const t0 = performance.now(); const tick = now => { if (id !== run) return done(); const f = Math.min(1, (now - t0) / ms); draw(k, f); if (f < 1) requestAnimationFrame(tick); else done(); }; requestAnimationFrame(tick); });
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const finish = () => { pins.forEach(b => { b.classList.remove('now'); b.classList.add('in', 'done'); }); stage.classList.add('all'); draw(list.length - 1); cap.textContent = '点任意一站，从那里开始参观'; };
+  const finish = () => { allPins.forEach(b => { b.classList.remove('now'); b.classList.add('in', 'done'); }); stage.classList.add('all'); draw(routeList.length - 1); cap.textContent = '主线到陕北；1936 年三军会师单独标注'; };
   function showAll() { run++; stage.classList.add('static'); finish(); }
   async function play() {
-    const id = ++run; stage.classList.remove('static', 'all'); pins.forEach(b => b.classList.remove('in', 'now', 'done')); line.setAttribute('points', '');
-    for (let i = 0; i < list.length; i++) {
+    const id = ++run; stage.classList.remove('static', 'all'); allPins.forEach(b => b.classList.remove('in', 'now', 'done')); line.setAttribute('points', '');
+    for (let i = 0; i < routeList.length; i++) {
       if (id !== run) return;
       if (i) await extend(i - 1, 150, id); if (id !== run) return;
-      pins.forEach(x => x.classList.remove('now')); pins[i].classList.add('in', 'now'); if (i) pins[i - 1].classList.add('done'); caption(list[i]);
-      await wait(i === list.length - 1 ? 700 : 230);
+      mainPins.forEach(x => x.classList.remove('now')); mainPins[i].classList.add('in', 'now'); if (i) mainPins[i - 1].classList.add('done'); caption(routeList[i]);
+      await wait(i === routeList.length - 1 ? 550 : 230);
+    }
+    if (id !== run) return;
+    captionMeet();
+    for (let i = 0; i < meetPins.length; i++) {
+      if (id !== run) return;
+      meetPins.forEach(x => x.classList.remove('now')); meetPins[i].classList.add('in', 'now'); if (i) meetPins[i - 1].classList.add('done');
+      await wait(300);
     }
     if (id === run) finish();
   }
   $('hm-replay').addEventListener('click', () => { if (calm()) showAll(); else play(); });
-  // 滚动到能看见时才开始播放；设置了“减少动态效果”时直接显示全部
   let started = false;
   const start = () => { if (started) return; started = true; if (calm()) showAll(); else play(); };
   if ('IntersectionObserver' in window) new IntersectionObserver((es, o) => { if (es.some(e => e.isIntersecting)) { o.disconnect(); start(); } }, { threshold: .35 }).observe(stage); else start();
