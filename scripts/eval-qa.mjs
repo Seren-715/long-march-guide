@@ -106,6 +106,9 @@ const CASES = [
   { id: '40', node: 'start', free: true, q: '我只有十分钟，想看最惊险的战斗，帮我安排一下。', expect: { action: { type: 'plan' }, step: '规划路线' } },
   { id: '42', node: 'zunyi', q: '红军翻雪山和过草地分别遇到了什么困难？', expect: { all: ['夹金山'], any: ['沼泽', '草地'], sources: ['jiajin', 'caodi'], step: '查阅' } },
   { id: '43', node: 'tongdao', q: '讲个故事吧。', expect: { type: 'history', step: '查阅' } },
+  // —— 查证助手定位：说明范围、逐项查证一句说法 ——
+  { id: '44', node: 'start', free: true, q: '你是谁，能查什么？', expect: { all: ['查证'], any: ['中央红军', '红一方面军'], type: 'chat', noSources: true } },
+  { id: '45', node: 'start', free: true, q: '有人说遵义会议是1935年2月在贵阳召开的，会上选举毛泽东为中央政治局常委，对吗？', expect: { all: ['1月15日', '遵义'], any: ['不符', '不是', '有误', '不对'], sources: ['zunyi', 'zunyi_detail'], step: '查阅' } },
 ];
 const PLAN_CASES = [
   { id: 'P1', preference: '我想看翻雪山、过草地那一段', length: 'short', expect: { status: 200 } },
