@@ -142,9 +142,25 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .session.chat-only #chat-chips,.session.chat-only #chat-form .ctx-pill{display:none}
 .session.chat-only .chat-pane{border-right:0;background:var(--bg);width:100%;max-width:820px;margin:0 auto}
 .session.chat-only .chat-only-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px 6px;font-size:13px;color:var(--text3)}
-.related{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:var(--text3)}
-.related .chip{min-height:30px;font-size:12px;padding:4px 12px;background:var(--bg);border-color:var(--accent-line);color:var(--accent)}
-.related .chip:hover{background:var(--accent-soft)}
+#open-reading{border-color:var(--accent-line);color:var(--accent);background:var(--accent-soft);font-weight:600}
+#open-reading:hover{border-color:var(--accent)}
+.related{display:grid;gap:8px;margin:14px 0 4px}
+.related-label{font-size:12px;color:var(--text3);letter-spacing:.04em}
+.stop-card{display:flex;align-items:center;gap:14px;width:100%;padding:10px 12px 10px 10px;border:1px solid var(--accent-line);border-radius:14px;background:var(--accent-soft);color:var(--text);text-align:left;cursor:pointer;font:inherit;transition:transform .15s,box-shadow .15s,border-color .15s}
+.stop-card:hover{border-color:var(--accent);box-shadow:0 6px 18px rgba(179,38,30,.14);transform:translateY(-1px)}
+.stop-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stop-thumb{position:relative;flex:none;width:88px;height:64px;border-radius:9px;overflow:hidden;background:#e9e2d8}
+.stop-thumb img{position:absolute;width:320px;height:200px;max-width:none}
+.stop-thumb i{position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px #fff,0 0 0 7px rgba(179,38,30,.25)}
+.stop-info{flex:1;min-width:0;display:grid;gap:2px}
+.stop-info b{font-size:15px}
+.stop-info small{font-size:12px;color:var(--text3)}
+.stop-info span{font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stop-go{flex:none;display:inline-flex;align-items:center;height:34px;padding:0 14px;border-radius:999px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;white-space:nowrap}
+.stop-card.minor{background:var(--bg);padding:8px 12px 8px 8px}
+.stop-card.minor .stop-thumb{width:64px;height:46px}
+.stop-card.minor .stop-go{background:transparent;color:var(--accent);border:1px solid var(--accent-line);height:30px}
+@media (max-width:520px){.stop-info span{display:none}.stop-go{padding:0 10px}.stop-thumb{width:72px;height:56px}}
 
 /* 对话 */
 .chat-scroll{position:relative;flex:1;min-height:0;display:flex}
@@ -887,6 +903,18 @@ $('download-summary').addEventListener('click', e => { if (!summaryText) return;
 
 /* ---------- 对话 ---------- */
 function scrollToMsg(row) { if (!messages.clientHeight) return; messages.scrollTo({ top: messages.scrollTop + row.getBoundingClientRect().top - messages.getBoundingClientRect().top - 12, behavior: motion() }); }
+// 回答涉及的讲解节点：卡片带沙盘缩略图，第一张最醒目
+function relatedCards(ids) {
+  const box = el('div', 'related'); box.append(el('div', 'related-label', ids.length > 1 ? '这段历史发生在这些地方，可以去看看' : '这段历史发生在这里，去看看现场讲解'));
+  ids.forEach((id, i) => {
+    const n = find(id); const c = el('button', 'stop-card' + (i ? ' minor' : '')); c.type = 'button'; c.setAttribute('aria-label', '打开讲解：' + n.name);
+    const at = MAP && MAP.nodes[id];
+    if (at) { const th = el('span', 'stop-thumb'); const w = i ? 64 : 88, h = i ? 46 : 64; const img = document.createElement('img'); img.src = '/assets/longmarch-map.webp'; img.alt = ''; img.loading = 'lazy'; img.style.left = Math.min(0, Math.max(w - 320, w / 2 - at[0] / 100 * 320)) + 'px'; img.style.top = Math.min(0, Math.max(h - 200, h / 2 - at[1] / 100 * 200)) + 'px'; th.append(img); const dot = el('i'); dot.style.left = (Math.min(0, Math.max(w - 320, w / 2 - at[0] / 100 * 320)) + at[0] / 100 * 320) + 'px'; dot.style.top = (Math.min(0, Math.max(h - 200, h / 2 - at[1] / 100 * 200)) + at[1] / 100 * 200) + 'px'; th.append(dot); c.append(th); }
+    const info = el('span', 'stop-info'); info.append(el('b', '', n.name), el('small', '', n.date), el('span', '', n.title || '')); c.append(info, el('span', 'stop-go', i ? '查看 →' : '去看讲解 →'));
+    c.addEventListener('click', () => choose(id)); box.append(c);
+  });
+  return box;
+}
 function addMessage(who, text, sources = [], opts = {}) {
   const mine = who === '你'; const row = el('div', 'msg ' + (mine ? 'user' : 'bot') + (opts.error ? ' error' : ''));
   const body = el('div', 'msg-body');
@@ -894,12 +922,12 @@ function addMessage(who, text, sources = [], opts = {}) {
   else { const head = el('div', 'msg-head'); const s = el('span', 'seal', '征'); s.setAttribute('aria-hidden', 'true'); head.append(s, el('span', '', who)); row.append(head); }
   if (opts.node) body.append(el('span', 'asked-at', '提问时的节点：' + opts.node));
   body.append(el('div', 'msg-text', text));
+  if (opts.related && opts.related.length) body.append(relatedCards(opts.related));
   const refs = el('div', 'refs'); for (const s of sources) { const u = safeLink(s.url); if (u) refs.append(srcLink(u, s.title || '查看资料', 'ref')); } if (refs.childNodes.length) body.append(refs);
   const ex = sources.filter(s => typeof s.excerpt === 'string' && s.excerpt.trim());
   if (ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); body.append(d); }
   const follow = (opts.followups || []).filter(q => typeof q === 'string' && q.trim()).slice(0, 2);
   if (follow.length) { const box = el('div', 'followups'); for (const q of follow) { const c = el('button', 'chip', q); c.type = 'button'; c.addEventListener('click', () => askChip(q)); box.append(c); } body.append(box); }
-  if (opts.related && opts.related.length) { const box = el('div', 'related'); box.append(el('span', '', '在讲解中查看：')); for (const id of opts.related) { const c = el('button', 'chip', find(id).name + ' →'); c.type = 'button'; c.addEventListener('click', () => choose(id)); box.append(c); } body.append(box); }
   if (opts.actions && opts.actions.length) { messages.querySelectorAll('.quick button').forEach(b => { b.disabled = true; }); const box = el('div', 'quick'); for (const a of opts.actions) { const b = el('button', 'btn ' + (a.primary ? 'btn-primary' : 'btn-ghost'), a.label); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; a.run(); }); box.append(b); } body.append(box); }
   if (opts.retry) { const r = el('button', 'btn btn-ghost retry', '重试这个问题'); r.type = 'button'; r.addEventListener('click', () => { if (busy) return; const cur = input.value.trim(); if (cur && (cur !== opts.retry || selected !== opts.retryNode)) { status.textContent = '输入框已有未发送的问题，请先处理后再重试。'; input.focus(); return; } if (opts.retryNode && selected !== opts.retryNode) choose(opts.retryNode, { keepPane: true }); r.disabled = true; input.value = ''; autosize(input); ask(opts.retry); }); body.append(r); }
   row.append(body); messages.append(row); scrollToMsg(row);
