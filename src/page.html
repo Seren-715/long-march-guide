@@ -144,28 +144,35 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 #open-reading{display:none}
 /* 讲解员形象：整图 + 眼睛/嘴的小块 + 两个姿势图，按状态切换 */
 .av{display:block;position:relative;flex:none;overflow:hidden;border-radius:50%;background:var(--accent-soft);border:1px solid var(--accent-line);aspect-ratio:1}
-.av-canvas{position:absolute;left:-33.4%;top:-15%;width:166.8%;aspect-ratio:2/3;transform-origin:50% 60%;animation:av-breathe 4.2s ease-in-out infinite}
-.av-canvas img{position:absolute;display:block;max-width:none;user-select:none;-webkit-user-drag:none;transition:opacity .22s}
-.av-idle,.av-read,.av-point{left:0;top:0;width:100%;height:100%}
-.av-read,.av-point,.av-eyes,.av-m1,.av-m2{opacity:0}
-.av-point{transform:translateX(8%)}
-.av-eyes,.av-m1,.av-m2{transition:none!important}
+.av-canvas{position:absolute;left:-33.4%;top:-15%;width:166.8%;aspect-ratio:2/3}
+.av-rig{position:absolute;inset:0;transform-origin:50% 100%;animation:av-idle 7s ease-in-out infinite}
+.av[data-talking="1"] .av-rig{animation:av-talk 1.5s ease-in-out infinite}
+.av-canvas.av-shift{animation:av-shift .5s cubic-bezier(.3,.7,.3,1)}
+.av-rig img{position:absolute;display:block;max-width:none;user-select:none;-webkit-user-drag:none}
+.av-idle,.av-read,.av-point{left:0;top:0;width:100%;height:100%;transform-origin:0 0}
+/* 换姿势：新姿势在上层淡入，原来的站立图等它完全出现后才隐藏，回来时相反，中途不会透出背景 */
+.av-idle{opacity:1;transition:opacity 0s linear 0s}
+.av-read,.av-point{opacity:0;z-index:3;transition:opacity .42s ease}
+.av-eyes,.av-m1,.av-m2{opacity:0;z-index:1}
 .av[data-eyes="1"] .av-eyes{opacity:1}
 .av[data-mouth="1"] .av-m1{opacity:1}
 .av[data-mouth="2"] .av-m2{opacity:1}
 .av[data-pose="read"] .av-read,.av[data-pose="point"] .av-point{opacity:1}
-.av[data-pose="read"] .av-idle,.av[data-pose="point"] .av-idle,.av[data-pose="read"] .av-eyes,.av[data-pose="point"] .av-eyes,.av[data-pose="read"] .av-m1,.av[data-pose="read"] .av-m2,.av[data-pose="point"] .av-m1,.av[data-pose="point"] .av-m2{opacity:0}
-@keyframes av-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.012) translateY(-.4%)}}
+.av[data-pose="read"] .av-idle,.av[data-pose="point"] .av-idle{opacity:0;transition:opacity 0s linear .42s}
+.av[data-pose="read"] .av-eyes,.av[data-pose="point"] .av-eyes,.av[data-pose="read"] .av-m1,.av[data-pose="read"] .av-m2,.av[data-pose="point"] .av-m1,.av[data-pose="point"] .av-m2{opacity:0}
+@keyframes av-idle{0%,100%{transform:rotate(-.35deg) scale(1)}25%{transform:rotate(0deg) scale(1.01) translateY(-.3%)}50%{transform:rotate(.35deg) scale(1)}75%{transform:rotate(0deg) scale(1.01) translateY(-.3%)}}
+@keyframes av-talk{0%,100%{transform:rotate(-.3deg) translateY(0)}30%{transform:rotate(.25deg) translateY(-.55%)}60%{transform:rotate(.4deg) translateY(.1%)}80%{transform:rotate(-.1deg) translateY(-.4%)}}
+@keyframes av-shift{0%{transform:translateY(0) scale(1)}35%{transform:translateY(1.3%) scale(.992)}100%{transform:translateY(0) scale(1)}}
 .av-sm{width:48px}
 /* 站在对话框旁边的讲解员（宽屏） */
 .av-full{border-radius:0;background:none;border:0;overflow:visible;aspect-ratio:2/3;width:100%}
+.av-full{margin-bottom:-3%}
 .av-full .av-canvas{left:0;top:0;width:100%;transform-origin:50% 100%}
-.av-full .av-point{transform:none}
 .stage{display:none;position:fixed;bottom:0;z-index:15;pointer-events:none;flex-direction:column;align-items:center}
 .stage-bubble{position:relative;max-width:100%;margin:0 0 10px;padding:9px 13px;border-radius:14px;background:var(--bg);border:1px solid var(--accent-line);box-shadow:0 8px 24px rgba(179,38,30,.10);font-size:13px;line-height:1.5;color:var(--text2);text-align:center;transition:opacity .2s}
 .stage-bubble:after{content:"";position:absolute;left:50%;bottom:-6px;width:10px;height:10px;margin-left:-5px;background:var(--bg);border-right:1px solid var(--accent-line);border-bottom:1px solid var(--accent-line);transform:rotate(45deg)}
 .stage-bubble:empty{opacity:0}
-.stage-voice{pointer-events:auto;position:absolute;left:50%;bottom:14px;transform:translateX(-50%);white-space:nowrap;height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--accent-line);background:var(--bg);color:var(--accent);font:inherit;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.stage-voice{pointer-events:auto;position:absolute;left:50%;bottom:22px;transform:translateX(-50%);white-space:nowrap;height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--accent-line);background:var(--bg);color:var(--accent);font:inherit;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .stage-voice:hover{border-color:var(--accent)}
 .stage-voice[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
 .stage-voice[hidden]{display:none}
@@ -1076,17 +1083,20 @@ const AV = DATA.avatar && Array.isArray(DATA.avatar.eyes) && Array.isArray(DATA.
 const avatars = [];
 function makeAvatar(cls) {
   const box = el('span', 'av ' + cls); box.dataset.pose = 'idle'; box.setAttribute('aria-hidden', 'true');
-  const canvas = el('span', 'av-canvas');
-  const img = (name, c, at) => { const i = document.createElement('img'); i.className = c; i.src = '/assets/avatar/' + name + '.webp'; i.alt = ''; i.decoding = 'async'; i.draggable = false; if (at) { i.style.left = at[0] + '%'; i.style.top = at[1] + '%'; i.style.width = at[2] + '%'; i.style.height = at[3] + '%'; } canvas.append(i); };
-  img('idle', 'av-idle'); if (AV) { img('eyes', 'av-eyes', AV.eyes); img('mouth1', 'av-m1', AV.mouth); img('mouth2', 'av-m2', AV.mouth); } img('read', 'av-read'); img('point', 'av-point');
-  box.append(canvas); avatars.push(box); return box;
+  const canvas = el('span', 'av-canvas'), rig = el('span', 'av-rig');
+  const img = (name, c, at) => { const i = document.createElement('img'); i.className = c; i.src = '/assets/avatar/' + name + '.webp'; i.alt = ''; i.decoding = 'async'; i.draggable = false; if (at) { i.style.left = at[0] + '%'; i.style.top = at[1] + '%'; i.style.width = at[2] + '%'; i.style.height = at[3] + '%'; } rig.append(i); return i; };
+  // 姿势图按构建时算出的缩放和平移对到站立图的头部位置，切换时头不动
+  const pose = name => { const i = img(name, 'av-' + name), p = AV && AV.poses && AV.poses[name]; if (p) i.style.transform = 'translate(' + p.x + '%,' + p.y + '%) scale(' + p.scale + ')'; };
+  img('idle', 'av-idle'); if (AV) { img('eyes', 'av-eyes', AV.eyes); img('mouth1', 'av-m1', AV.mouth); img('mouth2', 'av-m2', AV.mouth); } pose('read'); pose('point');
+  canvas.append(rig); box.append(canvas); avatars.push(box); return box;
 }
 let guidePose = 'idle', talkUntil = 0, poseTimer = 0, mouthStep = 0;
 const HOME_HELLO = '你好，我是小征。想从哪儿看起？';
 function guideSay(text) { $('guide-status').textContent = text; $('stage-bubble').textContent = text; }
 const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 function setGuide(pose, text, holdMs) {
-  clearTimeout(poseTimer); guidePose = pose; for (const a of avatars) a.dataset.pose = pose;
+  clearTimeout(poseTimer); const changed = pose !== guidePose; guidePose = pose;
+  for (const a of avatars) { a.dataset.pose = pose; if (changed && !still()) { const c = a.firstChild; c.classList.remove('av-shift'); void c.offsetWidth; c.classList.add('av-shift'); } }
   if (text != null) guideSay(text);
   if (holdMs) poseTimer = setTimeout(() => setGuide('idle', busy ? null : view === 'home' ? HOME_HELLO : '有问题随时问我'), holdMs);
 }
@@ -1095,7 +1105,7 @@ function guideTalk(text) { talkUntil = Date.now() + Math.min(7000, 1200 + String
 setInterval(() => {
   const talking = guidePose === 'idle' && !still() && (speaking || Date.now() < talkUntil);
   const m = talking ? [0, 1, 2, 1][mouthStep++ % 4] : 0;
-  for (const a of avatars) a.dataset.mouth = m;
+  for (const a of avatars) { a.dataset.mouth = m; a.dataset.talking = talking ? 1 : 0; }
   if (!talking && !busy && guidePose === 'idle' && talkUntil && Date.now() >= talkUntil && !speaking) { talkUntil = 0; guideSay(view === 'home' ? HOME_HELLO : '有问题随时问我'); }
 }, 150);
 (function blink() { setTimeout(() => { if (!still() && guidePose === 'idle') { for (const a of avatars) a.dataset.eyes = 1; setTimeout(() => { for (const a of avatars) a.dataset.eyes = 0; }, 130); } blink(); }, 2600 + Math.random() * 3200); })();

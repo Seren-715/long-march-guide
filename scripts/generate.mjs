@@ -8,7 +8,7 @@ const mapLayout=JSON.parse(await readFile(new URL('../src/map-layout.json',impor
 const mapImage=(await readFile(new URL('../src/assets/longmarch-map.webp',import.meta.url))).toString('base64');
 const avatarLayout=JSON.parse(await readFile(new URL('../src/assets/avatar/layout.json',import.meta.url),'utf8'));
 const avatar={};for(const name of ['idle','read','point','eyes','mouth1','mouth2'])avatar[name]=(await readFile(new URL('../src/assets/avatar/'+name+'.webp',import.meta.url))).toString('base64');
-const data=JSON.stringify({nodes,guide:{decisions,quizzes},stories,avatar:{eyes:avatarLayout.eyes,mouth:avatarLayout.mouth},map:{nodes:mapLayout.nodes,route:mapLayout.route,labels:mapLayout.labels,width:mapLayout.width,height:mapLayout.height}}).replaceAll('<','\\u003c');
+const data=JSON.stringify({nodes,guide:{decisions,quizzes},stories,avatar:{eyes:avatarLayout.eyes,mouth:avatarLayout.mouth,poses:avatarLayout.poses},map:{nodes:mapLayout.nodes,route:mapLayout.route,labels:mapLayout.labels,width:mapLayout.width,height:mapLayout.height}}).replaceAll('<','\\u003c');
 const sourceCount=nodes.reduce((sum,n)=>sum+1+(n.extra||[]).length,0);
 const withData=html.replace('__DATA__',()=>data);
 if(withData===html) throw new Error('Missing data marker');
