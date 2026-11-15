@@ -174,4 +174,10 @@ body=await (await worker.fetch(make({question:'如果资料没有记录，能推
   // 带故事来源的对话凭证可在下一轮使用
   res=await worker.fetch(make({question:'后来呢？',node:reviewed.node,historyTokens:[body.historyToken]}),env);assert.equal(res.status,200);
 }
+
+// —— 首页直接提问（free）：不注入“当前参观节点”，允许前往默认节点 ——
+globalThis.fetch=async(url,options)=>{seen=JSON.parse(options.body);return reply({type:'chat',answer:'好的，带你去中央苏区。',sources:[],action:{type:'goto',node:'start'}})};
+body=await (await worker.fetch(make({question:'带我从头看',node:'start',free:true}),env)).json();
+assert.match(seen.messages[0].content,/首页直接提问/);assert.doesNotMatch(seen.messages[0].content,/当前参观节点是/);assert.deepEqual(body.action,{type:'goto',node:'start'});
+body=await (await worker.fetch(make({question:'带我从头看',node:'start'}),env)).json();assert.match(seen.messages[0].content,/当前参观节点是 中央苏区/);assert.equal(body.action,null);
 globalThis.fetch=original;console.log('API and evidence tests passed');

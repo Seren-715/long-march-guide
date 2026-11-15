@@ -173,11 +173,11 @@ export default {async fetch(request, env) {
   const key=await signingKey(env.HISTORY_SIGNING_KEY),history=[];
   for(const token of data.historyTokens||[]){const entry=await readToken(key,token,data.sessionId,data.node);if(!entry)return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);history.push({role:'user',content:entry.question},{role:'assistant',content:JSON.stringify({answer:entry.answer,sources:entry.sources})});}
   const limited=rateLimit(request,env,'chat');if(limited)return tooMany(limited);
-  const question=data.question.trim(),current=nodes.find(n=>n.id===data.node),tour=cleanTour(data.tour);
+  const question=data.question.trim(),current=nodes.find(n=>n.id===data.node),tour=cleanTour(data.tour),free=data.free===true;
   const context=evidence.map(e=>`[${e.id}] ${e.name}：${e.text}`).join('\n');
   const visit=tour?`观众正在按路线参观：${tour.route.map(nodeName).join(' → ')}${tour.route.includes(current.id)?`（当前第 ${tour.route.indexOf(current.id)+1} / ${tour.route.length} 站）`:'（当前节点不在路线中）'}；已看过：${tour.visited.map(nodeName).join('、')||'暂无'}。可以据此自然地衔接前后站，但衔接中的史实同样只能来自资料。`:'观众没有选择路线，正在自由浏览。';
   const system=`你是长征历史虚拟讲解员小征，面向自主学习的观众，语气亲切、简洁。
-当前参观节点是 ${current.name}（${current.id}）。${visit}
+${free?'观众在首页直接提问，没有正在参观的节点；请根据问题本身选取相关资料作答。':`当前参观节点是 ${current.name}（${current.id}）。${visit}`}
 
 一、先判断问题类型 type：
 - "history"：与长征相关的史实、原因、意义、比较、总结等问题；问候、感谢里同时提出了这类问题的，也按 history 回答其中的历史部分。只依据下方资料作答，逐项回答用户提出的各个问题；如其中某一项在资料中没有依据，要明确说明该项资料不足，不得遗漏。尽量沿用资料原文的说法；资料未说明的事实必须明确说不知道，不得猜测或编造，可以同时给出资料里相关的事实。不要自行推算时间间隔、数量或比例，不要做资料之外的评价、假设或推测。sources 必须列出回答中每一项事实所依据的资料 ID；不可用没有支持该事实的资料代替。严格保留时间、部队、事件及人数的适用范围，不把长征初期的兵力变化写成单场战役的伤亡数字。回答中的日期、数量等数字必须原样出自所引资料。
@@ -200,7 +200,7 @@ ${context}`;
       const output=await res.json(),choice=output.choices?.[0],content=choice?.message?.content||'';
       let parsed=null;if(choice?.finish_reason!=='length'){try{parsed=JSON.parse(content)}catch{parsed=null}}
       if(!parsed||typeof parsed.answer!=='string'||!parsed.answer.trim())continue;
-      result=checkReply(parsed,question,current.id);
+      result=checkReply(parsed,question,free?null:current.id);
       if((result.badNumbers.length||result.badTitles.length||result.risks.length)&&attempt===0){
         const issues=[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:'',...result.risks].filter(Boolean).join('；');
         messages=[...base,{role:'assistant',content},{role:'user',content:`系统校验：${issues}。请只使用所引资料中原样出现的数字和名称重新回答，不要自行推算，资料没有的就说明不知道，仍输出同样格式的 JSON。`}];
