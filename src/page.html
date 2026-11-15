@@ -157,6 +157,32 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .av[data-pose="read"] .av-idle,.av[data-pose="point"] .av-idle,.av[data-pose="read"] .av-eyes,.av[data-pose="point"] .av-eyes,.av[data-pose="read"] .av-m1,.av[data-pose="read"] .av-m2,.av[data-pose="point"] .av-m1,.av[data-pose="point"] .av-m2{opacity:0}
 @keyframes av-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.012) translateY(-.4%)}}
 .av-sm{width:48px}
+/* 站在对话框旁边的讲解员（宽屏） */
+.av-full{border-radius:0;background:none;border:0;overflow:visible;aspect-ratio:2/3;width:100%}
+.av-full .av-canvas{left:0;top:0;width:100%;transform-origin:50% 100%}
+.av-full .av-point{transform:none}
+.stage{display:none;position:fixed;bottom:0;z-index:15;pointer-events:none;flex-direction:column;align-items:center}
+.stage-bubble{position:relative;max-width:100%;margin:0 0 10px;padding:9px 13px;border-radius:14px;background:var(--bg);border:1px solid var(--accent-line);box-shadow:0 8px 24px rgba(179,38,30,.10);font-size:13px;line-height:1.5;color:var(--text2);text-align:center;transition:opacity .2s}
+.stage-bubble:after{content:"";position:absolute;left:50%;bottom:-6px;width:10px;height:10px;margin-left:-5px;background:var(--bg);border-right:1px solid var(--accent-line);border-bottom:1px solid var(--accent-line);transform:rotate(45deg)}
+.stage-bubble:empty{opacity:0}
+.stage-voice{pointer-events:auto;position:absolute;left:50%;bottom:14px;transform:translateX(-50%);white-space:nowrap;height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--accent-line);background:var(--bg);color:var(--accent);font:inherit;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.stage-voice:hover{border-color:var(--accent)}
+.stage-voice[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.stage-voice[hidden]{display:none}
+@media (min-width:1240px){
+  body[data-view="home"] .stage{display:flex;left:calc(50% + 384px);width:230px}
+  body[data-view="home"] #home-av{display:none}
+}
+@media (min-width:1400px){
+  body[data-view="session"].chat-only .stage{display:flex;right:calc((100vw - 1342px)/2);width:250px}
+  body[data-view="session"]:not(.chat-only) .stage{display:flex;left:452px;width:168px}
+  body[data-view="session"]:not(.chat-only) .stage-bubble{font-size:12px;padding:7px 10px}
+  .session:not(.chat-only) .article{margin-left:clamp(196px,calc((100% - 740px)/2),100%);margin-right:auto}
+  .session.chat-only{grid-template-columns:260px minmax(0,760px) 250px!important}
+  .chat-only-bar .av-sm,.chat-only-bar .guide-id{display:none}
+  .session:not(.chat-only) .chat-only-bar{display:none}
+  .session.chat-only .chat-only-bar{justify-content:flex-end}
+}
 .av-lg{width:124px;margin:0 auto 14px;box-shadow:0 10px 30px rgba(179,38,30,.12)}
 .face{display:inline-block;flex:none;width:22px;height:22px;border-radius:50%;background:var(--accent-soft) url(/assets/avatar/idle.webp) 50% 11%/294% auto no-repeat;border:1px solid var(--accent-line)}
 .session.chat-only{grid-template-columns:minmax(0,1fr)}
@@ -488,6 +514,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="dialog-body"><p class="plan-note">节点是讲解分类，不表示故事一定发生在该节点地点。只展示已有资料。</p><div id="people-list"></div><div id="person-detail" hidden></div></div>
 </dialog>
 
+<div class="stage" id="stage"><div class="stage-bubble" id="stage-bubble" aria-hidden="true"></div><span id="stage-av"></span><button type="button" class="stage-voice" id="stage-voice" aria-pressed="false" hidden>听我讲解</button></div>
 <main class="session" id="session" data-pane="read" hidden>
 <div class="pane-switch" role="tablist" aria-label="切换视图"><button type="button" role="tab" id="sw-read" aria-selected="true">讲解</button><button type="button" role="tab" id="sw-chat" aria-selected="false">对话<span class="dot" id="chat-dot" hidden></span></button></div>
 <aside class="side-tools" id="side-tools" aria-label="功能入口"></aside>
@@ -592,7 +619,7 @@ $('read-selection').addEventListener('click', () => { const text = selectedSpeec
 $('stop-audio').addEventListener('pointerdown', e => e.preventDefault());
 $('stop-audio').addEventListener('click', stopSpeaking);
 function narration(n) { const d = decisionOf(n.id); if (d && !decided.has(n.id)) return n.name + '。' + d.situation + d.question; return (n.date || '') + '，' + n.name + '。' + (n.title || '') + '。' + (n.text || ''); }
-function setTts(on) { ttsOn = on; $('tts-toggle').setAttribute('aria-pressed', String(on)); try { localStorage.setItem('lmg-tts', on ? '1' : '0'); } catch {} if (!on) stopSpeaking(); else if (view === 'session') speak(narration(find(selected))); }
+function setTts(on) { ttsOn = on; $('tts-toggle').setAttribute('aria-pressed', String(on)); if (typeof syncVoice === 'function') syncVoice(); try { localStorage.setItem('lmg-tts', on ? '1' : '0'); } catch {} if (!on) stopSpeaking(); else if (view === 'session') speak(narration(find(selected))); }
 
 function el(tag, className, text) { const e = document.createElement(tag); if (className) e.className = className; if (text != null) e.textContent = String(text); return e; }
 function safeLink(url) { try { const u = new URL(url); return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : ''; } catch { return ''; } }
@@ -706,6 +733,7 @@ $('strip').addEventListener('keydown', e => {
 /* ---------- 视图 ---------- */
 function setView(v) {
   view = v; document.body.dataset.view = v; $('home').hidden = v !== 'home'; $('session').hidden = v !== 'session'; updateSelectionAudio(); updateReturnChat();
+  if (typeof guideSay === 'function' && !busy) guideSay(v === 'home' ? HOME_HELLO : '有问题随时问我');
   if (v === 'home') { renderHome(); window.scrollTo(0, 0); }
   else { render(); setPane(pane); }
 }
@@ -732,7 +760,7 @@ function updateReturnChat() { $('return-chat').hidden = !hasFreeConversation || 
 function setChatOnly(on) {
   if (chatOnly && !on) { freeChatSnapshot = { node: selected, history: chatHistory.slice() }; contextVersion++; }
   chatOnly = on; if (on) hasFreeConversation = true;
-  $('session').classList.toggle('chat-only', on); if (on) renderSide();
+  $('session').classList.toggle('chat-only', on); document.body.classList.toggle('chat-only', on); if (on) renderSide();
   if (on) { const mid = $('bar-mid'); mid.replaceChildren(el('span', 'crumb', '与小征对话')); }
   updateReturnChat();
 }
@@ -1054,11 +1082,13 @@ function makeAvatar(cls) {
   box.append(canvas); avatars.push(box); return box;
 }
 let guidePose = 'idle', talkUntil = 0, poseTimer = 0, mouthStep = 0;
+const HOME_HELLO = '你好，我是小征。想从哪儿看起？';
+function guideSay(text) { $('guide-status').textContent = text; $('stage-bubble').textContent = text; }
 const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 function setGuide(pose, text, holdMs) {
   clearTimeout(poseTimer); guidePose = pose; for (const a of avatars) a.dataset.pose = pose;
-  if (text != null) $('guide-status').textContent = text;
-  if (holdMs) poseTimer = setTimeout(() => setGuide('idle', busy ? null : '有问题随时问我'), holdMs);
+  if (text != null) guideSay(text);
+  if (holdMs) poseTimer = setTimeout(() => setGuide('idle', busy ? null : view === 'home' ? HOME_HELLO : '有问题随时问我'), holdMs);
 }
 function guideTalk(text) { talkUntil = Date.now() + Math.min(7000, 1200 + String(text || '').length * 45); if (guidePose !== 'point') setGuide('idle', '正在为你讲解'); }
 // 说话时嘴在闭、微张、张开之间切换；语音朗读进行时也算说话
@@ -1066,10 +1096,14 @@ setInterval(() => {
   const talking = guidePose === 'idle' && !still() && (speaking || Date.now() < talkUntil);
   const m = talking ? [0, 1, 2, 1][mouthStep++ % 4] : 0;
   for (const a of avatars) a.dataset.mouth = m;
-  if (!talking && !busy && guidePose === 'idle' && talkUntil && Date.now() >= talkUntil && !speaking) { talkUntil = 0; $('guide-status').textContent = '有问题随时问我'; }
+  if (!talking && !busy && guidePose === 'idle' && talkUntil && Date.now() >= talkUntil && !speaking) { talkUntil = 0; guideSay(view === 'home' ? HOME_HELLO : '有问题随时问我'); }
 }, 150);
 (function blink() { setTimeout(() => { if (!still() && guidePose === 'idle') { for (const a of avatars) a.dataset.eyes = 1; setTimeout(() => { for (const a of avatars) a.dataset.eyes = 0; }, 130); } blink(); }, 2600 + Math.random() * 3200); })();
-$('guide-av').replaceWith(makeAvatar('av-sm')); $('home-av').append(makeAvatar('av-lg'));
+$('guide-av').replaceWith(makeAvatar('av-sm')); $('home-av').append(makeAvatar('av-lg')); $('stage-av').replaceWith(makeAvatar('av-full'));
+guideSay(HOME_HELLO);
+function syncVoice() { const b = $('stage-voice'); b.hidden = !TTS; b.setAttribute('aria-pressed', String(ttsOn)); b.textContent = ttsOn ? '朗读已开 · 点此静音' : '听我讲解'; }
+$('stage-voice').addEventListener('click', () => { setTts(!ttsOn); if (ttsOn && view === 'home') speak('你好，我是讲解员小征。可以跟我逐站参观，也可以直接向我提问。'); });
+syncVoice();
 
 function stepItem(s, live) { const li = el('li', (s.kind === 'act' ? 'act' : s.kind === 'verify' ? (s.ok ? 'ok' : 'bad') : '') + (live ? ' live' : '')); li.append(el('b', '', String(s.text || '').slice(0, 80))); if (s.detail) li.append(document.createTextNode(' · ' + String(s.detail).slice(0, 80))); return li; }
 function stepList(steps) { const ul = el('ul', 'steps'); ul.setAttribute('aria-label', '小征的处理过程'); for (const s of steps) if (s && typeof s === 'object') ul.append(stepItem(s)); return ul; }
@@ -1121,7 +1155,7 @@ async function ask(question, opts = {}) {
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
   const typing = showTyping();
   try {
-    const liveSteps = []; const data = await askStream(JSON.parse(payload), s => { liveSteps.push(s); typing.addStep(s); if (s && s.text) $('guide-status').textContent = String(s.text).slice(0, 40) + '…'; }); typing.remove();
+    const liveSteps = []; const data = await askStream(JSON.parse(payload), s => { liveSteps.push(s); typing.addStep(s); if (s && s.text) guideSay(String(s.text).slice(0, 40) + '…'); }); typing.remove();
     if (typeof data.answer !== 'string' || !data.answer.trim()) throw new Error('暂未获得回答，请换个问法试试。');
     const srcIds = (Array.isArray(data.sources) ? data.sources : []).flatMap(x => x.ids || [x.id]);
     const related = free ? [...new Set(srcIds.map(nodeOfSource).filter(Boolean))].slice(0, 3) : [];
@@ -1134,7 +1168,7 @@ async function ask(question, opts = {}) {
     addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [] });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
-    guideTalk(data.answer);
+    guideTalk(data.answer); if (ttsOn) speak(data.answer);
     if (requestVersion === contextVersion && data.action && typeof data.action === 'object' && ['goto', 'plan', 'quiz', 'route', 'next', 'skip'].includes(data.action.type)) setGuide('point', '这边请', 2800);
     if (requestVersion === contextVersion) runAction(data.action);
   } catch (err) {
