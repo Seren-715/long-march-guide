@@ -40,16 +40,38 @@ def to_xy(lon, lat):
     return (lon - LONC) * KX, (lat - LATC)
 HALF_W, HALF_H = (LON1 - LON0) * KX / 2, (LAT1 - LAT0) / 2
 
-# 节点的近似经纬度（示意用）
-NODES = {
-    'start': (115.6, 25.95), 'xiangjiang': (111.0, 25.75), 'tongdao': (109.8, 26.15),
-    'zunyi': (106.9, 27.70), 'chishui': (105.9, 28.20), 'jinsha': (102.45, 26.15),
-    'luding': (102.20, 29.90), 'jiajin': (102.75, 30.80), 'caodi': (102.95, 33.15),
-    'lazikou': (103.80, 34.10), 'wuqi': (108.20, 36.90), 'zhiluozhen': (108.75, 36.00),
-    'huining': (105.05, 35.70), 'jiangtaibao': (105.95, 35.85),
-}
-# 只在中央红军主力的 11 个节点之间画示意虚线（按时间顺序）
-ROUTE = ['start', 'xiangjiang', 'tongdao', 'zunyi', 'chishui', 'jinsha', 'luding', 'jiajin', 'caodi', 'lazikou', 'wuqi']
+# 中央红军主力长征路线上的 23 处（按先后顺序）：名称、日期（只取知识库有资料的）、对应的讲解节点、
+# 是否作为该节点在沙盘上的主标点、近似经纬度（取事件发生地附近的今地名位置，示意用）。
+POINTS = [
+    ('中央苏区', '1934.10', 'start', True, 116.03, 25.89),        # 瑞金
+    ('于都', '1934.10', 'start', False, 115.41, 25.95),
+    ('血战湘江', '1934.11—12', 'xiangjiang', True, 110.72, 25.70),  # 兴安界首一带
+    ('通道会议', '1934.12', 'tongdao', True, 109.78, 26.16),
+    ('黎平会议', '1934.12', 'tongdao', False, 109.14, 26.23),
+    ('猴场会议', '1935.01', 'tongdao', False, 107.39, 27.14),      # 瓮安猴场
+    ('强渡乌江', '1935.01', 'zunyi', False, 107.30, 27.33),        # 江界河渡口一带
+    ('遵义会议', '1935.01', 'zunyi', True, 106.93, 27.70),
+    ('四渡赤水', '1935.01—03', 'chishui', True, 105.99, 28.20),    # 土城、太平渡一带
+    ('威逼昆明', '1935.04', 'jinsha', False, 102.83, 25.10),
+    ('巧渡金沙江', '1935.05', 'jinsha', True, 102.39, 26.30),      # 皎平渡
+    ('会理会议', '1935.05', 'jinsha', False, 102.25, 26.66),
+    ('礼州会议', '', 'luding', False, 102.19, 28.07),
+    ('彝海结盟', '1935.05', 'luding', False, 102.22, 28.75),
+    ('强渡大渡河', '1935.05', 'luding', False, 102.28, 29.26),     # 安顺场
+    ('飞夺泸定桥', '1935.05', 'luding', True, 102.23, 29.91),
+    ('翻越夹金山', '1935.06', 'jiajin', True, 102.68, 30.87),
+    ('毛儿盖会议', '1935.08', 'caodi', False, 103.20, 32.30),
+    ('过草地', '1935.08', 'caodi', True, 102.95, 33.30),           # 班佑一带
+    ('激战腊子口', '1935.09', 'lazikou', True, 103.88, 34.13),
+    ('占领哈达铺', '1935.09', 'lazikou', False, 104.22, 34.23),
+    ('翻越六盘山', '', 'wuqi', False, 106.20, 35.67),
+    ('抵达吴起镇', '1935.10', 'wuqi', True, 108.18, 36.93),
+]
+# 讲解节点的位置：取各自的主标点；不在主力路线上的三个节点单独给出
+NODES = {node: (lo, la) for _, _, node, primary, lo, la in POINTS if primary}
+NODES.update({'zhiluozhen': (108.77, 36.00), 'huining': (105.05, 35.69), 'jiangtaibao': (105.96, 35.87)})
+# 示意虚线：沿 23 处依次相连
+ROUTE = [(lo, la) for *_, lo, la in POINTS]
 
 # 河流（示意折线，经纬度）与宽度、下切深度
 RIVERS = {
@@ -274,13 +296,13 @@ layout = {
     'note': '地形示意，非精确地图；坐标为图上百分比位置。由 scripts/map/build_map.py 生成。',
     'width': IMG_W, 'height': IMG_H,
     'nodes': {k: project(*v) for k, v in NODES.items()},
+    'points': [{'name': n, 'date': d, 'node': node, 'primary': pr, 'at': project(lo, la), 'lonlat': [lo, la]} for n, d, node, pr, lo, la in POINTS],
     'route': [],
     'labels': [{'text': t, 'kind': k, 'at': project(lo, la, 0.02)} for t, lo, la, k in LABELS],
 }
-for a, b in zip(ROUTE, ROUTE[1:]):
-    (x1, y1), (x2, y2) = NODES[a], NODES[b]
-    steps = max(6, int(math.hypot(x2 - x1, y2 - y1) * 6))
-    for i in range(steps + (1 if b == ROUTE[-1] else 0)):
+for k, ((x1, y1), (x2, y2)) in enumerate(zip(ROUTE, ROUTE[1:])):
+    steps = max(3, int(math.hypot(x2 - x1, y2 - y1) * 6))
+    for i in range(steps + (1 if k == len(ROUTE) - 2 else 0)):
         t = i / steps
         layout['route'].append(project(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, 0.03))
 with open(OUT_JSON, 'w', encoding='utf-8') as f:

@@ -265,4 +265,13 @@ autoRead=true;
 for(const name of ['idle','read','point','eyes','mouth1','mouth2']){res=await worker.fetch(new Request('http://localhost/assets/avatar/'+name+'.webp'),{});assert.equal(res.status,200);assert.equal(res.headers.get('content-type'),'image/webp');const buf=new Uint8Array(await res.arrayBuffer());assert.equal(String.fromCharCode(...buf.slice(0,4)),'RIFF');}
 assert.equal((await worker.fetch(new Request('http://localhost/assets/avatar/nope.webp'),{})).status,404);assert.equal((await worker.fetch(new Request('http://localhost/assets/avatar/constructor.webp'),{})).status,404);
 assert.match(html,/"avatar":\{"eyes":\[/);
+
+// —— 主力路线 23 处：顺序固定，每处都对应一个存在的讲解节点，14 个节点各有且只有一个主标点（不在主力路线上的三个除外） ——
+const layoutMap=JSON.parse(await (await import('node:fs/promises')).readFile(new URL('./src/map-layout.json',import.meta.url),'utf8'));
+assert.deepEqual(layoutMap.points.map(p=>p.name),['中央苏区','于都','血战湘江','通道会议','黎平会议','猴场会议','强渡乌江','遵义会议','四渡赤水','威逼昆明','巧渡金沙江','会理会议','礼州会议','彝海结盟','强渡大渡河','飞夺泸定桥','翻越夹金山','毛儿盖会议','过草地','激战腊子口','占领哈达铺','翻越六盘山','抵达吴起镇']);
+for(const p of layoutMap.points){assert.ok(nodes.some(n=>n.id===p.node),p.name);assert.equal(p.lonlat.length,2);assert.equal(p.at.length,2);}
+const primaries=layoutMap.points.filter(p=>p.primary).map(p=>p.node);assert.equal(new Set(primaries).size,primaries.length);
+assert.deepEqual(nodes.map(n=>n.id).filter(id=>!primaries.includes(id)).sort(),['huining','jiangtaibao','zhiluozhen']);
+assert.deepEqual(Object.keys(layoutMap.nodes).sort(),nodes.map(n=>n.id).sort());
+assert.match(html,/"points":\[\{"name":"中央苏区"/);
 globalThis.fetch=original;console.log('API and evidence tests passed');
