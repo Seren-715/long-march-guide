@@ -4,7 +4,6 @@ async page => {
  async function back(){if(!await page.locator('#return-chat').isVisible())throw Error('缺少返回按钮');await page.locator('#return-chat').click();if(!await page.locator('#session').evaluate(e=>e.classList.contains('chat-only')))throw Error('没有恢复对话模式');if(await page.locator('#question').inputValue()!=='未发送草稿')throw Error('草稿丢失');if(!(await page.locator('#messages').innerText()).includes('第一条问题'))throw Error('消息丢失');}
  const passed=[];
  await start(1440);await page.locator('#side-tools').getByRole('button',{name:/沙盘自由浏览/}).click();await back();passed.push('沙盘');
- await page.locator('#side-tools').getByRole('button',{name:/抉择时刻/}).click();await back();passed.push('抉择');
  await page.locator('#side-tools').getByRole('button',{name:/跟着小征参观/}).click();await page.locator('#route-rows').getByRole('button',{name:/转折与决策/}).click();if(await page.locator('#session').evaluate(e=>e.classList.contains('chat-only')))throw Error('路线未进入讲解');await back();passed.push('路线');
  await page.locator('#side-tools').getByRole('button',{name:/人物档案/}).click();await page.locator('#people-list').getByRole('button',{name:/张闻天/}).click();await page.locator('#person-detail').getByRole('button',{name:/张闻天在遵义会议上发言/}).click();await back();passed.push('人物');
  await page.getByRole('button',{name:'打开讲解：遵义'}).first().click();await back();passed.push('关联节点');

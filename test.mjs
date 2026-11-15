@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import worker from './worker/index.js';
 import { nodes } from './src/data.js';
-import { decisions } from './src/guide-content.js';
 import { stories } from './src/stories.js';
 // 测试替身：多数用例里模型一步给出带 sources 的最终回答。智能体要求先用工具取出资料才能引用，
 // 所以对带 tools 的请求，这里在最终回答前自动补一轮 read_stop 工具调用，再交还原定的回答。
@@ -114,21 +113,9 @@ const ipReq=()=>worker.fetch(make({question:'你好',node:'zunyi'},{'cf-connecti
 assert.equal((await ipReq()).status,200);assert.equal((await ipReq()).status,200);res=await ipReq();assert.equal(res.status,429);assert.match((await res.json()).error,/频繁/);
 assert.equal((await worker.fetch(make({question:'你好',node:'zunyi'},{'cf-connecting-ip':'203.0.113.10'}),limitEnv)).status,200);
 
-// —— 讲解互动内容（抉择时刻、小题）——
-{
-  const nodeIds=new Set(nodes.map(n=>n.id));const texts=new Map(nodes.flatMap(n=>[[n.id,n.text],...(n.extra||[]).map(e=>[e.id,e.text])]));
-  const nums=t=>(String(t).match(/\d+(?:\.\d+)?/g)||[]).flatMap(x=>x.includes('.')?[x,...x.split('.')]:[x]).map(x=>x.includes('.')?x:String(Number(x)));
-  const grounded=(label,text,ids)=>{const allowed=new Set(ids.flatMap(id=>nums(texts.get(id))));for(const n of nums(text))assert.ok(allowed.has(n),`${label} 中的数字 ${n} 不在所列资料中`);};
-  for(const [id,d] of Object.entries(decisions)){
-    assert.ok(nodeIds.has(id),'抉择节点不存在：'+id);assert.equal(typeof d.reviewed,'boolean');
-    assert.ok(d.situation&&d.question&&d.outcome&&Array.isArray(d.options)&&d.options.length>=2);
-    assert.ok(d.sources.length&&d.sources.every(x=>texts.has(x)),'抉择资料 ID 无效：'+id);
-    grounded('抉择 '+id+' 处境',d.situation,d.sources);grounded('抉择 '+id+' 结果',d.outcome,d.sources);
-  }
-  // 小测功能已移除：页面数据里不应再带小题
-  assert.doesNotMatch(html,/"quizzes"/);
-  assert.match(html,/"guide":\{"decisions"/);
-}
+// 抉择时刻、小测、讲解员形象均已移除：页面数据里不应再带这些内容，形象素材接口也不再存在
+assert.doesNotMatch(html,/"quizzes"|"decisions"|"avatar"|\/assets\/avatar\//);
+assert.equal((await worker.fetch(new Request('http://localhost/assets/avatar/idle.webp'),{})).status,404);
 
 // —— 依据约束：汉字数字、闲聊夹带史实 ——
 attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'从中央苏区出发到遵义会议，相隔约三个月。',sources:['start','zunyi']})};
@@ -257,10 +244,6 @@ const lines=(await res.text()).trim().split('\n').map(l=>JSON.parse(l));assert.o
 globalThis.fetch=async()=>new Response('x',{status:500});res=await worker.fetch(make({question:'你好',node:'zunyi',stream:true}),env);assert.equal(JSON.parse((await res.text()).trim()).status,502);
 autoRead=true;
 
-// —— 讲解员形象素材 ——
-for(const name of ['idle','read','point','eyes','mouth1','mouth2']){res=await worker.fetch(new Request('http://localhost/assets/avatar/'+name+'.webp'),{});assert.equal(res.status,200);assert.equal(res.headers.get('content-type'),'image/webp');const buf=new Uint8Array(await res.arrayBuffer());assert.equal(String.fromCharCode(...buf.slice(0,4)),'RIFF');}
-assert.equal((await worker.fetch(new Request('http://localhost/assets/avatar/nope.webp'),{})).status,404);assert.equal((await worker.fetch(new Request('http://localhost/assets/avatar/constructor.webp'),{})).status,404);
-assert.match(html,/"avatar":\{"eyes":\[/);
 
 // —— 主力路线 23 处：顺序固定，每处都对应一个存在的讲解节点，14 个节点各有且只有一个主标点（不在主力路线上的三个除外） ——
 const layoutMap=JSON.parse(await (await import('node:fs/promises')).readFile(new URL('./src/map-layout.json',import.meta.url),'utf8'));
