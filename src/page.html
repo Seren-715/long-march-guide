@@ -340,20 +340,31 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .hm-caption em{font-style:normal;color:var(--accent);font-weight:600;margin-right:6px;font-variant-numeric:tabular-nums}
 .hm-replay{flex:none;border:1px solid var(--border);background:var(--bg);color:var(--text2);border-radius:999px;height:28px;padding:0 12px;font:inherit;font-size:12px;cursor:pointer}
 .hm-replay:hover{border-color:var(--accent-line);color:var(--accent)}
-.hm-stage{border-radius:16px;border:1px solid var(--border2);background:#ece6df}
-.hm-stage .mpin{visibility:hidden;cursor:pointer}
-.hm-stage .mpin.in{visibility:visible}
-.hm-stage .mpin.in i{animation:pin-drop .62s cubic-bezier(.3,.9,.4,1) both}
-.hm-stage .mpin i:after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid var(--accent);opacity:0;pointer-events:none}
-.hm-stage .mpin.in i:after{animation:pin-ring .7s ease-out .42s both}
-.hm-stage .mpin span{opacity:0;transition:opacity .25s;pointer-events:none}
-.hm-stage .mpin.now span,.hm-stage .mpin:hover span,.hm-stage .mpin:focus-visible span{opacity:1}
-.hm-stage .mpin.now,.hm-stage .mpin:hover{z-index:4}
-.hm-stage .mpin.in.done i{background:#b3261e;color:#fff}
-.hm-stage.static .mpin.in i,.hm-stage.static .mpin.in i:after{animation:none}
+.hm-stage{position:relative;aspect-ratio:1600/820;overflow:visible;margin-top:14px}
+.hm-stage svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.hm-stage .map-route{stroke:var(--accent-line);opacity:1;stroke-width:1.6}
+/* 定位标：圆头加下方的尖角，尖角指向地点 */
+.hpin{position:absolute;width:30px;height:32px;transform:translate(-50%,-100%);padding:0;border:0;background:none;visibility:hidden;cursor:pointer;z-index:2;font:inherit}
+.hpin.in{visibility:visible}
+.hpin-body{position:absolute;left:2px;top:0;width:26px;height:26px;font-style:normal}
+.hpin-body i{position:absolute;inset:0;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#fff;border:2px solid var(--accent);box-shadow:0 3px 8px rgba(120,30,20,.22);transition:background .2s}
+.hpin-body b{position:absolute;inset:0;display:grid;place-items:center;font:700 11px/1 var(--font);color:var(--accent);font-variant-numeric:tabular-nums;transition:color .2s}
+.hpin:after{content:"";position:absolute;left:8px;bottom:-3px;width:14px;height:6px;border-radius:50%;background:rgba(120,30,20,.28);opacity:0}
+.hpin.in .hpin-body{animation:pin-drop .62s cubic-bezier(.3,.9,.4,1) both}
+.hpin.in:after{animation:pin-ring .7s ease-out .4s both}
+.hpin.done .hpin-body i,.hpin.now .hpin-body i,.hpin:hover .hpin-body i{background:var(--accent)}
+.hpin.done .hpin-body b,.hpin.now .hpin-body b,.hpin:hover .hpin-body b{color:#fff}
+.hpin span{position:absolute;left:32px;top:2px;white-space:nowrap;font-size:12px;font-weight:600;color:var(--text);background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:999px;opacity:0;transition:opacity .25s;pointer-events:none}
+.hpin.left span{left:auto;right:32px}
+.hpin.now span,.hpin:hover span,.hpin:focus-visible span{opacity:1}
+@media (min-width:640px){.hm-stage.all .hpin span{opacity:1}}
+@media (max-width:639px){.hm-stage{aspect-ratio:1/.92}.hpin span{font-size:11px;padding:1px 6px}}
+.hpin.now,.hpin:hover{z-index:4}
+.hpin:focus-visible .hpin-body i{outline:2px solid var(--accent);outline-offset:2px}
+.hm-stage.static .hpin.in .hpin-body,.hm-stage.static .hpin.in:after{animation:none}
 .hm-note{margin:8px 2px 0;font-size:12px;color:var(--text3)}
 @keyframes pin-drop{0%{transform:translateY(-90px) scale(.9);opacity:0}18%{opacity:1}62%{transform:translateY(0) scale(1)}76%{transform:translateY(-7px) scale(1.04)}100%{transform:translateY(0) scale(1)}}
-@keyframes pin-ring{0%{opacity:.75;transform:scale(1)}100%{opacity:0;transform:scale(2.6)}}
+@keyframes pin-ring{0%{opacity:.8;transform:scale(.6)}100%{opacity:0;transform:scale(2.6)}}
 .map-note{position:absolute;left:10px;bottom:8px;z-index:2;font-size:11px;color:#5e504b;background:rgba(255,250,246,.85);padding:3px 9px;border-radius:999px}
 @keyframes pulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(2.2);opacity:0}}
 .strip::-webkit-scrollbar{display:none}
@@ -520,8 +531,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 
 <section class="home-map" id="home-map" aria-label="长征沿途节点示意" hidden>
 <div class="hm-head"><b>从出发到会师</b><span class="hm-caption" id="hm-caption" aria-live="off"></span><button type="button" class="hm-replay" id="hm-replay">重播</button></div>
-<div class="map-stage hm-stage" id="hm-stage"><img src="/assets/longmarch-map.webp" alt="" width="1600" height="1000" loading="lazy" decoding="async"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="hm-route"></polyline></svg></div>
-<p class="hm-note">地形示意，非精确地图；虚线只表示各站的先后。点任意一站，从那里开始参观。</p>
+<div class="hm-stage" id="hm-stage"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="hm-route"></polyline></svg></div>
+<p class="hm-note">位置为示意，非精确地图；虚线只表示各站的先后。点任意一站，从那里开始参观。</p>
 </section>
 <div class="about" id="about"><p>长征路上 · 以中央红军主力长征为主线，并展示红军三大主力会师。节点资料整理自公开文章，每条均附原文链接。</p><p>位置图为节点示意，非精确地理地图与行军路线，不代表各路红军的完整路线。</p><p>回答由 AI 根据资料生成，请结合原文核对；提问和参观偏好会发送给 DeepSeek，请勿输入个人敏感信息。</p></div>
 </div>
@@ -983,33 +994,34 @@ $('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
 
 /* 首页：节点按时间顺序一个个从上方落到沙盘上，虚线随之延伸 */
 (function homeMap() {
-  if (!MAP) return;
   const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // 示意布局：不用底图，按大致方位（东南出发、向西、北上、到陕北和会师）把各站排开，避免互相遮挡。[x%, y%, 地名在左侧]
+  const SPOT = { start: [84, 80], xiangjiang: [68, 88], tongdao: [56, 75], zunyi: [45, 63], chishui: [33, 54, 1], jinsha: [13, 86], luding: [11, 62], jiajin: [16, 44], caodi: [25, 27, 1], lazikou: [38, 19], wuqi: [77, 12], zhiluozhen: [85, 33], huining: [50, 42], jiangtaibao: [63, 30] };
+  const list = nodes.filter(n => SPOT[n.id]); if (list.length < 2) return;
   const sec = $('home-map'), stage = $('hm-stage'), line = $('hm-route'), cap = $('hm-caption'); sec.hidden = false;
-  const pts = MAP.route.map(([x, y]) => [x, mapY(y)]);
-  // 每个节点对应虚线上最近的一点，落下一个节点，虚线就画到那里
-  const stops = nodes.map(n => { const at = MAP.nodes[n.id]; if (!at) return null; let best = 0, d = Infinity; MAP.route.forEach(([x, y], i) => { const e = (x - at[0]) ** 2 + (y - at[1]) ** 2; if (e < d) { d = e; best = i; } }); return best; });
-  const pins = nodes.map((n, i) => {
-    const at = MAP.nodes[n.id]; if (!at) return null;
-    const b = el('button', 'mpin' + (PIN_LEFT.has(n.id) ? ' left' : '')); b.type = 'button'; b.style.left = at[0] + '%'; b.style.top = mapY(at[1]) + '%';
-    b.setAttribute('aria-label', '从第 ' + (i + 1) + ' 站开始参观：' + n.name + '，' + n.date); b.append(el('i', '', i + 1), el('span', '', n.name));
+  const pins = list.map((n, i) => {
+    const at = SPOT[n.id];
+    const b = el('button', 'hpin' + (at[2] ? ' left' : '')); b.type = 'button'; b.style.left = at[0] + '%'; b.style.top = at[1] + '%';
+    b.setAttribute('aria-label', '从第 ' + (i + 1) + ' 站开始参观：' + n.name + '，' + n.date); const body = document.createElement('em'); body.className = 'hpin-body'; body.append(el('i'), el('b', '', i + 1)); b.append(body, el('span', '', n.name));
     b.addEventListener('click', () => choose(n.id)); stage.append(b); return b;
   });
   const caption = n => { cap.replaceChildren(); if (n) cap.append(el('em', '', n.date), document.createTextNode(n.name + ' · ' + n.title)); };
-  let run = 0, drawn = 0;
-  const draw = k => { drawn = k; line.setAttribute('points', pts.slice(0, k + 1).map(p => p.join(',')).join(' ')); };
-  const extend = (to, ms, id) => new Promise(done => { const from = drawn, t0 = performance.now(); const tick = now => { if (id !== run) return done(); const f = Math.min(1, (now - t0) / ms); draw(Math.round(from + (to - from) * f)); if (f < 1) requestAnimationFrame(tick); else done(); }; requestAnimationFrame(tick); });
+  let run = 0;
+  // 虚线：已到达的各站连成折线，最后一段按进度 f 延伸
+  const draw = (k, f) => { const pts = list.slice(0, k + 1).map(n => SPOT[n.id].slice(0, 2)); if (f != null && k + 1 < list.length) { const a = SPOT[list[k].id], c = SPOT[list[k + 1].id]; pts.push([a[0] + (c[0] - a[0]) * f, a[1] + (c[1] - a[1]) * f]); } line.setAttribute('points', pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' ')); };
+  const extend = (k, ms, id) => new Promise(done => { const t0 = performance.now(); const tick = now => { if (id !== run) return done(); const f = Math.min(1, (now - t0) / ms); draw(k, f); if (f < 1) requestAnimationFrame(tick); else done(); }; requestAnimationFrame(tick); });
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  function showAll() { run++; stage.classList.add('static'); pins.forEach(b => b && b.classList.add('in', 'done')); pins.forEach(b => b && b.classList.remove('now')); draw(pts.length - 1); caption(null); cap.textContent = '点任意一站，从那里开始参观'; }
+  const finish = () => { pins.forEach(b => { b.classList.remove('now'); b.classList.add('in', 'done'); }); stage.classList.add('all'); draw(list.length - 1); cap.textContent = '点任意一站，从那里开始参观'; };
+  function showAll() { run++; stage.classList.add('static'); finish(); }
   async function play() {
-    const id = ++run; stage.classList.remove('static'); pins.forEach(b => b && b.classList.remove('in', 'now', 'done')); draw(0); line.setAttribute('points', '');
-    for (let i = 0; i < nodes.length; i++) {
-      if (id !== run) return; const b = pins[i]; if (!b) continue;
-      if (i) await extend(stops[i], 420, id); if (id !== run) return;
-      pins.forEach(x => x && x.classList.remove('now')); b.classList.add('in', 'now'); if (i) pins[i - 1] && pins[i - 1].classList.add('done'); caption(nodes[i]);
-      await wait(i === nodes.length - 1 ? 1500 : 760);
+    const id = ++run; stage.classList.remove('static', 'all'); pins.forEach(b => b.classList.remove('in', 'now', 'done')); line.setAttribute('points', '');
+    for (let i = 0; i < list.length; i++) {
+      if (id !== run) return;
+      if (i) await extend(i - 1, 420, id); if (id !== run) return;
+      pins.forEach(x => x.classList.remove('now')); pins[i].classList.add('in', 'now'); if (i) pins[i - 1].classList.add('done'); caption(list[i]);
+      await wait(i === list.length - 1 ? 1500 : 760);
     }
-    if (id !== run) return; pins.forEach(x => x && (x.classList.remove('now'), x.classList.add('done'))); cap.textContent = '点任意一站，从那里开始参观';
+    if (id === run) finish();
   }
   $('hm-replay').addEventListener('click', () => { if (calm()) showAll(); else play(); });
   // 滚动到能看见时才开始播放；设置了“减少动态效果”时直接显示全部
