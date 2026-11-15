@@ -100,6 +100,13 @@ const CASES = [
   { id: '35', node: 'caodi', q: '给我讲一个过草地的故事。', expect: { any: ['周恩来', '周广才', '皮带'], sources: ['story_zhou_enlai', 'story_banjie_pidai'] } },
   { id: '36', node: 'xiangjiang', q: '陈树湘是怎样牺牲的？', expect: { all: ['29'], any: ['石马神', '绞断肠子'], sources: ['story_chen_shuxiang'] } },
   { id: '37', node: 'jinsha', q: '贺子珍身上有多少块弹片？是怎么受的伤？', expect: { all: ['17'], any: ['钟赤兵'], none: ['背部'], sources: ['story_he_zizhen'] } },
+  // —— 智能体：自己取资料、检索、规划、出题 ——
+  { id: '38', node: 'start', free: true, q: '遵义会议为什么重要？', expect: { all: ['1935'], sources: ['zunyi', 'zunyi_significance', 'zunyi_detail'], step: '查阅「遵义」' } },
+  { id: '39', node: 'start', free: true, q: '周恩来在长征中有哪些记载？', expect: { all: ['周恩来'], type: 'history', step: '检索' } },
+  { id: '40', node: 'start', free: true, q: '我只有十分钟，想看最惊险的战斗，帮我安排一下。', expect: { action: { type: 'plan' }, step: '规划路线' } },
+  { id: '41', node: 'zunyi', q: '考考我。', expect: { action: { type: 'quiz', node: 'zunyi' }, none: ['军事和组织'], step: '小测题' } },
+  { id: '42', node: 'zunyi', q: '红军翻雪山和过草地分别遇到了什么困难？', expect: { all: ['夹金山'], any: ['沼泽', '草地'], sources: ['jiajin', 'caodi'], step: '查阅' } },
+  { id: '43', node: 'tongdao', q: '讲个故事吧。', expect: { type: 'history', step: '查阅' } },
 ];
 const PLAN_CASES = [
   { id: 'P1', preference: '我想看翻雪山、过草地那一段', length: 'short', expect: { status: 200 } },
@@ -117,6 +124,7 @@ function judge(expect, res) {
   if (expect.sources && !expect.sources.some(id => ids.includes(id))) problems.push('来源未命中 ' + expect.sources.join('／'));
   if (expect.noSources && ids.length) problems.push('不应附来源，实际 ' + ids.join('、'));
   if (expect.type && res.data.type !== expect.type) problems.push('类型应为 ' + expect.type + '，实际 ' + res.data.type);
+  if (expect.step && !(res.data.steps || []).some(s => String(s.text || '').includes(expect.step))) problems.push('处理过程中没有“' + expect.step + '”');
   if (expect.action) {
     const a = res.data.action || {};
     if (a.type !== expect.action.type || (expect.action.node && a.node !== expect.action.node)) problems.push('操作应为 ' + JSON.stringify(expect.action) + '，实际 ' + JSON.stringify(res.data.action ?? null));
@@ -137,14 +145,14 @@ for (const c of selected) {
     const s = steps[i];
     if (s.node !== lastNode) history = []; // 与页面一致：切换节点时清空本节点对话上下文
     lastNode = s.node;
-    const body = { question: s.q, node: s.node, sessionId, historyTokens: history, ...(s.tour || c.tour ? { tour: s.tour || c.tour } : {}) };
+    const body = { question: s.q, node: s.node, sessionId, historyTokens: history, ...(s.tour || c.tour ? { tour: s.tour || c.tour } : {}), ...(c.free ? { free: true } : {}) };
     const res = await post('/api/chat', body);
     if (typeof res.data.historyToken === 'string') history = [...history, res.data.historyToken].slice(-3);
     const problems = judge(s.expect || {}, res);
     total++; if (!problems.length) passed++;
     const label = steps.length > 1 ? c.id + String.fromCharCode(97 + i) : c.id;
     const sources = (res.data.sources || []).map(x => x.title + '（' + (x.ids || [x.id]).join('、') + '）').join('；');
-    rows.push(`| ${label} | ${cell(s.node)} | ${cell(s.q)} | ${cell(res.data.answer || res.data.error || '')} | ${cell(sources || '无')} | ${cell(res.data.type || '')} | ${cell(res.data.action ? JSON.stringify(res.data.action) : '')} | ${res.status} / ${res.ms} ms | ${problems.length ? '未通过：' + cell(problems.join('；')) : '通过'} |  |`);
+    rows.push(`| ${label} | ${cell(s.node)} | ${cell(s.q)} | ${cell(res.data.answer || res.data.error || '')} | ${cell(sources || '无')} | ${cell(res.data.type || '')} | ${cell([res.data.action ? JSON.stringify(res.data.action) : '', (res.data.steps || []).length ? '过程：' + res.data.steps.map(x => x.text + (x.detail ? '（' + x.detail + '）' : '')).join(' → ') : ''].filter(Boolean).join('<br>'))} | ${res.status} / ${res.ms} ms | ${problems.length ? '未通过：' + cell(problems.join('；')) : '通过'} |  |`);
     console.log(label, res.status, res.ms + 'ms', problems.length ? '✗ ' + problems.join('；') : '✓');
     await new Promise(r => setTimeout(r, 400));
   }

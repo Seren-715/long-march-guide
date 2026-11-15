@@ -19,7 +19,8 @@ const server = createServer(async (req, res) => {
     const request = new Request('http://' + (req.headers.host || host + ':' + port) + req.url, { method: req.method, headers: req.headers, ...(body.length ? { body } : {}) });
     const response = await worker.fetch(request, env);
     res.writeHead(response.status, Object.fromEntries(response.headers));
-    res.end(Buffer.from(await response.arrayBuffer()));
+    // 逐块转发，问答的处理步骤才能实时显示
+    if (response.body) { for await (const chunk of response.body) res.write(chunk); res.end(); } else res.end();
   } catch { res.writeHead(500); res.end('Server error'); }
 });
 server.listen(port, host, () => console.log(`Local: http://${host}:${port}` + (env.DEEPSEEK_API_KEY ? '（已启用模型问答）' : '（未配置模型，问答不可用）')));

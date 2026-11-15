@@ -3,6 +3,26 @@ import worker from './worker/index.js';
 import { nodes } from './src/data.js';
 import { decisions, quizzes } from './src/guide-content.js';
 import { stories } from './src/stories.js';
+// 测试替身：多数用例里模型一步给出带 sources 的最终回答。智能体要求先用工具取出资料才能引用，
+// 所以对带 tools 的请求，这里在最终回答前自动补一轮 read_stop 工具调用，再交还原定的回答。
+const realFetch=globalThis.fetch;let mockFetch=realFetch;
+const nodeOfSource=id=>nodes.find(n=>n.id===id||(n.extra||[]).some(e=>e.id===id))?.id||stories.find(s=>s.id===id)?.node;
+const toolCall=(name,args,id='call_'+name)=>({id,type:'function',function:{name,arguments:JSON.stringify(args)}});
+const toolReply=calls=>Response.json({choices:[{message:{role:'assistant',content:'',tool_calls:calls},finish_reason:'tool_calls'}]});
+let autoRead=true;
+Object.defineProperty(globalThis,'fetch',{configurable:true,get:()=>mockFetch,set(fn){let stash=null;mockFetch=fn===realFetch?fn:async(url,options)=>{
+  let req={};try{req=JSON.parse(options?.body||'{}')}catch{}
+  if(!autoRead||!Array.isArray(req.tools))return fn(url,options);
+  if(stash){const r=stash;stash=null;return r;}
+  const res=await fn(url,options);if(!res.ok||req.messages.some(m=>m.role==='tool'))return res;
+  let msg;try{msg=(await res.clone().json()).choices?.[0]?.message}catch{return res}
+  if(!msg||msg.tool_calls)return res;
+  let parsed;try{parsed=JSON.parse(msg.content)}catch{return res}
+  const need=[...new Set((Array.isArray(parsed?.sources)?parsed.sources:[]).map(nodeOfSource).filter(Boolean))];
+  if(!need.length)return res;
+  stash=res;const calls=[];for(let i=0;i<need.length;i+=3)calls.push(toolCall('read_stop',{nodes:need.slice(i,i+3)},'call_read_'+i));
+  return toolReply(calls);
+}}});
 const sessionId='123e4567-e89b-42d3-a456-426614174000';
 const env={DEEPSEEK_API_KEY:'test',HISTORY_SIGNING_KEY:'test-signing-key-for-unit-tests'};
 const make=(body,headers={})=>new Request('http://localhost/api/chat',{method:'POST',headers:{'content-type':'application/json',...headers},body:typeof body==='string'?body:JSON.stringify({sessionId,...body})});
@@ -180,4 +200,45 @@ globalThis.fetch=async(url,options)=>{seen=JSON.parse(options.body);return reply
 body=await (await worker.fetch(make({question:'带我从头看',node:'start',free:true}),env)).json();
 assert.match(seen.messages[0].content,/首页直接提问/);assert.doesNotMatch(seen.messages[0].content,/当前参观节点是/);assert.deepEqual(body.action,{type:'goto',node:'start'});
 body=await (await worker.fetch(make({question:'带我从头看',node:'start'}),env)).json();assert.match(seen.messages[0].content,/当前参观节点是 中央苏区/);assert.equal(body.action,null);
+
+// —— 智能体工具调用 ——
+autoRead=false;
+const script=list=>{let i=0;const seenAll=[];globalThis.fetch=async(url,options)=>{seenAll.push(JSON.parse(options.body));const r=list[Math.min(i++,list.length-1)];return typeof r==='function'?r(seenAll.at(-1)):r.clone()};return seenAll;};
+// 首页提问：目录里只有资料开头，全文要靠工具取；取出后才能引用
+let log=script([toolReply([toolCall('read_stop',{nodes:['zunyi']})]),reply({type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})]);
+body=await (await worker.fetch(make({question:'遵义会议什么时候开的',node:'start',free:true}),env)).json();
+assert.equal(log.length,2);assert.ok(Array.isArray(log[0].tools)&&log[0].tools.some(x=>x.function.name==='read_stop'));assert.match(log[0].messages[0].content,/资料目录/);assert.match(log[0].messages[0].content,/（暂无，请用工具取）/);
+assert.equal(log[1].messages.at(-1).role,'tool');assert.match(log[1].messages.at(-1).content,/\[zunyi\]/);
+assert.deepEqual(body.sources.flatMap(s=>s.ids),['zunyi']);assert.match(body.steps[0].text,/查阅「遵义」/);assert.equal(body.steps.at(-1).kind,'verify');assert.equal(body.steps.at(-1).ok,true);
+// 没取资料就引用：提醒一次；仍不取则按资料不足处理
+log=script([reply({type:'history',answer:'遵义会议于1935年1月召开。',sources:['zunyi']})]);
+body=await (await worker.fetch(make({question:'遵义会议什么时候开的',node:'start',free:true}),env)).json();
+assert.equal(log.length,2);assert.match(log[1].messages.at(-1).content,/还没有取出/);assert.equal(body.answer,'现有资料不足以可靠回答这个问题，请换个问法或查阅节点资料。');assert.deepEqual(body.sources,[]);
+// 当前节点的资料已预先取出，可直接引用；别的节点没取出则不算数
+log=script([reply({type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi','luding']})]);
+body=await (await worker.fetch(make({question:'遵义会议什么时候开的',node:'zunyi'}),env)).json();assert.equal(log.length,1);assert.deepEqual(body.sources.flatMap(s=>s.ids),['zunyi']);
+// 检索、按 ID 读取
+log=script([toolReply([toolCall('search_materials',{query:'彝海结盟'}),toolCall('read_materials',{ids:['wuqi_summary','nope']},'c2')]),reply({type:'history',answer:'中央红军行程 2.5 万里到达陕北。',sources:['wuqi_summary']})]);
+body=await (await worker.fetch(make({question:'走了多少里',node:'start',free:true}),env)).json();
+assert.match(log[1].messages.at(-2).content,/luding_yihai/);assert.match(log[1].messages.at(-1).content,/2\.5 万里/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['wuqi_summary']);assert.match(body.steps[0].text,/检索“彝海结盟”/);
+// 页面操作：定制路线按时间排序；出题不泄露；一次回答只执行第一个操作
+log=script([toolReply([toolCall('plan_route',{nodes:['lazikou','xiangjiang','luding','nope'],title:'险战速览'})]),reply({type:'chat',answer:'排好了，马上出发。',sources:[]})]);
+body=await (await worker.fetch(make({question:'我只有十分钟',node:'start',free:true}),env)).json();assert.deepEqual(body.action,{type:'plan',route:['xiangjiang','luding','lazikou'],title:'险战速览'});assert.match(body.steps[0].text,/规划路线：湘江 → 泸定桥 → 腊子口/);
+log=script([toolReply([toolCall('plan_route',{nodes:['zunyi']})]),reply({type:'chat',answer:'请多选几站。',sources:[]})]);
+body=await (await worker.fetch(make({question:'排路线',node:'start',free:true}),env)).json();assert.equal(body.action,null);
+log=script([toolReply([toolCall('open_stop',{node:'luding'}),toolCall('show_quiz',{node:'luding'},'c2')]),reply({type:'chat',answer:'这就带你去。',sources:[]})]);
+body=await (await worker.fetch(make({question:'带我去泸定桥',node:'zunyi'}),env)).json();assert.deepEqual(body.action,{type:'goto',node:'luding'});assert.match(log[1].messages.at(-1).content,/不要透露题目答案/);
+log=script([toolReply([toolCall('show_quiz',{node:'zunyi'})]),reply({type:'chat',answer:'题目打开了，试试看。',sources:[]})]);
+body=await (await worker.fetch(make({question:'考考我',node:'zunyi'}),env)).json();assert.deepEqual(body.action,{type:'quiz',node:'zunyi'});
+log=script([toolReply([toolCall('tour_control',{action:'next'})]),reply({type:'chat',answer:'你还没有选路线。',sources:[]})]);
+body=await (await worker.fetch(make({question:'下一站吧',node:'zunyi'}),env)).json();assert.equal(body.action,null);assert.match(log[1].messages.at(-1).content,/没有选择参观路线/);
+// 工具调用有上限，不会无限循环
+log=script([()=>toolReply([toolCall('read_stop',{nodes:['zunyi']},'c'+Math.random())])]);
+res=await worker.fetch(make({question:'一直查',node:'start',free:true}),env);assert.equal(res.status,502);assert.ok(log.length<=7);assert.equal(log.at(-1).tool_choice,'none');
+// 流式：逐行返回步骤，最后一行是结果
+log=script([toolReply([toolCall('read_stop',{nodes:['zunyi']})]),reply({type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})]);
+res=await worker.fetch(make({question:'遵义会议什么时候开的',node:'start',free:true,stream:true}),env);assert.match(res.headers.get('content-type'),/ndjson/);
+const lines=(await res.text()).trim().split('\n').map(l=>JSON.parse(l));assert.ok(lines.length>=3);assert.match(lines[0].step.text,/查阅「遵义」/);assert.equal(lines.at(-1).done.type,'history');assert.equal(lines.at(-1).done.steps.length,lines.length-1);
+globalThis.fetch=async()=>new Response('x',{status:500});res=await worker.fetch(make({question:'你好',node:'zunyi',stream:true}),env);assert.equal(JSON.parse((await res.text()).trim()).status,502);
+autoRead=true;
 globalThis.fetch=original;console.log('API and evidence tests passed');
