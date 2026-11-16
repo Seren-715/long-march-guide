@@ -315,7 +315,24 @@ function observedRisks(answer,ids,question){
   if ((/草地/.test(compact)||/草地/.test(q)) && /(?:损失|伤亡|牺牲|死亡).{0,24}(?:主要|因为|由于|导致)/.test(casualties) && (!ids.includes('caodi_losses')||/主要/.test(casualties)) && !/(?:资料|记载).{0,12}(?:未说明|没有说明|不足)/.test(compact)) issues.push('请引用直接说明伤亡原因的资料，不要推断主要原因');
   if (/1934年11月下旬至12月初/.test(compact) && /三道封锁线/.test(compact)) issues.push('三道封锁线对应的时间是1934年10月下旬至12月初，不能更改时段');
   if (/红二方面军.{0,80}(?:历时|走了|用了|持续|长征)(?:约|近|将近|大约)?两年/.test(compact)) issues.push('红二方面军长征为1935年11月至1936年10月，不能说历时两年；两年是1934年至1936年各路长征的总体时段');
-  if (/宁化/.test(q) && /妇女/.test(q) && /(?:参加|随|长征)/.test(q) && /(?:并非|并不是|不是|没有|未|不曾)(?:这(?:些|1300名)?妇女|她们|她们都|她们全部)?(?:随|参加|参与).{0,12}长征/.test(compact)) issues.push('宁化妇女挑粮发生于长征前；仅凭这条资料不能判断她们后来是否参加长征，不要断言参加或未参加');
+  // 核心会师事实：1936-10-09 会宁为红一与红四方面军，红二方面军在将台堡会师。
+  // 逐分句判断肯定陈述；纠正错误前提的否定句不能被当作错误事实拦截。
+  const statements=compact.split(/[，,。！？；;\n]|而是/).filter(Boolean);
+  const unsupportedHuining=statements.some(part=>
+    /会宁/.test(part)&&/会师/.test(part)&&/红二方面军/.test(part)
+    &&!/(?:不是|并非|而非|并未|没有|未在|不曾|不包括|不能说|不能认定|无法认定|不应认为)/.test(part));
+  if(unsupportedHuining)issues.push('会宁1936年10月9日会师的是红一、红四方面军；红二方面军于10月22日在将台堡与红一方面军会师。不要把红二方面军错置为会宁会师部队');
+  // 县志只记录宁化1300名妇女在长征前挑粮，不能推断全体之后参加/未参加长征或到达陕北。
+  const ninghuaScope=ids.includes('story_fj_ninghua_grain')||(/宁化/.test(q)&&/(?:妇女|1300)/.test(q));
+  const ninghuaOutcome=/(?:参加|参与)(?:了|过)?(?:中央红军|红军)?长征(?!前)|随(?:中央红军|军)(?:参加|进行|走)?长征(?!前)|(?:走完|完成)长征|(?:抵达|到达|到了|走到)(?:了)?陕北/;
+  const unsupportedNinghua=ninghuaScope&&statements.some(part=>{
+    if(!/(?:1300|一千三百|妇女|她们|这批|这些|该批|这群)/.test(part)||!ninghuaOutcome.test(part))return false;
+    if(/(?:不能|不可|无法|不应|尚未|不确定|不知道|没有(?:证据|资料|记载|说明|提到|显示|说)|未(?:记载|说明|提及|证实)|资料不足|不等于|不代表|没有根据|是否)/.test(part))return false;
+    const all=/(?:全部|全都|都|所有|每一位|无一例外)/.test(part);
+    const categoricalNo=/(?:不是|并不是|并非|没有|并未|不曾|未曾|不可能).{0,28}(?:参加|参与|随)(?:了|过)?(?:中央红军|红军)?长征/.test(part);
+    return all||categoricalNo;
+  });
+  if(unsupportedNinghua)issues.push('《宁化县志》仅记载1300名妇女在长征前挑粮支前，没有证据证明她们全部参加、全部未参加或全部到达陕北；应明确后续去向未记载');
   if ((/彝海|小叶丹/.test(compact)||/彝海|小叶丹/.test(q)) && /结盟(?:当晚|当日晚上)[，,]?刘伯承/.test(compact)) issues.push('彝海授旗时间有当晚和次日两种记载，不应先把当晚当作确定事实；若题目涉及具体时间，请分别说明并引用两种资料，否则可不写具体时间');
   if (/伤亡|死亡|牺牲/.test(q) && /湘江/.test(compact) && /(?:8\.6|8．6)/.test(compact) && /3万/.test(compact)) issues.push('伤亡问题中不要使用从出发到突破封锁后的兵力变化代替湘江单场战役伤亡；可说明资料没有给出战役伤亡人数');
   if (/塔山湾/.test(compact) && !/塔山湾/.test(cited)) issues.push('关于塔山湾的表述没有引用相应资料');
