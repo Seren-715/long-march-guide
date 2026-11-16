@@ -14,7 +14,7 @@ const ROUTE_KEYS=new Set(['overview','turning','journey','full']);
 const NO_DATA='现有资料不足以可靠回答这个问题，请换个问法或查阅节点资料。';
 const evidence=[...nodes.flatMap(n=>[{id:n.id,node:n.id,name:n.name,text:n.text,source:n.source,url:n.url},...(n.extra||[]).map(e=>({...e,node:n.id,name:n.name}))]),
   // 已审核的长征故事也作为资料，标明“故事”和所属节点
-  ...stories.filter(st=>st.reviewed===true).map(st=>({id:st.id,node:st.node,name:'故事·'+st.title+'（'+(nodes.find(n=>n.id===st.node)?.name||st.node)+'）',text:st.text,note:st.note||'',source:st.source,url:st.url}))];
+  ...stories.filter(st=>st.reviewed===true).map(st=>({id:st.id,node:st.node,name:(st.kind==='source_comparison'?'史料·':'故事·')+st.title+'（'+(nodes.find(n=>n.id===st.node)?.name||st.node)+'）',text:st.text,note:st.note||'',source:st.source,url:st.url}))];
 const nodeName=id=>nodes.find(n=>n.id===id)?.name||id;
 
 // 限流：每个运行实例在内存中计数，属尽力而为；可靠的费用上限仍需在模型服务账户侧设置。
@@ -280,7 +280,7 @@ export default {async fetch(request, env) {
   // 预先取出：当前节点的资料（首页直接提问时没有当前节点），以及上文回答引用过的资料。其余资料由模型调用工具取。
   // 福建人数问题涉及多个来源口径。为避免模型只查一条就宣布“资料只有一种数字”，
   // 将三份分别有明确出处的计数资料一起预载；这是系统资料准备，不伪称模型主动检索。
-  const fujianCountQuery=/(?:福建|闽籍|闽西|八闽).*(?:人数|多少人|多少|几万|数字|数量|口径|统计|差异|不同)|(?:人数|数量|数字|口径|统计|差异).*(?:福建|闽籍|闽西|八闽)|(?:近3万|近2\\.6万|近万人).*(?:红军|长征|人数|福建|口径)/.test(data.question);
+  const fujianCountQuery=/(?:福建|闽籍|闽西|八闽).*(?:人数|多少人|多少|几万|数字|数量|口径|统计|差异|不同)|(?:人数|数量|数字|口径|统计|差异).*(?:福建|闽籍|闽西|八闽)|(?:近3万|近2\.6万|近万人).*(?:红军|长征|人数|福建|口径)/.test(data.question);
   const countIds=new Set(['story_fj_overview','story_fj_count_26k','story_fj_count_10k']);
   const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||(fujianCountQuery&&countIds.has(e.id)));
   const state={loaded:new Set(preload.map(e=>e.id)),action:null,current:free?null:current.id,tour};
