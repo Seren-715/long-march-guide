@@ -5,8 +5,9 @@ async page => {
   await page.locator('#start-fujian').click();
   const topic=page.locator('#fujian-page');
   if (!(await topic.isVisible()) || !(await page.locator('#chat-pane').isVisible())) throw Error('桌面专题双栏未显示');
-  if (await topic.locator('article').count()!==10 || await topic.locator('article a[href]').count()!==10) throw Error('专题资料或出处数量不正确');
+  if (await topic.locator('article').count()!==12 || await topic.locator('article a[href]').count()!==12) throw Error('专题资料或出处数量不正确');
   if (!(await topic.innerText()).includes('长征前支前活动')) throw Error('缺少历史口径提示');
+  if (!(await topic.innerText()).includes('近2.6万') || !(await topic.innerText()).includes('近万福建儿女')) throw Error('福建人数三种口径未在专题展示');
   if (await page.evaluate(()=>location.hash)!=='#fujian') throw Error('缺少专题地址');
   await page.reload();
   if (!(await topic.isVisible())) throw Error('刷新专题地址未恢复');
@@ -25,5 +26,5 @@ async page => {
   await page.goBack();
   if (!(await topic.isVisible())) throw Error('节点后退未返回专题');
   if (errors.length) throw Error(errors.join('; '));
-  return {desktop:'双栏',stories:10,sources:10,reload:true,history:true,mobile:'切换正常',storyJump:true,overflow:false};
+  return {desktop:'双栏',stories:12,sources:12,reload:true,history:true,mobile:'切换正常',storyJump:true,overflow:false};
 }
