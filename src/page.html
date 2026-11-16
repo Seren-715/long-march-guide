@@ -375,8 +375,9 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .stories h3{font-size:13px;font-weight:600;color:var(--text3);margin:0 0 10px}
 .story-card{position:relative;margin:0 0 12px;padding:16px 18px 14px 20px;border-radius:14px;background:var(--bg2);border:1px solid var(--border2)}
 .story-card:before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:2px;background:var(--accent)}
-.story-card h4{display:flex;align-items:baseline;gap:10px;margin:0 0 6px;font:700 17px/1.4 var(--serif)}
-.story-card h4 small{font:400 12px var(--font);color:var(--text3)}
+.story-card h3,.story-card h4{display:flex;align-items:baseline;gap:10px;margin:0 0 6px;font:700 17px/1.4 var(--serif)}
+.story-card h3 small,.story-card h4 small{font:400 12px var(--font);color:var(--text3)}
+#fujian-list .story-card .btn{display:flex;margin-top:12px}
 .story-card p{margin:0 0 8px;font-size:15px;line-height:1.85}
 .story-note{display:block;margin:0 0 8px;font-size:12px;color:var(--accent)}
 .ask-here{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:28px;padding:14px 16px;border-radius:14px;background:var(--bg2);font-size:13px;color:var(--text2)}
@@ -384,7 +385,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .art-nav{display:flex;justify-content:space-between;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border2)}
 .art-nav .btn{max-width:48%;overflow:hidden}
 
-.starts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:24px 0 18px}
+.starts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:24px 0 18px}
 .start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:var(--bg);transition:background .15s,border-color .15s,transform .15s}
 .start:focus-visible,.start:active{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
 @media (hover:hover){.start:hover{background:var(--primary);color:var(--on-primary);border-color:var(--primary);transform:translateY(-1px)}.start:hover span{color:inherit}}
@@ -492,6 +493,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="starts" role="group" aria-label="开始方式">
 <button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
 <button type="button" class="start" id="start-people" aria-haspopup="dialog"><b>人物档案</b><span>从人物故事认识长征</span></button>
+<button type="button" class="start" id="start-fujian" aria-haspopup="dialog"><b>八闽儿女的长征</b><span>探寻福建与长征的故事</span></button>
 </div>
 <form class="composer" id="home-form">
 <label class="sr-only" for="home-q">向小征提问</label>
@@ -528,6 +530,10 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <dialog class="route-dialog" id="people-dialog" aria-labelledby="people-title">
 <div class="dialog-head"><div><h2 id="people-title">人物档案</h2><p>认识长征中的人物，阅读与他们相关的故事</p></div><button type="button" class="dialog-close" id="people-close" aria-label="关闭">×</button></div>
 <div class="dialog-body"><p class="plan-note">人物简介按已整理资料逐步补充；节点是讲解分类，不表示故事一定发生在该节点地点。</p><div id="people-list"></div><div id="person-detail" hidden></div></div>
+</dialog>
+<dialog class="route-dialog" id="fujian-dialog" aria-labelledby="fujian-title">
+<div class="dialog-head"><div><h2 id="fujian-title" tabindex="-1">八闽儿女的长征</h2><p>福建籍人物、出发地和群众支援</p></div><button type="button" class="dialog-close" id="fujian-close" aria-label="关闭">×</button></div>
+<div class="dialog-body"><p class="plan-note">本专题包括长征前、长征中和会师后的相关经历；归档节点用于浏览分类，不一定是事件发生地。</p><div id="fujian-list"></div></div>
 </dialog>
 
 <main class="session" id="session" data-pane="read" hidden>
@@ -747,6 +753,27 @@ $('start-people').addEventListener('click', openPeople);
 $('bar-people').addEventListener('click', openPeople);
 $('people-close').addEventListener('click', closePeople);
 $('people-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closePeople(); });
+
+/* ---------- 八闽儿女的长征 ---------- */
+function closeFujian() { const d = $('fujian-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
+function openFujian() {
+  const d = $('fujian-dialog'), list = $('fujian-list'); list.replaceChildren();
+  for (const t of STORIES.filter(t => t.id.startsWith('story_fj_') && t.reviewed === true && find(t.node))) {
+    const card = el('article', 'story-card'), heading = el('h3', '', t.title);
+    heading.append(el('small', '', t.date)); card.append(heading, el('p', '', t.text));
+    if (t.note) card.append(el('p', 'plan-note', t.note));
+    const u = safeLink(t.url); if (u) card.append(srcLink(u, t.source));
+    const go = el('button', 'btn btn-ghost', '查看关联节点：' + find(t.node).name + ' →'); go.type = 'button';
+    go.addEventListener('click', () => { closeFujian(); choose(t.node); requestAnimationFrame(() => { const story = document.getElementById('story-' + t.id); if (story) { story.scrollIntoView({block:'center',behavior:motion()}); story.tabIndex = -1; story.focus({preventScroll:true}); } }); });
+    card.append(go); list.append(card);
+  }
+  if (!list.children.length) list.append(el('p', 'plan-note', '专题资料暂未收录。'));
+  if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
+  requestAnimationFrame(() => $('fujian-title').focus());
+}
+$('start-fujian').addEventListener('click', openFujian);
+$('fujian-close').addEventListener('click', closeFujian);
+$('fujian-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeFujian(); });
 
 
 /* ---------- 节点条 ---------- */
