@@ -12,6 +12,8 @@
 npm run build
 npm test
 npm run dev
+# 可选：检索评估（不调用模型，只测检索工具的命中率）
+npm run eval:retrieval
 # 可选：联网核查全部史料链接（目前 47 个）是否可打开
 npm run check:sources
 ```

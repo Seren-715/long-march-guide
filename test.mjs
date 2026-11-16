@@ -269,4 +269,13 @@ body=await (await worker.fetch(make({question:'遵义会议什么时候开的',n
 assert.equal(body.answer,'遵义会议于1935年1月15日至17日在贵州遵义召开。');assert.deepEqual(body.sources.flatMap(s=>s.ids),['zunyi']);assert.ok(body.steps.some(s=>/删去未能核对的内容/.test(s.text)));
 globalThis.fetch=async()=>reply({type:'history',answer:'遵义会议开了99天。',sources:['zunyi']});
 body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'zunyi'}),env)).json();assert.equal(body.answer,'现有资料不足以可靠回答这个问题，请换个问法或查阅节点资料。');assert.deepEqual(body.sources,[]);
+
+// —— 检索质量：search_materials 在标注的查询集上的命中率不能退步（查询集见 scripts/eval-retrieval.mjs）——
+{
+  const { evaluate, CASES } = await import('./scripts/eval-retrieval.mjs');
+  const ids=new Set([...nodes.flatMap(n=>[n.id,...(n.extra||[]).map(e=>e.id)]),...stories.map(s=>s.id)]);
+  for(const [q,expected] of CASES)for(const id of expected)assert.ok(ids.has(id),'检索查询「'+q+'」标注的资料 ID 不存在：'+id);
+  const r=await evaluate();
+  assert.ok(r.hit8>=0.95,'检索前 8 条命中率下降到 '+r.hit8);assert.ok(r.hit3>=0.9,'检索前 3 条命中率下降到 '+r.hit3);
+}
 globalThis.fetch=original;console.log('API and evidence tests passed');

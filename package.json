@@ -10,6 +10,7 @@
     "check:sources": "node scripts/check-sources.mjs",
     "eval": "node scripts/eval-qa.mjs",
     "audit": "node scripts/audit-grounding.mjs",
-    "check:kb": "node scripts/check-kb-text.mjs"
+    "check:kb": "node scripts/check-kb-text.mjs",
+    "eval:retrieval": "node scripts/eval-retrieval.mjs"
   }
 }

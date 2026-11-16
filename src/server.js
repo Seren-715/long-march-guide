@@ -58,12 +58,35 @@ const TOOLS=[
   fn('plan_route','按观众的兴趣或时间，从节点目录中挑 2—6 个节点组成一条定制路线并开始参观。',{nodes:{type:'array',items:{type:'string',enum:NODE_IDS}},title:{type:'string',description:'不超过 10 个字的路线名'}},['nodes']),
 ];
 const materialLines=list=>list.map(e=>`[${e.id}] ${e.name}：${e.text}`).join('\n');
-const gramsOf=s=>{const x=String(s).replace(/[\s，。、；：！？“”‘’（）《》·—…,.;:!?"'()\-]/g,'');const out=new Set();for(let i=0;i<x.length-1;i++)out.add(x.slice(i,i+2));if(x.length===1)out.add(x);return out;};
+// —— 关键词检索：字符二元组上的 BM25，本地计算，不依赖外部服务 ——
+// 同义说法：查询里出现一组中的任意一个，就把同组的其他说法也当作查询词（权重低一些）。新增资料后可在这里补充。
+const SYNONYMS=[
+  ['周总理','周恩来'],['毛主席','毛泽东'],['朱总司令','朱德'],['彝海会盟','彝海结盟'],
+  ['二万五千里','两万五千里','2.5万里'],['多少里','里程','行程','2.5万里'],['多长时间','多久','历时'],
+  ['爬雪山','翻雪山','过雪山','雪山','夹金山'],['过草地','松潘草地','草地'],
+  ['三大主力会师','三军会师','会宁','将台堡'],['湘江战役','湘江之战','血战湘江'],
+  ['新三人团','三人军事领导小组','三人团'],['四渡赤水','赤水河'],['巧渡金沙江','皎平渡'],['强渡大渡河','安顺场'],
+  ['牺牲','伤亡','损失'],['多少人','人数','余人'],['参加的人','出席者','参加者','参会'],['意义','转折点','标志'],
+];
+const BM25={k1:1.2,b:0.5,docs:[],df:new Map(),avg:0};
+const gramList=s=>{const x=String(s).replace(/[\s，。、；：！？“”‘’（）《》·—…,.;:!?"'()\-]/g,'');const out=[];for(let i=0;i<x.length-1;i++)out.push(x.slice(i,i+2));return out;};
+for(const e of evidence){
+  const tf=new Map();const grams=gramList(e.name+e.text);for(const g of grams)tf.set(g,(tf.get(g)||0)+1);
+  for(const g of tf.keys())BM25.df.set(g,(BM25.df.get(g)||0)+1);
+  BM25.docs.push({e,tf,len:grams.length,name:new Set(gramList(e.name))});
+}
+BM25.avg=BM25.docs.reduce((a,d)=>a+d.len,0)/Math.max(1,BM25.docs.length);
 function searchEvidence(query){
-  const aliases=[['周总理','周恩来'],['毛主席','毛泽东'],['朱总司令','朱德'],['彝海会盟','彝海结盟']];
-  let expanded=query;for(const [alias,name] of aliases)expanded=expanded.replaceAll(alias,name);
-  const grams=[...new Set([...gramsOf(query),...gramsOf(expanded)])];if(!grams.length)return [];
-  return evidence.map(e=>{const hay=e.name+e.text;let score=0;for(const g of grams){if(e.name.includes(g))score+=3;else if(hay.includes(g))score+=1;}return {e,score};}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.e);
+  const q=String(query).replace(/\s+/g,' ').trim();if(!q)return [];
+  // 查询词及权重：原词 1，同义说法 0.6；每个词单独切二元组，避免把两个词的首尾拼成不存在的片段
+  const terms=new Map(q.split(' ').filter(Boolean).map(x=>[x,1]));
+  const flat=q.replace(/\s/g,'');
+  for(const group of SYNONYMS)if(group.some(w=>flat.includes(w.replace(/\s/g,''))))for(const w of group)if(!flat.includes(w))terms.set(w,Math.max(terms.get(w)||0,0.6));
+  const weights=new Map();for(const [term,w] of terms)for(const g of (term.length===1?[term]:gramList(term)))weights.set(g,Math.max(weights.get(g)||0,w));
+  if(!weights.size)return [];
+  const N=BM25.docs.length;
+  return BM25.docs.map(d=>{let score=0;for(const [g,w] of weights){const tf=d.tf.get(g);if(!tf)continue;const df=BM25.df.get(g)||0,idf=Math.log(1+(N-df+0.5)/(df+0.5));score+=w*idf*(tf*(BM25.k1+1))/(tf+BM25.k1*(1-BM25.b+BM25.b*d.len/BM25.avg))*(d.name.has(g)?1.5:1);}return {e:d.e,score};})
+    .filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.e);
 }
 function runTool(name,args,state){
   const validNode=id=>typeof id==='string'&&NODE_IDS.includes(id);
