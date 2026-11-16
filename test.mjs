@@ -2,6 +2,26 @@ import assert from 'node:assert/strict';
 import worker from './worker/index.js';
 import { nodes } from './src/data.js';
 import { stories } from './src/stories.js';
+
+const allStoryIds=stories.map(st=>st.id);
+assert.equal(new Set(allStoryIds).size,allStoryIds.length,'故事 ID 必须唯一');
+for(const st of stories){
+  assert.ok(st.title&&st.node&&st.text&&st.source&&st.url,'故事字段不完整：'+st.id);
+  assert.ok(nodes.some(n=>n.id===st.node),'故事归档节点不存在：'+st.id);
+  assert.ok(st.url.startsWith('https://')||st.url.startsWith('http://'),'故事来源 URL 无效：'+st.id);
+}
+// 针对本次叙事扩充设下限；概述型资料不统一强制凑字数。
+const expandedStoryIds=['story_banbei_beizi','story_chen_shuxiang','story_he_zizhen','story_zhou_enlai','story_banjie_pidai','story_he_jiesheng','story_17_yongshi','story_22_yongshi','story_yihai','story_mao_lamp','story_fj_zeng_fanyi','story_fj_yang_chengwu','story_laoshanjie_mother_rice','story_tongluowan_revolution_well','story_baimian_yao_rock','story_danjiaji_night_talk','story_jiajin_tan_fagui','story_yudu_bridge','story_hadapu_newspapers'];
+for(const id of expandedStoryIds){
+  const st=stories.find(x=>x.id===id);
+  assert.ok(st,'扩充故事缺失：'+id);
+  assert.ok([...st.text.replace(/\s/g,'')].length>=140,'故事正文意外缩短：'+id);
+  assert.ok(st.note && st.source, '须保留来源及事实边界：'+id);
+  const u=new URL(st.url);
+  assert.ok(['http:','https:'].includes(u.protocol)&&u.hostname,'来源链接无效：'+id);
+}
+assert.equal(stories.find(s=>s.id==='story_tongluowan_revolution_well').reviewed,false,'铜锣湾来源细节未核实，应保留草稿');
+
 // 测试替身：多数用例里模型一步给出带 sources 的最终回答。智能体要求先用工具取出资料才能引用，
 // 所以对带 tools 的请求，这里在最终回答前自动补一轮 read_stop 工具调用，再交还原定的回答。
 const realFetch=globalThis.fetch;let mockFetch=realFetch;
