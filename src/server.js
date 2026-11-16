@@ -63,7 +63,7 @@ function searchEvidence(query){
   const aliases=[['周总理','周恩来'],['毛主席','毛泽东'],['朱总司令','朱德'],['彝海会盟','彝海结盟']];
   let expanded=query;for(const [alias,name] of aliases)expanded=expanded.replaceAll(alias,name);
   const grams=[...new Set([...gramsOf(query),...gramsOf(expanded)])];if(!grams.length)return [];
-  return evidence.map(e=>{const hay=e.name+e.text;let score=0;for(const g of grams){if(e.name.includes(g))score+=3;else if(hay.includes(g))score+=1;}return {e,score};}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.e);
+  return evidence.map(e=>{const hay=e.name+e.text;let score=0;for(const g of grams){if(e.name.includes(g))score+=3;else if(hay.includes(g))score+=1;}return {e,score};}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,12).map(x=>x.e);
 }
 function runTool(name,args,state){
   const validNode=id=>typeof id==='string'&&NODE_IDS.includes(id);

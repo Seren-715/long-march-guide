@@ -681,16 +681,21 @@ $('about-dialog').addEventListener('click', e => { if (e.target === e.currentTar
 
 /* ---------- 人物档案：仅关联经审核、明确提到人物的故事 ---------- */
 const PEOPLE = [
-  { name: '毛泽东', stories: ['story_zhu_de_zunyi', 'story_mao_lamp'] },
+  { name: '毛泽东', bio: 'zunyi_person_mao_zedong', stories: ['story_zhu_de_zunyi', 'story_mao_lamp'] },
+  { name: '朱德', bio: 'zunyi_person_zhu_de', stories: ['story_zhu_de_zunyi', 'story_mao_lamp'] },
   { name: '周恩来', bio: 'zunyi_person_zhou_enlai', stories: ['story_zhu_de_zunyi', 'story_mao_lamp', 'story_zhou_enlai'] },
-  { name: '朱德', stories: ['story_zhu_de_zunyi', 'story_mao_lamp'] },
   { name: '张闻天', bio: 'zunyi_person_zhang_wentian', stories: ['story_zhang_wentian_zunyi'] },
   { name: '邓小平', bio: 'start_person_deng_xiaoping', stories: ['story_deng_redstar'] },
   { name: '张思德', bio: 'caodi_person_zhang_side', stories: ['story_zhang_side_grass'] },
   { name: '贺龙', bio: 'jiangtaibao_person_he_long', stories: ['story_he_jiesheng', 'story_helong_renbishi'] },
+  { name: '任弼时', bio: 'jiangtaibao_person_ren_bishi', stories: ['story_helong_renbishi'] },
+  { name: '贺捷生', bio: 'jiangtaibao_person_he_jiesheng', stories: ['story_he_jiesheng'] },
   { name: '刘伯承', bio: 'yihai_person_liu_bocheng', stories: ['story_yihai'] },
+  { name: '小叶丹', bio: 'yihai_person_xiaoye_dan', stories: ['story_yihai'] },
   { name: '贺子珍', bio: 'jinsha_person_he_zizhen', stories: ['story_he_zizhen'] },
-  { name: '陈树湘', bio: 'xiangjiang_person_chen_shuxiang', stories: ['story_chen_shuxiang'] }
+  { name: '钟赤兵', bio: 'jinsha_person_zhong_chibing', stories: ['story_he_zizhen'] },
+  { name: '陈树湘', bio: 'xiangjiang_person_chen_shuxiang', stories: ['story_chen_shuxiang'] },
+  { name: '徐解秀', bio: 'xiangjiang_person_xu_jiexiu', stories: ['story_banbei_beizi'] }
 ];
 function personStories(person) { return person.stories.map(id => STORIES.find(t => t.id === id && t.reviewed === true)).filter(t => t && find(t.node)); }
 function personBio(person) { return nodes.flatMap(n => n.extra || []).find(e => e.id === person.bio) || null; }
