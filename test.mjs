@@ -226,6 +226,28 @@ body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node
 log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true}),env)).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);assert.equal(body.web,undefined);
 log=script([webReply('OFF_TOPIC',[])]);body=await (await worker.fetch(make({question:'今天天气',node:'start',free:true,web:'only'}),env)).json();assert.equal(log.length,1);assert.equal(body.type,'off_topic');
 log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),{...env,WEB_SEARCH:'off'})).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);
+// 故事引导：不新增史实。每段的出处必须存在，段落里的数字必须能在所列资料原文中找到；发生地和下一个故事必须有效。
+{
+  const {storyGuides}=await import('./src/story-guides.js');const {stories:allStories}=await import('./src/stories.js');const {nodes:allNodes}=await import('./src/data.js');
+  const texts=new Map();for(const n of allNodes){texts.set(n.id,n.text);for(const e of n.extra||[])texts.set(e.id,e.text);}for(const s of allStories)if(s.reviewed===true)texts.set(s.id,s.text);
+  const digits=s=>(String(s).replace(/\s/g,'').match(/\d+(?:\.\d+)?/g)||[]);
+  assert.ok(storyGuides.length>=2);
+  for(const g of storyGuides){
+    assert.ok(g.hook&&g.title&&g.parts.length>=2,g.id);assert.ok(allNodes.some(n=>n.id===g.place.node),g.id);for(const n of g.next)assert.ok(storyGuides.some(x=>x.id===n),g.id);
+    for(const part of [...g.parts,...g.background,...[...g.parts,...g.background].flatMap(p=>p.terms||[])]){
+      assert.ok(part.sources.length,g.id);for(const id of part.sources)assert.ok(texts.has(id),`${g.id} 引用了不存在的资料 ${id}`);
+      const cited=part.sources.map(id=>texts.get(id)).join('').replace(/\s/g,'');
+      for(const d of digits(part.text))assert.ok(cited.includes(d),`${g.id}「${part.label||part.word}」里的数字 ${d} 不在所列资料中`);
+      if(part.word)assert.ok([...g.parts,...g.background].some(p=>p.text.includes(part.word)),`${g.id} 的可点词「${part.word}」不在正文中`);
+    }
+  }
+  // 读故事时提问：服务端只认已登记的故事 ID，并把该故事的资料预先取出
+  log=script([reply({type:'history',answer:'红军在贵州习水土城青杠坡与川军激战。',sources:['chishui_tucheng']})]);
+  body=await (await worker.fetch(make({question:'一渡之前发生了什么',node:'start',free:true,story:'guide_sidu_chishui'}),env)).json();
+  assert.match(log[0].messages[0].content,/刚读完故事《四渡赤水》/);assert.match(log[0].messages[0].content,/\[chishui_tucheng\] [^\n]*青杠坡/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['chishui_tucheng']);
+  log=script([reply({type:'chat',answer:'你好。',sources:[]})]);
+  await (await worker.fetch(make({question:'你好',node:'start',free:true,story:'no_such_story'}),env)).json();assert.doesNotMatch(log[0].messages[0].content,/刚读完故事/);
+}
 // 常用称谓可检索到对应人物，不改变资料原文。
 log=script([toolReply([toolCall('search_materials',{query:'周总理'})]),reply({type:'history',answer:'周恩来病倒后由担架队抬过草地。',sources:['story_zhou_enlai']})]);
 body=await (await worker.fetch(make({question:'周总理过草地',node:'start',free:true}),env)).json();

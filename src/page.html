@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="data:,">
 <title>长征路上 · 真人真事，皆有出处</title>
-<meta name="description" content="万水千山，从一个人说起。小征给你讲长征路上的真人真事，皆有出处：目前收录中央红军主力长征路线的 __NODE_COUNT__ 个历史节点、__SOURCE_COUNT__ 条整理史料。提问或贴一句说法，它查阅资料、核对后回答并附出处，查不到会直接说明。">
+<meta name="description" content="万水千山，从一个故事说起。小征给你讲长征路上的真人真事，皆有出处：目前收录中央红军主力长征路线的 __NODE_COUNT__ 个历史节点、__SOURCE_COUNT__ 条整理史料。提问或贴一句说法，它查阅资料、核对后回答并附出处，查不到会直接说明。">
 <style>
 [hidden]{display:none!important}
 :root{
@@ -213,6 +213,46 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .msg-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.75}
 .asked-at{display:inline-block;font-size:12px;color:var(--text3);margin-bottom:2px}
 .msg.error .msg-text{color:var(--accent)}
+/* 从故事开始：首页故事卡片与分段阅读 */
+.tales{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0 0}
+.tale{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:14px 16px;border:1px solid var(--accent-line);border-radius:16px;background:color-mix(in srgb,var(--accent) 4%,var(--bg));transition:transform .15s,box-shadow .15s,border-color .15s}
+.tale:hover,.tale:focus-visible{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--accent)}
+.tale small{font-size:11.5px;color:var(--accent);letter-spacing:.06em}
+.tale b{font-family:var(--serif);font-size:16px;line-height:1.45;font-weight:700}
+.tale span{font-size:12.5px;color:var(--text2)}
+.tales + .starts{margin-top:10px}
+@media (max-width:560px){.tales{grid-template-columns:1fr}}
+.story-dialog{width:min(640px,calc(100% - 24px))}
+.story-dialog[open]{display:flex;flex-direction:column;overflow:hidden}
+.story-dialog .dialog-head{flex:none;align-items:flex-start}
+.story-dialog .dialog-body{flex:1;min-height:0;overflow:auto;padding-bottom:24px}
+.story-dialog #story-tag{margin:0 0 2px;font-size:12px;color:var(--accent);letter-spacing:.06em}
+.story-hook{font-family:var(--serif);font-size:20px;line-height:1.6;font-weight:700;margin:6px 0 18px;padding-left:14px;border-left:3px solid var(--accent)}
+.story-part{position:relative;margin:0 0 16px;animation:stepin .35s ease-out}
+.story-part h3,.story-more h3{margin:0 0 4px;font-size:13px;font-weight:600;color:var(--text2);display:flex;align-items:baseline;gap:8px}
+.story-part h3 em{font-style:normal;color:var(--accent);font-variant-numeric:tabular-nums}
+.story-part p,.story-more p{margin:0;font-size:15.5px;line-height:1.85}
+.story-dialog.event .story-part{padding-left:20px;border-left:2px solid var(--accent-line);margin-left:5px}
+.story-dialog.event .story-part:before{content:"";position:absolute;left:-7px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+.term{font:inherit;padding:0;border:0;background:none;color:inherit;cursor:pointer;border-bottom:1.5px dashed var(--accent);line-height:1.4}
+.term:hover,.term[aria-expanded=true]{color:var(--accent)}
+.term-note{margin:8px 0 0;padding:9px 12px;border-radius:10px;background:var(--bg2);font-size:13.5px;line-height:1.7;color:var(--text2)}
+.story-part .refs,.story-more .refs,.term-note .refs{margin-top:6px}
+.story-go{display:flex;align-items:center;gap:12px;margin:4px 0 6px}
+.story-go small{font-size:12px;color:var(--text3)}
+.story-more{margin-top:8px;padding-top:16px;border-top:1px solid var(--border2);animation:stepin .35s ease-out}
+.story-more > h3{margin:18px 0 8px;font-family:var(--serif);font-size:16px;color:var(--text)}
+.story-more > h3:first-child{margin-top:0}
+.story-bg{margin:0 0 12px}
+.story-bg p{font-size:14.5px}
+.story-place{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:12px;background:var(--bg2);font-size:13.5px;line-height:1.6;color:var(--text2)}
+.story-place span{flex:1;min-width:200px}
+.story-whys{display:grid;gap:8px}
+.story-whys button,.story-next{text-align:left;padding:11px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);font-size:14.5px;transition:border-color .15s,background .15s}
+.story-whys button:hover,.story-next:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--bg))}
+.story-next{display:block;width:100%}
+.story-next small{display:block;font-size:12px;color:var(--accent);margin-bottom:2px}
+.story-next b{font-family:var(--serif);font-size:15.5px}
 .trust{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:var(--text3)}
 .trust:before{content:"";width:7px;height:7px;border-radius:50%;background:#2e7d4f}
 .trust.web{color:#8a5a00}.trust.web:before{background:#c77700}
@@ -351,9 +391,14 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
   .home-side .home-mark .seal{width:26px;height:26px;font-size:15px}
   .home-side h1{font-size:27px;margin-bottom:8px}
   .home-side .home-sub{font-size:13.5px;line-height:1.65;margin-bottom:6px}
-  .home-side .home-scope{font-size:12px;line-height:1.6;margin-bottom:0}
-  .home-side .starts{gap:8px;margin:14px 0 10px}
-  .home-side .start{padding:10px 12px;border-radius:13px;gap:2px}
+  .home-side .home-scope{display:none}
+  .home-side .tales{margin-top:14px;gap:8px}
+  .home-side .tale{padding:11px 13px;border-radius:14px;gap:4px}
+  .home-side .tale b{font-size:14.5px}
+  .home-side .tale span{font-size:12px}
+  .home-side .starts{gap:8px;margin:8px 0 10px}
+  .home-side .start{padding:8px 10px;border-radius:999px;align-items:center}
+  .home-side .start > span{display:none}
   .home-side .start b{font-size:13.5px}
   .home-side .start span{font-size:11.5px}
   .home-side .composer{padding:11px 11px 8px 15px;border-radius:20px}
@@ -527,9 +572,10 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="home-inner">
 <div class="home-side">
 <div class="home-mark"><span class="seal" aria-hidden="true">征</span>真人真事，皆有出处</div>
-<h1>万水千山，从<em>一个人</em>说起</h1>
+<h1>万水千山，从<em>一个故事</em>说起</h1>
 <p class="home-sub">我是小征，给你讲长征路上的真人真事。每个故事都有出处；你也可以随时问我，听到拿不准的说法，贴给我来核对。</p>
 <p class="home-scope">目前收录的是<b>中央红军主力</b>的长征路线：从中央苏区到吴起镇，共 23 处；另有直罗镇、会宁、将台堡三处。其他各路红军的资料还很少。</p>
+<div class="tales" id="tales" role="group" aria-label="从故事开始" hidden></div>
 <div class="starts" role="group" aria-label="开始方式">
 <button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
 <button type="button" class="start" id="start-people" aria-haspopup="dialog"><b>人物档案</b><span>从人物故事认识长征</span></button>
@@ -547,7 +593,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <section class="home-map" id="home-map" aria-label="中央红军主力长征路线示意" hidden>
 <div class="hm-head"><b>中央红军主力长征路线</b><span class="hm-caption" id="hm-caption" aria-live="off"></span><button type="button" class="hm-replay" id="hm-replay">重播</button></div>
 <div class="hm-stage" id="hm-stage"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="hm-route"></polyline></svg></div>
-<p class="hm-note">位置按各处的大致经纬度摆放（上北下南），相邻太近的略有挪动，非精确地图；虚线只表示先后顺序，不是行军路线。点任意一处，进入对应一站的讲解。</p>
+<p class="hm-note">目前讲的是中央红军主力的长征路线，从中央苏区到吴起镇共 23 处，另有直罗镇、会宁、将台堡三处。位置按各处的大致经纬度摆放（上北下南），相邻太近的略有挪动，非精确地图；虚线只表示先后顺序，不是行军路线。点任意一处，进入对应一站的讲解。</p>
 </section>
 <div class="about" id="about"><p>长征路上 · 真人真事，皆有出处。小征讲述长征路上的故事，回答和核对关于长征的问题。目前收录的是中央红军主力的长征路线（中央苏区至吴起镇），另有到陕北之后的直罗镇和红军三大主力会师；红二、红四方面军和红二十五军的长征只有少量资料。节点资料整理自公开文章，每条均附原文链接。</p><p>位置图为节点示意，非精确地理地图与行军路线，不代表各路红军的完整路线。</p><p>回答由 AI 根据资料生成，请结合原文核对；标有“网络来源”的内容来自联网搜索，未经人工核对；提问和参观偏好会发送给 DeepSeek，请勿输入个人敏感信息。</p></div>
 </div>
@@ -564,6 +610,10 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 </dialog>
 
 <div class="selection-audio" id="selection-audio" role="group" aria-label="选中文本朗读" hidden><button type="button" class="btn btn-primary" id="read-selection">朗读选中内容</button><button type="button" class="btn btn-ghost" id="stop-audio" hidden>停止朗读</button></div>
+<dialog class="route-dialog story-dialog" id="story-dialog" aria-labelledby="story-title">
+<div class="dialog-head"><div><p id="story-tag"></p><h2 id="story-title"></h2></div><button type="button" class="dialog-close" id="story-close" aria-label="关闭">×</button></div>
+<div class="dialog-body" id="story-body"></div>
+</dialog>
 <dialog class="route-dialog" id="about-dialog" aria-labelledby="about-dialog-title">
 <div class="dialog-head"><div><h2 id="about-dialog-title">资料说明</h2></div><button type="button" class="dialog-close" id="about-dialog-close" aria-label="关闭">×</button></div>
 <div class="dialog-body" id="about-dialog-content"></div>
@@ -641,6 +691,44 @@ const decisionOf = () => null, decided = new Map();   // 抉择时刻已移除�
 const STORIES = Array.isArray(DATA.stories) ? DATA.stories : [];
 const storiesOf = id => STORIES.filter(t => t.node === id && visible(t));
 const told = new Set();
+/* ---------- 从故事开始：首页卡片与分段阅读 ---------- */
+const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).filter(g => g && Array.isArray(g.parts) && g.parts.length);
+const guideSource = id => { const e = evidenceOf(id); if (e) return e; const t = STORIES.find(x => x.id === id); return t ? { title: t.source, url: t.url } : null; };
+function guideRefs(ids) { const box = el('div', 'refs'), seen = new Set(); for (const id of ids || []) { const e = guideSource(id), u = e && safeLink(e.url); if (u && !seen.has(u)) { seen.add(u); box.append(srcLink(u, e.title || '查看资料', 'ref')); } } return box; }
+// 正文里带虚线的词可以点开，看两三句背景，不离开故事
+function guideText(part) {
+  const wrap = document.createDocumentFragment(), p = el('p'); let rest = part.text; const notes = [];
+  for (const t of part.terms || []) { const i = rest.indexOf(t.word); if (i < 0) continue; p.append(document.createTextNode(rest.slice(0, i))); const b = el('button', 'term', t.word); b.type = 'button'; b.setAttribute('aria-expanded', 'false'); const note = el('div', 'term-note'); note.hidden = true; note.append(document.createTextNode(t.text), guideRefs(t.sources)); b.addEventListener('click', () => { note.hidden = !note.hidden; b.setAttribute('aria-expanded', String(!note.hidden)); }); p.append(b); notes.push(note); rest = rest.slice(i + t.word.length); }
+  p.append(document.createTextNode(rest)); wrap.append(p, ...notes); return wrap;
+}
+function closeStory() { const d = $('story-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
+function openStory(id) {
+  const g = GUIDES.find(x => x.id === id); if (!g) return;
+  const d = $('story-dialog'), body = $('story-body'); d.classList.toggle('event', g.kind === 'event');
+  $('story-tag').textContent = g.tag + (g.date ? ' · ' + g.date : ''); $('story-title').textContent = g.title;
+  body.replaceChildren(el('p', 'story-hook', g.hook)); body.scrollTop = 0;
+  const parts = el('div', 'story-parts'), go = el('div', 'story-go'), more = el('button', 'btn btn-primary', ''), count = el('small'); more.type = 'button'; go.append(more, count); body.append(parts, go);
+  let shown = 0;
+  const finale = () => {
+    go.remove(); const box = el('div', 'story-more');
+    if ((g.background || []).length) { box.append(el('h3', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); box.append(item); } }
+    if (g.place && find(g.place.node)) { const pl = el('div', 'story-place'); const btn = el('button', 'btn btn-ghost', '在路线上看这一站 →'); btn.type = 'button'; btn.addEventListener('click', () => { closeStory(); choose(g.place.node); }); pl.append(el('span', '', g.place.text), btn); box.append(pl); }
+    if ((g.whys || []).length) { box.append(el('h3', '', '读到这里，你可能想问')); const w = el('div', 'story-whys'); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; closeStory(); ask(q, { fromHome: view !== 'session', story: g.id }); }); w.append(b); } box.append(w); }
+    const nx = (g.next || []).map(n => GUIDES.find(x => x.id === n)).filter(Boolean)[0];
+    if (nx) { box.append(el('h3', '', '再听一个')); const b = el('button', 'story-next'); b.type = 'button'; b.append(el('small', '', nx.tag), el('b', '', nx.hook)); b.addEventListener('click', () => openStory(nx.id)); box.append(b); }
+    body.append(box); box.scrollIntoView({ behavior: motion(), block: 'nearest' });
+  };
+  const reveal = () => {
+    const part = g.parts[shown++], item = el('div', 'story-part'), h = el('h3'); if (part.date) h.append(el('em', '', part.date)); h.append(document.createTextNode(part.label || '')); item.append(h, guideText(part), guideRefs(part.sources)); parts.append(item);
+    if (shown > 1) item.scrollIntoView({ behavior: motion(), block: 'nearest' });
+    if (shown >= g.parts.length) finale(); else { more.textContent = shown === g.parts.length - 1 && g.kind !== 'event' ? '后来呢？' : '接着往下看'; count.textContent = shown + ' / ' + g.parts.length; }
+  };
+  more.addEventListener('click', reveal); reveal();
+  if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
+}
+$('story-close').addEventListener('click', closeStory);
+$('story-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeStory(); });
+(function renderTales() { const box = $('tales'); if (!GUIDES.length) return; for (const g of GUIDES) { const b = el('button', 'tale'); b.type = 'button'; b.append(el('small', '', g.tag), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => openStory(g.id)); box.append(b); } box.hidden = false; })();
 function tellStory(n) {
   const list = storiesOf(n.id); if (!list.length) return;
   const t = list.find(x => !told.has(x.id)) || list[0]; told.add(t.id);
@@ -1305,7 +1393,7 @@ async function ask(question, opts = {}) {
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
   const free = chatOnly || topicMode;
-  const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(free ? { free: true } : {}) });
+  const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story ? { story: opts.story } : {}), ...(free ? { free: true } : {}) });
   let payload = build();
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
   const typing = showTyping();
