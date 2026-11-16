@@ -207,8 +207,8 @@ for(const answer of [
   attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer,sources:['xiangjiang','zunyi','luding']})};
   body=await (await worker.fetch(make({question:'湘江、遵义会议和泸定桥分别是什么时间？',node:'luding'}),env)).json();
   assert.equal(attempts,1,'三事件正确日期被误拒：'+answer);
-  assert.match(body.answer,/泸定桥/);assert.equal(body.sources.length,1);
-  assert.deepEqual(body.sources[0].ids,['xiangjiang','zunyi','luding']);
+  assert.match(body.answer,/泸定桥/);assert.equal(body.sources.length,3);
+  assert.deepEqual(body.sources.flatMap(x=>x.ids).sort(),['xiangjiang','zunyi','luding'].sort());
 }
 // 两个或三个事件交换已知日期，必须继续被拦截并要求重答。
 for(const answer of [
