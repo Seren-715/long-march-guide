@@ -698,13 +698,13 @@ const PEOPLE = [
   { name: '张思德', bio: 'caodi_person_zhang_side', stories: ['story_zhang_side_grass'] },
   { name: '贺龙', bio: 'jiangtaibao_person_he_long', stories: ['story_he_jiesheng', 'story_helong_renbishi'] },
   { name: '任弼时', bio: 'jiangtaibao_person_ren_bishi', stories: ['story_helong_renbishi'] },
-  { name: '贺捷生', bio: 'jiangtaibao_person_he_jiesheng', stories: ['story_he_jiesheng'] },
+  { name: '贺捷生', question: '贺捷生怎样跟随队伍长征？', bio: 'jiangtaibao_person_he_jiesheng', stories: ['story_he_jiesheng'] },
   { name: '刘伯承', bio: 'yihai_person_liu_bocheng', stories: ['story_yihai'] },
   { name: '小叶丹', bio: 'yihai_person_xiaoye_dan', stories: ['story_yihai'] },
   { name: '贺子珍', bio: 'jinsha_person_he_zizhen', stories: ['story_he_zizhen'] },
   { name: '钟赤兵', bio: 'jinsha_person_zhong_chibing', stories: ['story_he_zizhen'] },
   { name: '陈树湘', bio: 'xiangjiang_person_chen_shuxiang', stories: ['story_chen_shuxiang'] },
-  { name: '徐解秀', bio: 'xiangjiang_person_xu_jiexiu', stories: ['story_banbei_beizi'] }
+  { name: '徐解秀', question: '徐解秀与半条被子的故事是什么？', bio: 'xiangjiang_person_xu_jiexiu', stories: ['story_banbei_beizi'] }
 ];
 function personStories(person) { return person.stories.map(id => STORIES.find(t => t.id === id && t.reviewed === true)).filter(t => t && find(t.node)); }
 function personBio(person) { return nodes.flatMap(n => n.extra || []).find(e => e.id === person.bio) || null; }
@@ -727,7 +727,7 @@ function personDetail(person) {
   const bio = personBio(person), intro = el('section', 'more'); intro.append(el('h3', '', '长征时期简介'));
   if (bio) { intro.append(el('p', '', bio.text)); const u = safeLink(bio.url); if (u) intro.append(srcLink(u, bio.source)); }
   else intro.append(el('p', 'plan-note', '人物简介待补充；下方可先阅读现有相关故事。'));
-  if (bio) { const q = person.name + '在长征中做了什么？', askPerson = el('button', 'chip', q); askPerson.type = 'button'; askPerson.disabled = busy; askPerson.addEventListener('click', () => { closePeople(); if (view === 'home') ask(q, { fromHome: true }); else askChip(q); }); intro.append(el('p', 'plan-note', '可以问小征'), askPerson); }
+  if (bio) { const q = person.question || person.name + '在长征中做了什么？', askPerson = el('button', 'chip', q); askPerson.type = 'button'; askPerson.disabled = busy; askPerson.addEventListener('click', () => { closePeople(); if (view === 'home') ask(q, { fromHome: true }); else askChip(q); }); intro.append(el('p', 'plan-note', '可以问小征'), askPerson); }
   const stories = personStories(person);
   const info = el('p', 'plan-note', '以下是与人物相关的故事，节点为资料分类；点击故事可进入对应节点。');
   const ul = el('ul', 'rows');
