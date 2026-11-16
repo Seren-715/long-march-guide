@@ -210,6 +210,35 @@ body=await (await worker.fetch(make({question:'宁化挑粮的妇女都参加长
 assert.match(log[1].messages.at(-1).content,/资料整理说明，非原文引述/);assert.match(log[1].messages.at(-1).content,/长征前/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['story_fj_ninghua_grain']);
 log=script([reply({type:'history',answer:'宁化妇女挑粮是长征前的活动，并不是她们随中央红军参加长征。',sources:['story_fj_ninghua_grain']}),reply({type:'history',answer:'资料只记载她们在长征前挑粮支前，不能据此判断她们后来是否参加长征。',sources:['story_fj_ninghua_grain']})]);
 body=await (await worker.fetch(make({question:'宁化妇女都参加长征了吗？',node:'start'}),env)).json();assert.equal(log.length,2);assert.match(body.answer,/不能据此判断/);
+// 福建人数：三种报道各有出处，比较题必须可同时看到三条，并保留来源链接。
+log=script([reply({type:'history',answer:'福建省政府记载中央红军出发时福建籍近3万人，福建日报另记近2.6万福建子弟，福建省退役军人事务厅展陈另记近万福建儿女。这些记录的差异原因尚未厘清，不能擅自推断。',sources:['story_fj_overview','story_fj_count_26k','story_fj_count_10k']})]);
+body=await (await worker.fetch(make({question:'福建籍参加长征的红军有多少？不同资料为什么数字不同？',node:'start',free:true}),env)).json();
+assert.equal(log.length,1);
+for(const id of ['story_fj_overview','story_fj_count_26k','story_fj_count_10k'])assert.ok(log[0].messages[0].content.includes('['+id+']'),'未预载 '+id);
+assert.equal(body.sources.length,3);assert.match(body.answer,/近2\.6万/);assert.match(body.steps.at(-1).detail,/非史实核验/);
+// 即使用户提问包含 2.6，只有“近3万”的来源也不允许肯定“近2.6万”。
+log=script([
+  reply({type:'history',answer:'福建籍参加长征的红军确实只有近2.6万人。',sources:['story_fj_overview']}),
+  reply({type:'history',answer:'福建省政府记载中央红军出发时福建籍近3万人，福建日报另记近2.6万福建子弟，差异原因尚未核实。',sources:['story_fj_overview','story_fj_count_26k']})
+]);
+body=await (await worker.fetch(make({question:'福建参加长征的人数是不是2.6万人？',node:'start',free:true}),env)).json();
+assert.equal(log.length,2,'不能把用户问题中的 2.6 视为引用证据');
+assert.deepEqual(body.sources.flatMap(x=>x.ids).sort(),['story_fj_count_26k','story_fj_overview'].sort());
+// 非福建问题同理，错误的提问人数不能成为史实依据。
+log=script([
+  reply({type:'history',answer:'红军过草地时确实牺牲了12345人。',sources:['caodi']}),
+  reply({type:'history',answer:'现有资料没有记载草地牺牲的确切人数，不能据此确认。',sources:['caodi']})
+]);
+body=await (await worker.fetch(make({question:'红军过草地牺牲了12345人吗？',node:'caodi'}),env)).json();
+assert.equal(log.length,2);assert.doesNotMatch(body.answer,/12345/);
+// 2.6 必须作为一个小数与来源匹配，不能分别凭 2 和 6 放行。
+log=script([
+  reply({type:'history',answer:'福建日报记载近2.6万福建子弟参加长征。',sources:['story_fj_count_10k']}),
+  reply({type:'history',answer:'福建省退役军人事务厅专题展记载近万福建儿女。',sources:['story_fj_count_10k']})
+]);
+body=await (await worker.fetch(make({question:'福建参加长征的人数是多少？',node:'start',free:true}),env)).json();
+assert.equal(log.length,2);assert.match(body.answer,/近万/);
+
 // 常用称谓可检索到对应人物，不改变资料原文。
 log=script([toolReply([toolCall('search_materials',{query:'周总理'})]),reply({type:'history',answer:'周恩来病倒后由担架队抬过草地。',sources:['story_zhou_enlai']})]);
 body=await (await worker.fetch(make({question:'周总理过草地',node:'start',free:true}),env)).json();
