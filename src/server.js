@@ -142,67 +142,118 @@ function runTool(name,args,state){
 function stripLinks(text){
   return text.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/https?:\/\/[^\s）)]+/gi,'').split(/(?<=[。！？!?\n])/).filter(part=>!/(链接|网址|网页地址|URL)/i.test(part)).join('').trim();
 }
-// 汉字数字转数值，例如“十七”→17、“二十五”→25、“一万”→10000。
+// 校验数字与日期的完整表达，而非把“3万人”拆成 3 和 万、把年月日拆开匹配。
+// 仍是保守规则：只能发现部分越界表达，不能替代史实的逐句核验。
 const CN_DIGITS={零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10,百:100,千:1000,万:10000};
-function cnToNumber(text){let total=0,section=0,digit=0;for(const ch of text){const v=CN_DIGITS[ch];if(v==null)return null;if(v===10000){total+=(section+digit||1)*v;section=0;digit=0;}else if(v>=10){section+=(digit||1)*v;digit=0;}else digit=v;}return total+section+digit;}
-const arabicIn=text=>(String(text).replaceAll('．','.').match(/\d+(?:\.\d+)?/g)||[]).map(x=>String(Number(x)));
-// 小数必须整体匹配：2.6 不能只靠引用另一条资料中独立出现的 2 和 6 通过数字检查。
-// 资料一侧：所有阿拉伯数字和汉字数字都算作“出现过”，宁可宽一些，避免误杀。
-const numbersAllowedIn=text=>[...arabicIn(text),...[...String(text).matchAll(/(?<![\d.．])[零〇一二两三四五六七八九十百千万]+/g)].map(m=>cnToNumber(m[0])).filter(v=>v!=null).map(String)];
-// 回答一侧：阿拉伯数字，以及与量词连用的汉字数量（“三个月”“十七名”“两个团”），不含“第一次”这类序数和部队番号。
-// 不含“军、师、团、营、连”等：它们多出现在部队番号（红二十五军、红四团）或“两军”“三军会师”这类泛称中，不是数量。
-const CN_QUANTITY=/(?<![第\d.．])([零〇一二两三四五六七八九十百千万]+)(?=[个名人条次天年月日夜里座根艘只路批位])/g;
-// “两个故事”“三个方面”这类是在组织回答，不是史实中的数量，不核对。
-const META_AFTER=/^个(故事|问题|方面|节点|站|原因|例子|资料|地方|阶段|角度|要点)/;
-const numbersClaimedIn=text=>[...arabicIn(text),...[...String(text).matchAll(CN_QUANTITY)].filter(m=>!META_AFTER.test(String(text).slice(m.index+m[1].length))).map(m=>cnToNumber(m[1])).filter(v=>v!=null).map(String)];
-// 只在“明确否定”且该数字确实来自用户问题时，允许复述错误数字。
-// 肯定、引用不明或只是转述问题的数字仍需有史料支持；不恢复“用户数字自动白名单”。
-const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(\d+(?:\.\d+)?\s*(?:年(?:\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?)?|万(?:人|名)?|人|名)?)/g;
-function withoutRefutedQuestionFacts(answer,question){
-  const compact=String(question).replace(/\s+/g,'');
-  return String(answer).replace(EXPLICIT_NEGATION,(match,fact)=>{
-    return compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的数字）':match;
-  });
+function cnToNumber(text){
+  let total=0,section=0,digit=0;
+  for(const ch of text){const v=CN_DIGITS[ch];if(v==null)return null;
+    if(v===10000){total+=(section+digit||1)*v;section=0;digit=0;}
+    else if(v>=10){section+=(digit||1)*v;digit=0;}
+    else digit=v;
+  }
+  return total+section+digit;
 }
-// 检查日期是否构成同一个有来源支持的“年-月-日”，而不是把不同位置的数字拼起来。
-// 支持 YYYY年M月、YYYY年M月D日、YYYY年M月D日至D日（同月范围）。
-const FULL_DATE=/(\d{4})\s*年\s*(\d{1,2})\s*月(?:\s*(\d{1,2})\s*日(?:\s*至\s*(?:(\d{1,2})\s*月\s*)?(\d{1,2})\s*日)?)?/g;
+function toDateNumber(x){
+  if(/^\d+$/.test(x))return Number(x);
+  if(/^[零〇一二三四五六七八九]{4}$/.test(x))return Number([...x].map(c=>CN_DIGITS[c]).join(''));
+  return cnToNumber(x);
+}
+const YEAR_EXPR='(?:\\d{4}|[零〇一二三四五六七八九]{4}|[一二三四五六七八九十百千零〇]{5,9})';
+const PART_EXPR='(?:\\d{1,2}|[零〇一二两三四五六七八九十]{1,3})';
+const CN_DATE_RE=new RegExp('('+YEAR_EXPR+')\\s*年\\s*('+PART_EXPR+')\\s*月(?:\\s*('+PART_EXPR+')\\s*[日号](?:\\s*(?:至|到|—|－|-|～|~)\\s*(?:('+PART_EXPR+')\\s*月\\s*)?('+PART_EXPR+')\\s*[日号])?)?','g');
+const SEP_DATE_RE=/(?<!\d)(\d{4})\s*([\/\-\.．])\s*(\d{1,2})\s*\2\s*(\d{1,2})(?!\d)/g;
 function validCalendarDay(y,m,d){
   if(m<1||m>12||d<1||d>31)return false;
   const date=new Date(Date.UTC(y,m-1,d));
   return date.getUTCFullYear()===y&&date.getUTCMonth()+1===m&&date.getUTCDate()===d;
 }
+const HISTORICAL_EVENTS=[
+  ['zunyi',/遵义/],['xiangjiang',/湘江/],['luding',/泸定桥/],
+  ['chishui',/赤水/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
+  ['liping',/黎平/],['gouba',/苟坝/],['dadu',/大渡河/],
+  ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
+  ['lazikou',/腊子口/],['wuqi',/吴起镇/],['jiajin',/夹金山/],
+  ['maoergai',/毛儿盖/],['huili',/会理/],['houchang',/猴场/]
+];
+const eventKeys=text=>HISTORICAL_EVENTS.filter(([,pattern])=>pattern.test(text)).map(([id])=>id);
+function clauseAt(text,start,end){
+  const left=Math.max(text.lastIndexOf('。',start),text.lastIndexOf('！',start),text.lastIndexOf('？',start),text.lastIndexOf('；',start),text.lastIndexOf('\n',start));
+  let right=text.length;
+  for(const mark of ['。','！','？','；','\n']){const idx=text.indexOf(mark,end);if(idx>=0&&idx<right)right=idx;}
+  return text.slice(left+1,right);
+}
 function dateFacts(text){
-  const out=[];
-  for(const match of String(text).matchAll(FULL_DATE)){
-    const y=Number(match[1]),m=Number(match[2]),d=match[3]?Number(match[3]):null;
-    const endM=match[4]?Number(match[4]):m,endD=match[5]?Number(match[5]):null;
-    out.push({raw:match[0],y,m,d,endM,endD,
-      valid:m>=1&&m<=12&&(d===null||validCalendarDay(y,m,d))
-        &&(endD===null||(validCalendarDay(y,endM,endD)&&(endM>m||(endM===m&&endD>=d))))});
+  const source=String(text),out=[];
+  const add=(match,y,m,d,endM,endD)=>{
+    const valid=Number.isInteger(y)&&y>=1&&Number.isInteger(m)&&m>=1&&m<=12
+      &&(d==null||validCalendarDay(y,m,d))
+      &&(endD==null&&(endM==null||endM===m)
+        ||endD!=null&&validCalendarDay(y,endM,endD)&&(endM>m||endM===m&&endD>=d));
+    const start=match.index,end=start+match[0].length;
+    out.push({raw:match[0],start,end,y,m,d,endM,endD,valid,context:clauseAt(source,start,end)});
+  };
+  for(const m of source.matchAll(CN_DATE_RE)){
+    add(m,toDateNumber(m[1]),toDateNumber(m[2]),m[3]?toDateNumber(m[3]):null,
+      m[4]?toDateNumber(m[4]):toDateNumber(m[2]),m[5]?toDateNumber(m[5]):null);
   }
-  return out;
+  for(const m of source.matchAll(SEP_DATE_RE))add(m,Number(m[1]),Number(m[3]),Number(m[4]),Number(m[3]),null);
+  return out.sort((a,b)=>a.start-b.start);
+}
+function maskDates(text,facts){
+  const chars=[...String(text)];
+  for(const d of facts)for(let i=d.start;i<d.end;i++)chars[i]=' ';
+  return chars.join('');
+}
+const META_AFTER=/^个(故事|问题|方面|节点|站|原因|例子|资料|地方|阶段|角度|要点)/;
+const CN_QUANTITY=/(?<![第\d.．])([零〇一二两三四五六七八九十百千万]+)(?=[个名人条次天年月日夜里座根艘只路批位])/g;
+function numberTokens(text,source){
+  const dateItems=dateFacts(text),masked=maskDates(text,dateItems),keys=new Set();
+  // 允许由完整日期推导出同一年份；不允许把“15日至17日”拆成独立人数。
+  for(const d of dateItems)if(d.valid)keys.add('N:'+d.y);
+  const raw=[...masked],amounts=[],magnitude={万:10000,千:1000,百:100};
+  for(const m of masked.matchAll(/(?<![\d.．])(\d+(?:[.．]\d+)?)\s*([万千百])/g)){
+    keys.add('A:'+String(Number(m[1].replace('．','.'))*magnitude[m[2]]));
+    amounts.push([m.index,m.index+m[0].length]);
+  }
+  for(const [a,b] of amounts)for(let k=a;k<b;k++)raw[k]=' ';
+  const remaining=raw.join('');
+  for(const m of remaining.matchAll(/(?<![\d.．])\d+(?:[.．]\d+)?/g))keys.add('N:'+String(Number(m[0].replace('．','.'))));
+  const addCn=v=>{const n=cnToNumber(v);if(n!=null)keys.add(/[万千百]/.test(v)?'A:'+String(n):'N:'+String(n));};
+  if(source){
+    for(const m of remaining.matchAll(/[零〇一二两三四五六七八九十百千万]+/g))addCn(m[0]);
+  }else{
+    for(const m of remaining.matchAll(CN_QUANTITY)){
+      if(!META_AFTER.test(remaining.slice(m.index+m[1].length)))addCn(m[1]);
+    }
+    // “近万福建儿女”没有紧邻量词，但仍是人数数量，而不是没有数字。
+    for(const m of remaining.matchAll(/(?:近|约|将近|大约)\s*(万)(?=[^\d零〇一二两三四五六七八九十百千万]|$)/g))keys.add('A:10000');
+  }
+  return keys;
+}
+function numbersAllowedIn(text){return [...numberTokens(text,true)];}
+function numbersClaimedIn(text){return [...numberTokens(text,false)];}
+const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(\d{4}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[\/\-\.．]\d{1,2}[\/\-\.．]\d{1,2}|\s*年)?|\d+(?:\.\d+)?\s*(?:万(?:人|名)?|人|名))/g;
+function withoutRefutedQuestionFacts(answer,question){
+  const compact=String(question).replace(/\s+/g,'');
+  return String(answer).replace(EXPLICIT_NEGATION,(match,fact)=>
+    compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的数字）':match);
 }
 function dateSupported(claim,source){
-  if(!claim.valid)return false;
-  if(claim.y!==source.y||claim.m!==source.m||!source.valid)return false;
-  if(claim.d===null)return true; // 资料有具体日期时，也支持只回答到月份
+  if(!claim.valid||!source.valid||claim.y!==source.y||claim.m!==source.m)return false;
+  const claimedEvents=eventKeys(claim.context),sourceEvents=eventKeys(source.context);
+  if(claimedEvents.length&&!claimedEvents.some(event=>sourceEvents.includes(event)))return false;
+  if(claim.d===null)return true;
   if(source.d===null)return false;
-  const srcEndMonth=source.endD===null?source.m:source.endM;
-  const srcEndDay=source.endD===null?source.d:source.endD;
-  const claimEndMonth=claim.endD===null?claim.m:claim.endM;
-  const claimEndDay=claim.endD===null?claim.d:claim.endD;
   const ordinal=(month,day)=>month*32+day;
   return ordinal(claim.m,claim.d)>=ordinal(source.m,source.d)
-    &&ordinal(claimEndMonth,claimEndDay)<=ordinal(srcEndMonth,srcEndDay);
+    &&ordinal(claim.endM||claim.m,claim.endD||claim.d)<=ordinal(source.endM||source.m,source.endD||source.d);
 }
 function unsupportedDates(answer,ids){
   const cited=ids.map(id=>evidence.find(e=>e.id===id).text).join('\n');
-  const sourceDates=dateFacts(cited);
-  return dateFacts(answer).filter(d=>!sourceDates.some(s=>dateSupported(d,s))).map(d=>d.raw);
+  const sources=dateFacts(cited);
+  return dateFacts(answer).filter(d=>!sources.some(s=>dateSupported(d,s))).map(d=>d.raw);
 }
-// 回答中的肯定性数字必须由所引资料正文支持；仅被明确否定的用户错误数字可复述。
-// 这不是完整的事实蕴含核验；跨句主体、部队和因果关联仍需单独审计。
 function unsupportedNumbers(answer,ids,question){
   const claims=withoutRefutedQuestionFacts(answer,question);
   const allowed=new Set(ids.flatMap(id=>numbersAllowedIn(evidence.find(e=>e.id===id).text)));
