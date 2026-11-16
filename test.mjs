@@ -356,6 +356,63 @@ body=await (await worker.fetch(make({question:'宁化挑粮的妇女都参加长
 assert.match(log[1].messages.at(-1).content,/资料整理说明，非原文引述/);assert.match(log[1].messages.at(-1).content,/长征前/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['story_fj_ninghua_grain']);
 log=script([reply({type:'history',answer:'宁化妇女挑粮是长征前的活动，并不是她们随中央红军参加长征。',sources:['story_fj_ninghua_grain']}),reply({type:'history',answer:'资料只记载她们在长征前挑粮支前，不能据此判断她们后来是否参加长征。',sources:['story_fj_ninghua_grain']})]);
 body=await (await worker.fetch(make({question:'宁化妇女都参加长征了吗？',node:'start'}),env)).json();assert.equal(log.length,2);assert.match(body.answer,/不能据此判断/);
+// 会师关系：数字与地点正确仍不能把10月9日在会宁会师的红四方面军错写成红二。
+for(const wrong of [
+  '1936年10月9日红二方面军在会宁与红一方面军会师。',
+  '1936年10月9日，在会宁与红一方面军会师的是红二方面军。'
+]){
+  log=script([
+    reply({type:'history',answer:wrong,sources:['huining']}),
+    reply({type:'history',answer:'1936年10月9日红四方面军在会宁与红一方面军会师。',sources:['huining']})
+  ]);
+  body=await (await worker.fetch(make({question:'会宁会师何时何地，哪些部队参加？',node:'huining'}),env)).json();
+  assert.equal(log.length,2,'错误的会宁会师部队应触发重答：'+wrong);
+  assert.match(body.answer,/红四方面军/);
+  assert.doesNotMatch(body.answer,/红二方面军/);
+  assert.ok(body.steps.some(step=>step.kind==='verify'&&step.ok===false),'需记录事实关系风险');
+}
+for(const good of [
+  ['1936年10月9日红四方面军在会宁与红一方面军会师。','huining','会宁何时会师？'],
+  ['1936年10月22日红二方面军在将台堡与红一方面军会师。','jiangtaibao','将台堡何时会师？'],
+  ['会宁会师的不是红二方面军，而是红四方面军。','huining','红二方面军在会宁会师了吗？']
+]){
+  log=script([reply({type:'history',answer:good[0],sources:[good[1]]})]);
+  body=await (await worker.fetch(make({question:good[2],node:good[1]}),env)).json();
+  assert.equal(log.length,1,'正确会师陈述不得被误拒：'+good[0]);
+  assert.equal(body.answer,good[0]);assert.deepEqual(body.sources.flatMap(x=>x.ids),[good[1]]);
+}
+// 宁化1300名妇女的后续经历：原志条目只证明长征前支前，不证明全体随军或全部未参加。
+for(const wrong of [
+  '宁化妇女挑粮是长征前的活动，这1300人全部参加了长征。',
+  '这1300名妇女全部到达陕北。',
+  '这1300名妇女全部没有参加长征。'
+]){
+  log=script([
+    reply({type:'history',answer:wrong,sources:['story_fj_ninghua_grain']}),
+    reply({type:'history',answer:'资料只记载宁化1300名妇女长征前挑粮支前，无法确定她们后来是否参加长征。',sources:['story_fj_ninghua_grain']})
+  ]);
+  body=await (await worker.fetch(make({question:'宁化1300名妇女后来都参加长征了吗？',node:'start'}),env)).json();
+  assert.equal(log.length,2,'对宁化妇女后续去向的无依据断言应重答：'+wrong);
+  assert.match(body.answer,/无法确定/);
+  assert.ok(body.steps.some(step=>step.kind==='verify'&&step.ok===false));
+}
+for(const good of [
+  '宁化1300名妇女长征前挑粮支前，不能据此判断她们后来是否参加长征。',
+  '资料没有说明这1300名妇女是否全部参加长征。',
+  '这1300名妇女全部参与了长征前的挑粮支前。'
+]){
+  log=script([reply({type:'history',answer:good,sources:['story_fj_ninghua_grain']})]);
+  body=await (await worker.fetch(make({question:'宁化1300名妇女做了什么，后来参加长征了吗？',node:'start'}),env)).json();
+  assert.equal(log.length,1,'宁化妇女有据或谨慎陈述应保留：'+good);
+  assert.equal(body.answer,good);
+  assert.deepEqual(body.sources.flatMap(x=>x.ids),['story_fj_ninghua_grain']);
+}
+// 比较两个会师时，不应因出现“红二方面军”就错拦在将台堡的正确事实。
+log=script([reply({type:'history',answer:'1936年10月9日红四方面军在会宁与红一方面军会师；1936年10月22日红二方面军在将台堡与红一方面军会师。',sources:['huining','jiangtaibao']})]);
+body=await (await worker.fetch(make({question:'会宁与将台堡两次会师有何不同？',node:'huining'}),env)).json();
+assert.match(body.answer,/红四方面军/);assert.match(body.answer,/红二方面军/);
+assert.deepEqual(body.sources.flatMap(x=>x.ids).sort(),['huining','jiangtaibao'].sort());
+
 // 福建人数：三种报道各有出处，比较题必须可同时看到三条，并保留来源链接。
 log=script([reply({type:'history',answer:'福建省政府记载中央红军出发时福建籍近3万人，福建日报另记近2.6万福建子弟，福建省退役军人事务厅展陈另记近万福建儿女。这些记录的差异原因尚未厘清，不能擅自推断。',sources:['story_fj_overview','story_fj_count_26k','story_fj_count_10k']})]);
 body=await (await worker.fetch(make({question:'福建籍参加长征的红军有多少？不同资料为什么数字不同？',node:'start',free:true}),env)).json();
