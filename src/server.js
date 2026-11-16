@@ -320,6 +320,8 @@ function observedRisks(answer,ids,question){
   const statements=compact.split(/[，,。！？；;\n]|而是/).filter(Boolean);
   const unsupportedHuining=statements.some(part=>
     /会宁/.test(part)&&/会师/.test(part)&&/红二方面军/.test(part)
+    // 正确的“会宁和将台堡地区会师”是两个地点的区域性总结，不等于说红二在会宁单独会师。
+    &&!/(?:会宁.{0,3}将台堡|将台堡.{0,3}会宁)(?:地区)?/.test(part)
     &&!/(?:不是|并非|而非|并未|没有|未在|不曾|不包括|不能说|不能认定|无法认定|不应认为)/.test(part));
   if(unsupportedHuining)issues.push('会宁1936年10月9日会师的是红一、红四方面军；红二方面军于10月22日在将台堡与红一方面军会师。不要把红二方面军错置为会宁会师部队');
   // 县志只记录宁化1300名妇女在长征前挑粮，不能推断全体之后参加/未参加长征或到达陕北。
