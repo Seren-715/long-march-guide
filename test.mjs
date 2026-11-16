@@ -171,7 +171,7 @@ body=await (await worker.fetch(make({question:'如果资料没有记录，能推
   for(const st of stories){assert.ok(st.id&&st.title&&st.text&&st.source&&st.url&&st.date,'故事字段不全：'+st.id);assert.ok(nodeIds.has(st.node),'故事节点不存在：'+st.id);assert.ok(!kbIds.has(st.id),'故事 ID 与资料冲突：'+st.id);assert.match(st.url,/^https?:\/\//);assert.equal(typeof st.reviewed,'boolean');}
   assert.match(html,/"stories":\[/);
   // 已审核的故事进入问答资料，并可作为出处返回
-  const reviewed=stories.find(s=>s.reviewed);
+  const reviewed=stories.find(s=>s.id==='story_banbei_beizi'&&s.reviewed);
   globalThis.fetch=async(url,options)=>{seen=JSON.parse(options.body);return reply({type:'history',answer:'红军行进到湖南汝城县沙洲村时，三名女红军把仅有的一条被子剪下一半留给徐解秀。',sources:[reviewed.id]})};
   res=await worker.fetch(make({question:'讲个故事吧',node:reviewed.node}),env);body=await res.json();assert.equal(res.status,200);assert.equal(body.sources[0].id,reviewed.id);assert.match(seen.messages[0].content,/故事·/);assert.match(seen.messages[0].content,new RegExp('\\['+reviewed.id+'\\]'));
   // 带故事来源的对话凭证可在下一轮使用

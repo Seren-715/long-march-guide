@@ -685,21 +685,21 @@ const PEOPLE = [
   { name: '朱德', bio: 'zunyi_person_zhu_de', stories: ['story_zhu_de_zunyi', 'story_mao_lamp'] },
   { name: '周恩来', bio: 'zunyi_person_zhou_enlai', stories: ['story_zhu_de_zunyi', 'story_mao_lamp', 'story_zhou_enlai'] },
   { name: '张闻天', bio: 'zunyi_person_zhang_wentian', stories: ['story_zhang_wentian_zunyi'] },
-  { name: '王稼祥', bio: 'zunyi_person_wang_jiaxiang', stories: [] },
-  { name: '陈云', bio: 'zunyi_person_chen_yun', stories: [] },
-  { name: '博古', bio: 'zunyi_person_bo_gu', stories: [] },
-  { name: '李德', bio: 'zunyi_person_li_de', stories: [] },
+  { name: '王稼祥', bio: 'zunyi_person_wang_jiaxiang', stories: ['story_zhang_wentian_zunyi', 'story_zhu_de_zunyi', 'story_houchang_debate'] },
+  { name: '陈云', bio: 'zunyi_person_chen_yun', stories: ['story_houchang_debate', 'story_chen_yun_ferry'] },
+  { name: '博古', bio: 'zunyi_person_bo_gu', stories: ['story_houchang_debate'] },
+  { name: '李德', bio: 'zunyi_person_li_de', stories: ['story_houchang_debate'] },
   { name: '邓小平', bio: 'start_person_deng_xiaoping', stories: ['story_deng_redstar'] },
-  { name: '彭德怀', bio: 'wuqi_person_peng_dehuai', stories: [] },
-  { name: '聂荣臻', bio: 'zunyi_person_nie_rongzhen', stories: [] },
-  { name: '林彪', bio: 'zunyi_person_lin_biao', stories: [] },
-  { name: '叶剑英', bio: 'zunyi_person_ye_jianying', stories: [] },
-  { name: '徐向前', bio: 'huining_person_xu_xiangqian', stories: [] },
+  { name: '彭德怀', bio: 'wuqi_person_peng_dehuai', stories: ['story_zhou_enlai'] },
+  { name: '聂荣臻', bio: 'zunyi_person_nie_rongzhen', stories: ['story_nie_rongzhen_dadu', 'story_lin_biao_luding'] },
+  { name: '林彪', bio: 'zunyi_person_lin_biao', stories: ['story_lin_biao_luding'] },
+  { name: '叶剑英', bio: 'zunyi_person_ye_jianying', stories: ['story_ye_jianying_supplies'] },
+  { name: '徐向前', bio: 'huining_person_xu_xiangqian', stories: ['story_xu_xiangqian_reunion'] },
   { name: '张思德', bio: 'caodi_person_zhang_side', stories: ['story_zhang_side_grass'] },
   { name: '贺龙', bio: 'jiangtaibao_person_he_long', stories: ['story_he_jiesheng', 'story_helong_renbishi'] },
   { name: '任弼时', bio: 'jiangtaibao_person_ren_bishi', stories: ['story_helong_renbishi'] },
   { name: '贺捷生', question: '贺捷生怎样跟随队伍长征？', bio: 'jiangtaibao_person_he_jiesheng', stories: ['story_he_jiesheng'] },
-  { name: '刘伯承', bio: 'yihai_person_liu_bocheng', stories: ['story_yihai'] },
+  { name: '刘伯承', bio: 'yihai_person_liu_bocheng', stories: ['story_yihai', 'story_chen_yun_ferry', 'story_nie_rongzhen_dadu', 'story_lin_biao_luding'] },
   { name: '小叶丹', bio: 'yihai_person_xiaoye_dan', stories: ['story_yihai'] },
   { name: '贺子珍', bio: 'jinsha_person_he_zizhen', stories: ['story_he_zizhen'] },
   { name: '钟赤兵', bio: 'jinsha_person_zhong_chibing', stories: ['story_he_zizhen'] },
@@ -716,7 +716,7 @@ function personList() {
     const li = el('li'), b = el('button', 'row'), main = el('span', 'row-main'); b.type = 'button';
     const names = [...new Set(items.map(t => find(t.node).name))];
     main.append(el('span', 'row-title', person.name), el('span', 'row-sub', names.join(' · ')));
-    b.append(main, el('span', 'row-meta', (bio ? '' : '简介待补 · ') + (items.length ? items.length + ' 个故事' : '暂无关联故事')), chev()); b.addEventListener('click', () => personDetail(person)); li.append(b); ul.append(li);
+    b.append(main, el('span', 'row-meta', (bio ? '' : '简介待补 · ') + (items.length ? items.length + ' 个故事' : '暂未收录故事')), chev()); b.addEventListener('click', () => personDetail(person)); li.append(b); ul.append(li);
   }
   container.replaceChildren(ul);
 }
@@ -738,7 +738,7 @@ function personDetail(person) {
     li.append(b, el('p', '', t.text)); if (t.note) li.append(el('p', 'plan-note', t.note)); const u = safeLink(t.url); if (u) li.append(srcLink(u, t.source)); ul.append(li);
   }
   if (stories.length) detail.append(back, title, intro, el('h3', '', '长征中的相关故事'), info, ul);
-  else detail.append(back, title, intro, el('p', 'plan-note', '这位人物暂无已审核的关联故事；可以先读简介，或直接问小征。'));
+  else detail.append(back, title, intro, el('p', 'plan-note', '暂未收录这位人物的关联故事；可以先读简介，或直接问小征。'));
   title.focus();
 }
 function openPeople() { personList(); const d = $('people-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); } requestAnimationFrame(() => $('people-list button')?.focus()); }
