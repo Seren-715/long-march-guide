@@ -12,6 +12,9 @@ import worker from '../worker/index.js';
 
 // [查询, 应命中的资料 ID（命中任意一个即算对）]。查询既有关键词式的，也有口语问法。
 export const CASES = [
+  ['福建日报近2.6万福建子弟', ['story_fj_count_26k']],
+  ['近万福建儿女福建长征英烈主题展', ['story_fj_count_10k']],
+  ['福建参加长征有多少人为什么统计不同', ['story_fj_overview', 'story_fj_count_26k', 'story_fj_count_10k']],
   ['二万五千里', ['wuqi_distance_method', 'wuqi_summary', 'start_route_compare']],
   ['长征一共走了多少里', ['wuqi_summary', 'start_route_compare', 'wuqi_distance_method']],
   ['长征走了多长时间', ['wuqi_summary', 'start_route_dates']],
