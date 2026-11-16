@@ -110,6 +110,35 @@ for(const date of ['1935年1月15日','1935年1月17日','1935年1月']){
   body=await (await worker.fetch(make({question:'遵义会议哪天开？',node:'zunyi'}),env)).json();
   assert.equal(attempts,1,'误拦截有据日期 '+date);assert.match(body.answer,/1935/);
 }
+// 第二轮 Work 对抗复测：连字符、斜杠、点分日期不能绕过年月日范围检查。
+for(const bad of ['1935/17/15','1935-17-15','1935.17.15','一九三五年十七月十五日']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+    ?{type:'history',answer:'遵义会议于'+bad+'召开。',sources:['zunyi']}
+    :{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+  body=await (await worker.fetch(make({question:'遵义会议是哪天召开的？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,2,'错误日期未拦截 '+bad);assert.match(body.answer,/1月15日至17日/);
+}
+for(const good of ['1935/1/16','1935-1-16','1935.1.16','一九三五年一月十五日','1935年1月16日']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'遵义会议于'+good+'召开。',sources:['zunyi']})};
+  body=await (await worker.fetch(make({question:'遵义会议是哪天召开的？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,1,'有据日期被误拒 '+good);assert.equal(body.sources.length,1);
+}
+// “近3万人”不支持“近万人”，数量级与人数量都必须整体比对。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+  ?{type:'history',answer:'福建长征有近万人。',sources:['story_fj_overview']}
+  :{type:'history',answer:'福建省政府记载福建籍将士近3万人。',sources:['story_fj_overview']})};
+body=await (await worker.fetch(make({question:'福建长征有近万人吗？',node:'start',free:true}),env)).json();
+assert.equal(attempts,2,'不能从“近3万”引用放行“近万”');assert.match(body.answer,/近3万人/);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'另一份专题展记载近万福建儿女。',sources:['story_fj_count_10k']})};
+body=await (await worker.fetch(make({question:'福建参加长征的人数是多少？',node:'start',free:true}),env)).json();
+assert.equal(attempts,1);assert.match(body.answer,/近万/);
+// 引用遵义资料的日期不能被错误嫁接到湘江战役。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+  ?{type:'history',answer:'湘江战役于1935年1月15日召开。',sources:['zunyi']}
+  :{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+body=await (await worker.fetch(make({question:'湘江战役是1935年1月15日吗？',node:'zunyi'}),env)).json();
+assert.equal(attempts,2,'引用遵义日期不得冒充湘江日期');assert.doesNotMatch(body.answer,/湘江战役于1935/);
+
 // 截断的输出视为格式错误并重试
 attempts=0;globalThis.fetch=async()=>{attempts++;return attempts===1?reply('{"type":"history","answer":"遵义',{finish_reason:'length'}):reply({type:'history',answer:'1935 年 1 月召开。',sources:['zunyi']})};
 res=await worker.fetch(make({question:'遵义会议何时？',node:'zunyi'}),env);assert.equal(res.status,200);assert.equal(attempts,2);
