@@ -78,7 +78,7 @@ globalThis.fetch=async()=>reply({type:'off_topic',answer:'我只讲解长征，�
 res=await worker.fetch(make({question:'明天天气？',node:'zunyi'}),env);body=await res.json();assert.equal(body.type,'off_topic');assert.deepEqual(body.sources,[]);
 // 数字核对：首次数字不在所引资料中 → 带校验提示重试；重试合格则采用
 attempts=0;globalThis.fetch=async(url,options)=>{attempts++;seen=JSON.parse(options.body);return reply(attempts===1?{type:'history',answer:'遵义会议于1935年1月20日召开。',sources:['zunyi']}:{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
-res=await worker.fetch(make({question:'遵义会议哪天开？',node:'zunyi'}),env);body=await res.json();assert.equal(attempts,2);assert.match(seen.messages.at(-1).content,/数字 20/);assert.match(body.answer,/15 ?日至 ?17/);assert.equal(body.sources[0].id,'zunyi');
+res=await worker.fetch(make({question:'遵义会议哪天开？',node:'zunyi'}),env);body=await res.json();assert.equal(attempts,2);assert.match(seen.messages.at(-1).content,/1935年1月20日/);assert.match(body.answer,/15 ?日至 ?17/);assert.equal(body.sources[0].id,'zunyi');
 // 两次都不合格 → 降级为资料不足
 attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'历时370天。',sources:['zunyi']})};
 res=await worker.fetch(make({question:'走了多久？',node:'zunyi'}),env);body=await res.json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);assert.deepEqual(body.sources,[]);
