@@ -222,18 +222,19 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .tale span{font-size:12.5px;color:var(--text2)}
 .tales + .starts{margin-top:10px}
 @media (max-width:560px){.tales{grid-template-columns:1fr}}
-.story-dialog{width:min(640px,calc(100% - 24px))}
-.story-dialog[open]{display:flex;flex-direction:column;overflow:hidden}
-.story-dialog .dialog-head{flex:none;align-items:flex-start}
-.story-dialog .dialog-body{flex:1;min-height:0;overflow:auto;padding-bottom:24px}
-.story-dialog #story-tag{margin:0 0 2px;font-size:12px;color:var(--accent);letter-spacing:.06em}
-.story-hook{font-family:var(--serif);font-size:20px;line-height:1.6;font-weight:700;margin:6px 0 18px;padding-left:14px;border-left:3px solid var(--accent)}
+.story-page{width:min(760px,100%)}
+.story-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.story-back{font-size:13px;color:var(--text3);padding:4px 0}
+.story-back:hover{color:var(--accent)}
+.story-page h1{margin-bottom:18px}
+.story-part p{font-size:17px!important;line-height:2!important}
+.story-hook{font-family:var(--serif);font-size:21px;line-height:1.6;font-weight:700;margin:6px 0 18px;padding-left:14px;border-left:3px solid var(--accent)}
 .story-part{position:relative;margin:0 0 16px;animation:stepin .35s ease-out}
 .story-part h3,.story-more h3{margin:0 0 4px;font-size:13px;font-weight:600;color:var(--text2);display:flex;align-items:baseline;gap:8px}
 .story-part h3 em{font-style:normal;color:var(--accent);font-variant-numeric:tabular-nums}
 .story-part p,.story-more p{margin:0;font-size:15.5px;line-height:1.85}
-.story-dialog.event .story-part{padding-left:20px;border-left:2px solid var(--accent-line);margin-left:5px}
-.story-dialog.event .story-part:before{content:"";position:absolute;left:-7px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+.story-page.event .story-part{padding-left:20px;border-left:2px solid var(--accent-line);margin-left:5px}
+.story-page.event .story-part:before{content:"";position:absolute;left:-7px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
 .term{font:inherit;padding:0;border:0;background:none;color:inherit;cursor:pointer;border-bottom:1.5px dashed var(--accent);line-height:1.4}
 .term:hover,.term[aria-expanded=true]{color:var(--accent)}
 .term-note{margin:8px 0 0;padding:9px 12px;border-radius:10px;background:var(--bg2);font-size:13.5px;line-height:1.7;color:var(--text2)}
@@ -254,8 +255,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-list{display:grid;gap:8px}
 .story-next span{display:block;margin-top:3px;font-size:12px;color:var(--text3)}
 .story-all{display:block;margin:10px auto 0;font-size:13px;color:var(--accent)}
-.story-note{margin:10px 0 14px;padding:10px 12px;border-radius:10px;background:#fff8ec;border:1px solid #f1dfbd;font-size:13px;line-height:1.7;color:#6b4a12}
-.story-note b{display:block;font-size:12px;margin-bottom:2px;color:#8a5a00}
+.tale-note{margin:10px 0 14px;padding:10px 12px;border-radius:10px;background:#fff8ec;border:1px solid #f1dfbd;font-size:13px;line-height:1.7;color:#6b4a12}
+.tale-note b{display:block;font-size:12px;margin-bottom:2px;color:#8a5a00}
 .tales-bar{grid-column:1/-1;display:flex;justify-content:space-between;margin-top:-2px}
 .tales-bar button{font-size:12.5px;color:var(--text3);padding:2px 4px}
 .tales-bar button:hover{color:var(--accent)}
@@ -471,7 +472,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 #fujian-list .story-card p{line-height:1.9}
 .session.topic-mode .read-head,.session.topic-mode #map3d,.session.topic-mode #exhibit,.session.topic-mode #chat-chips,.session.topic-mode #chat-form .ctx-pill{display:none}
 .story-card p{margin:0 0 8px;font-size:15px;line-height:1.85}
-.story-note{display:block;margin:0 0 8px;font-size:12px;color:var(--accent)}
+.story-note{display:block;margin:0 0 8px;font-size:12px;color:var(--accent);overflow-wrap:anywhere}
+.plan-note{overflow-wrap:anywhere}
 .ask-here{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:28px;padding:14px 16px;border-radius:14px;background:var(--bg2);font-size:13px;color:var(--text2)}
 .ask-here .chip{min-height:30px;font-size:12px;padding:4px 12px;background:var(--bg)}
 .art-nav{display:flex;justify-content:space-between;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border2)}
@@ -618,10 +620,6 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 </dialog>
 
 <div class="selection-audio" id="selection-audio" role="group" aria-label="选中文本朗读" hidden><button type="button" class="btn btn-primary" id="read-selection">朗读选中内容</button><button type="button" class="btn btn-ghost" id="stop-audio" hidden>停止朗读</button></div>
-<dialog class="route-dialog story-dialog" id="story-dialog" aria-labelledby="story-title">
-<div class="dialog-head"><div><p id="story-tag"></p><h2 id="story-title"></h2></div><button type="button" class="dialog-close" id="story-close" aria-label="关闭">×</button></div>
-<div class="dialog-body" id="story-body"></div>
-</dialog>
 <dialog class="route-dialog" id="about-dialog" aria-labelledby="about-dialog-title">
 <div class="dialog-head"><div><h2 id="about-dialog-title">资料说明</h2></div><button type="button" class="dialog-close" id="about-dialog-close" aria-label="关闭">×</button></div>
 <div class="dialog-body" id="about-dialog-content"></div>
@@ -644,6 +642,11 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 </div>
 </section>
 <section class="pane read-pane" id="read-pane" aria-label="讲解内容">
+<section class="fujian-page story-page" id="story-page" aria-labelledby="story-title" hidden>
+<div class="story-top"><button type="button" class="story-back" id="story-back">← 全部故事</button><div class="fujian-kicker" id="story-tag"></div></div>
+<h1 id="story-title" tabindex="-1"></h1>
+<div id="story-body"></div>
+</section>
 <section class="fujian-page" id="fujian-page" aria-labelledby="fujian-title" hidden>
 <div class="fujian-kicker">专题 · 福建与长征</div>
 <h1 id="fujian-title" tabindex="-1">八闽儿女的长征</h1>
@@ -708,7 +711,7 @@ function splitStory(text) {
   if (cur) out.push(cur); return out;
 }
 // 资料整理说明里只保留对读者有用的句子（不同记载、未确认之处），去掉内部备注和网址
-function publicNote(note) { return String(note || '').split(/(?<=[。；])|(?<=https?:\/\/\S+)\s+/).map(x => x.trim()).filter(x => x.length > 6 && !/https?:|原条|无法打开|未能打开|403|节点|归类|归入|关联|本图|回读|低年级|讲解可/.test(x)).join(''); }
+function publicNote(note, keepPlace) { const drop = keepPlace ? /https?:|原条|无法打开|未能打开|403|回读/ : /https?:|原条|无法打开|未能打开|403|节点|归类|归入|关联|本图|回读|低年级|讲解可/; return String(note || '').split(/(?<=[。；])|(?<=https?:\/\/\S+)\s+/).map(x => x.trim()).filter(x => x.length > 6 && !drop.test(x)).join(''); }
 const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).map(g => {
   if (!g || !g.id || !g.hook) return null;
   if (Array.isArray(g.parts) && g.parts.length) return find(g.node) ? { ...g, place: { node: g.node, text: g.place || '' } } : null;
@@ -731,30 +734,37 @@ function guideText(part) {
   for (const t of part.terms || []) { const i = rest.indexOf(t.word); if (i < 0) continue; p.append(document.createTextNode(rest.slice(0, i))); const b = el('button', 'term', t.word); b.type = 'button'; b.setAttribute('aria-expanded', 'false'); const note = el('div', 'term-note'); note.hidden = true; note.append(document.createTextNode(t.text), guideRefs(t.sources)); b.addEventListener('click', () => { note.hidden = !note.hidden; b.setAttribute('aria-expanded', String(!note.hidden)); }); p.append(b); notes.push(note); rest = rest.slice(i + t.word.length); }
   p.append(document.createTextNode(rest)); wrap.append(p, ...notes); return wrap;
 }
-function closeStory() { const d = $('story-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
-function showStoryDialog() { const d = $('story-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); } }
-function taleCard(g, cls) { const b = el('button', cls); b.type = 'button'; b.append(el('small', '', g.tag + (readTales.has(g.id) ? ' · 已读' : '')), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => openStory(g.id)); return b; }
-function openStoryList() {
-  const d = $('story-dialog'), body = $('story-body'); d.classList.remove('event');
-  $('story-tag').textContent = '真人真事，皆有出处'; $('story-title').textContent = '长征路上的故事';
-  const list = el('div', 'story-list'); for (const g of GUIDES) list.append(taleCard(g, 'story-next')); body.replaceChildren(list); body.scrollTop = 0; showStoryDialog();
+// 故事是独立的一页：右边读故事，左边是和小征的对话
+function showStoryPage(title, hash, push) {
+  stopSpeaking(); if (chatOnly) setChatOnly(false); setTopicMode(true, 'story');
+  setView('session'); setPane('read'); $('bar-mid').replaceChildren(el('span', 'crumb', title));
+  $('read-pane').scrollTo({ top: 0 }); window.scrollTo(0, 0);
+  if (push && location.hash !== hash) { try { history.pushState(null, '', hash); } catch {} }
+  requestAnimationFrame(() => $('story-title').focus({ preventScroll: true }));
 }
-function openStory(id) {
+function taleCard(g, cls) { const b = el('button', cls); b.type = 'button'; b.append(el('small', '', g.tag + (readTales.has(g.id) ? ' · 已读' : '')), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => openStory(g.id)); return b; }
+function openStoryList(push = true) {
+  const body = $('story-body'); $('story-page').classList.remove('event'); $('story-back').hidden = true;
+  $('story-tag').textContent = '真人真事，皆有出处'; $('story-title').textContent = '长征路上的故事';
+  const list = el('div', 'story-list'); for (const g of GUIDES) list.append(taleCard(g, 'story-next')); body.replaceChildren(list);
+  showStoryPage('长征路上的故事', '#stories', push); currentStory = null;
+}
+function openStory(id, push = true) {
   const g = GUIDES.find(x => x.id === id); if (!g) return;
-  const d = $('story-dialog'), body = $('story-body'); d.classList.toggle('event', g.kind === 'event');
+  const body = $('story-body'); $('story-page').classList.toggle('event', g.kind === 'event'); $('story-back').hidden = false;
   $('story-tag').textContent = g.tag + (g.date ? ' · ' + g.date : ''); $('story-title').textContent = g.title;
-  body.replaceChildren(el('p', 'story-hook', g.hook)); body.scrollTop = 0;
+  body.replaceChildren(el('p', 'story-hook', g.hook));
   const parts = el('div', 'story-parts'), go = el('div', 'story-go'), more = el('button', 'btn btn-primary', ''), count = el('small'); more.type = 'button'; go.append(more, count); body.append(parts, go);
   let shown = 0;
   const finale = () => {
     go.remove(); readTales.add(g.id); renderTales(); const box = el('div', 'story-more');
     if (g.kind !== 'event') box.append(guideRefs(g.parts[0].sources));
-    if (g.note) { const nt = el('div', 'story-note'); nt.append(el('b', '', '关于这段记载'), document.createTextNode(g.note)); box.append(nt); }
+    if (g.note) { const nt = el('div', 'tale-note'); nt.append(el('b', '', '关于这段记载'), document.createTextNode(g.note)); box.append(nt); }
     if ((g.background || []).length) { box.append(el('h3', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); box.append(item); } }
-    if (g.place && find(g.place.node)) { const pl = el('div', 'story-place'); const btn = el('button', 'btn btn-ghost', '在路线上看这一站 →'); btn.type = 'button'; btn.addEventListener('click', () => { closeStory(); choose(g.place.node); }); pl.append(el('span', '', g.place.text), btn); box.append(pl); }
-    if ((g.whys || []).length) { box.append(el('h3', '', '读到这里，你可能想问')); const w = el('div', 'story-whys'); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; closeStory(); ask(q, { fromHome: view !== 'session', story: g.id }); }); w.append(b); } box.append(w); }
+    if (g.place && find(g.place.node)) { const pl = el('div', 'story-place'); const btn = el('button', 'btn btn-ghost', '在路线上看这一站 →'); btn.type = 'button'; btn.addEventListener('click', () => choose(g.place.node)); pl.append(el('span', '', g.place.text), btn); box.append(pl); }
+    if ((g.whys || []).length) { box.append(el('h3', '', '读到这里，你可能想问')); const w = el('div', 'story-whys'); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(q, { story: g.id }); }); w.append(b); } box.append(w); }
     const nx = (g.next || []).map(n => GUIDES.find(x => x.id === n)).filter(Boolean)[0];
-    if (nx) { box.append(el('h3', '', '再听一个')); box.append(taleCard(nx, 'story-next')); const all = el('button', 'story-all', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', openStoryList); box.append(all); }
+    if (nx) { box.append(el('h3', '', '再听一个')); box.append(taleCard(nx, 'story-next')); const all = el('button', 'story-all', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', () => openStoryList()); box.append(all); }
     body.append(box); box.scrollIntoView({ behavior: motion(), block: 'nearest' });
   };
   const reveal = () => {
@@ -764,17 +774,18 @@ function openStory(id) {
     if (shown > 1) item.scrollIntoView({ behavior: motion(), block: 'nearest' });
     if (shown >= g.parts.length) finale(); else { more.textContent = shown === g.parts.length - 1 && g.kind !== 'event' ? '后来呢？' : '接着往下看'; count.textContent = shown + ' / ' + g.parts.length; }
   };
-  more.addEventListener('click', reveal); reveal(); showStoryDialog();
+  more.addEventListener('click', reveal); reveal();
+  const fresh = currentStory !== g.id; showStoryPage(g.title, '#story-' + g.id, push); currentStory = g.id;
+  if (fresh) addMessage('小征', '现在读的是《' + g.title + '》。右边一段一段往下看，读到哪里有疑问，直接在这里问我。', [], { quiet: true });
 }
-$('story-close').addEventListener('click', closeStory);
-$('story-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeStory(); });
+$('story-back').addEventListener('click', () => openStoryList());
 // 首页每次展示两个故事，“换两个”在排在前面的精选故事里轮换
 let taleOffset = 0;
 function renderTales() {
   const box = $('tales'); if (!GUIDES.length) return; const pool = GUIDES.slice(0, Math.min(6, GUIDES.length)); box.replaceChildren();
   for (let i = 0; i < Math.min(2, pool.length); i++) box.append(taleCard(pool[(taleOffset + i) % pool.length], 'tale'));
   const bar = el('div', 'tales-bar'); const swap = el('button', '', '换两个'); swap.type = 'button'; swap.addEventListener('click', () => { taleOffset = (taleOffset + 2) % pool.length; renderTales(); });
-  const all = el('button', '', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', openStoryList); bar.append(swap, all); box.append(bar); box.hidden = false;
+  const all = el('button', '', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', () => openStoryList()); bar.append(swap, all); box.append(bar); box.hidden = false;
 }
 renderTales();
 function tellStory(n) {
@@ -920,7 +931,7 @@ function personDetail(person) {
     const li = el('li', 'person-story'), b = el('button', 'row'), main = el('span', 'row-main'); b.type = 'button';
     main.append(el('span', 'row-title', t.title), el('span', 'row-sub', find(t.node).name + ' · ' + t.date));
     b.append(main, chev()); b.addEventListener('click', () => { closePeople(); choose(t.node); const pending = decisionOf(t.node) && !decided.has(t.node); if (pending) { addMessage('小征', '「' + t.title + '」收录在这一站。请先完成或跳过抉择，就能查看故事和出处。', [], { quiet: true }); reveal('decision-card'); } else { requestAnimationFrame(() => { const card = document.getElementById('story-' + t.id); if (card) { card.scrollIntoView({ block: 'center', behavior: motion() }); card.tabIndex = -1; card.focus({ preventScroll: true }); } }); } });
-    li.append(b, el('p', '', t.text)); if (t.note) li.append(el('p', 'plan-note', t.note)); const u = safeLink(t.url); if (u) li.append(srcLink(u, t.source)); ul.append(li);
+    li.append(b, el('p', '', t.text)); if (publicNote(t.note, true)) li.append(el('p', 'plan-note', publicNote(t.note, true))); const u = safeLink(t.url); if (u) li.append(srcLink(u, t.source)); ul.append(li);
   }
   if (stories.length) detail.append(back, title, intro, el('h3', '', '长征中的相关故事'), info, ul);
   else detail.append(back, title, intro, el('p', 'plan-note', '暂未收录这位人物的关联故事；可以先读简介，或直接问小征。'));
@@ -934,12 +945,14 @@ $('people-close').addEventListener('click', closePeople);
 $('people-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closePeople(); });
 
 /* ---------- 八闽儿女的长征 ---------- */
-function setTopicMode(on) {
-  if (topicMode !== on) { chatHistory = []; contextVersion++; }
-  topicMode = on;
+let topicKind = '', currentStory = null;
+function setTopicMode(on, kind = 'fujian') {
+  if (topicMode !== on || (on && topicKind !== kind)) { chatHistory = []; contextVersion++; }
+  topicMode = on; topicKind = on ? kind : ''; if (!on) currentStory = null;
   $('session').classList.toggle('topic-mode', on);
-  $('fujian-page').hidden = !on;
-  $('sw-read').firstChild.textContent = on ? '专题' : '讲解';
+  $('fujian-page').hidden = !(on && kind === 'fujian');
+  $('story-page').hidden = !(on && kind === 'story');
+  $('sw-read').firstChild.textContent = on ? (kind === 'story' ? '故事' : '专题') : '讲解';
 }
 function openFujian(push = true) {
   stopSpeaking();
@@ -949,7 +962,7 @@ function openFujian(push = true) {
   for (const t of STORIES.filter(t => t.id.startsWith('story_fj_') && t.reviewed === true && find(t.node))) {
     const card = el('article', 'story-card'), heading = el('h3', '', t.title);
     heading.append(el('small', '', t.date)); card.append(heading, el('p', '', t.text));
-    if (t.note) card.append(el('p', 'plan-note', t.note));
+    if (publicNote(t.note, true)) card.append(el('p', 'plan-note', publicNote(t.note, true)));
     const u = safeLink(t.url); if (u) card.append(srcLink(u, t.source));
     const go = el('button', 'btn btn-ghost', '查看关联节点：' + find(t.node).name + ' →'); go.type = 'button';
     go.addEventListener('click', () => { choose(t.node); requestAnimationFrame(() => { const story = document.getElementById('story-' + t.id); if (story) { story.scrollIntoView({block:'center',behavior:motion()}); story.tabIndex = -1; story.focus({preventScroll:true}); } }); });
@@ -1050,7 +1063,7 @@ function choose(id, opts = {}) {
   if (opts.push !== false) syncHash();
   if (opts.focus) stopEls.get(id)?.focus({ preventScroll: true });
 }
-window.addEventListener('popstate', () => { const id = fromHash(); if (location.hash === '#fujian') openFujian(false); else if (find(id)) { if (id !== selected || view !== 'session' || topicMode) choose(id, { push: false }); } else if (view !== 'home') goHome(false); });
+window.addEventListener('popstate', () => { const id = fromHash(); if (id === 'stories') openStoryList(false); else if (id.startsWith('story-') && GUIDES.some(g => 'story-' + g.id === id)) openStory(id.slice(6), false); else if (location.hash === '#fujian') openFujian(false); else if (find(id)) { if (id !== selected || view !== 'session' || topicMode) choose(id, { push: false }); } else if (view !== 'home') goHome(false); });
 
 /* ---------- 渲染 ---------- */
 let shownKey = null;
@@ -1076,7 +1089,7 @@ function renderExhibit() {
   const tales = storiesOf(n.id);
   if (tales.length && !pending) {
     const box = el('section', 'stories'); box.id = 'story-list'; box.append(el('h3', '', '长征故事 · ' + tales.length + ' 个'));
-    for (const t of tales) { const c = el('article', 'story-card'); c.id = 'story-' + t.id; const h = el('h4', '', t.title); h.append(el('small', '', t.date)); const tag = draftTag(t); if (tag) h.append(tag); c.append(h); if (t.note) c.append(el('span', 'story-note', '讲解提示：' + t.note)); c.append(el('p', '', t.text)); const u = safeLink(t.url); if (u) c.append(srcLink(u, t.source)); box.append(c); }
+    for (const t of tales) { const c = el('article', 'story-card'); c.id = 'story-' + t.id; const h = el('h4', '', t.title); h.append(el('small', '', t.date)); const tag = draftTag(t); if (tag) h.append(tag); c.append(h); if (t.note) c.append(el('span', 'story-note', '讲解提示：' + (publicNote(t.note, true) || t.note.replace(/https?:\/\/\S+/g, '')))); c.append(el('p', '', t.text)); const u = safeLink(t.url); if (u) c.append(srcLink(u, t.source)); box.append(c); }
     parts.push(box);
   }
   if ((n.questions || []).length) {
@@ -1441,7 +1454,7 @@ async function ask(question, opts = {}) {
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
   const free = chatOnly || topicMode;
-  const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story ? { story: opts.story } : {}), ...(free ? { free: true } : {}) });
+  const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
   let payload = build();
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
   const typing = showTyping();
@@ -1471,7 +1484,7 @@ $('chat-form').addEventListener('submit', e => { e.preventDefault(); if (busy) r
 $('home-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = homeQ.value.trim(); if (!q) { homeQ.focus(); return; } homeQ.value = ''; autosize(homeQ); ask(q, { fromHome: true }); });
 
 addMessage('小征', '你好，我是小征，给你讲长征路上的真人真事。想听故事、想问问题，或者有拿不准的说法想核对，都可以告诉我；我讲的内容都附出处，方便你核对原文。目前收录的是中央红军主力长征路线的资料。', [], { quiet: true });
-if (location.hash === '#fujian') openFujian(false); else if (find(initialHash)) { viewed.add(selected); setView('session'); } else setView('home');
+if (initialHash === 'stories') openStoryList(false); else if (initialHash.startsWith('story-') && GUIDES.some(g => 'story-' + g.id === initialHash)) openStory(initialHash.slice(6), false); else if (location.hash === '#fujian') openFujian(false); else if (find(initialHash)) { viewed.add(selected); setView('session'); } else setView('home');
 })();
 </script>
 </body>
