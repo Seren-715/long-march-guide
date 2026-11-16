@@ -45,7 +45,7 @@ async function callModel(env,messages,maxTokens,signal,tools,toolChoice){
 // —— 联网兜底 ——
 // 知识库里查不到时，用带联网搜索工具的模型在网上查找。网页内容没有经过人工核对，回答和来源都单独标注为“网络来源”。
 const TRUSTED_SITE=/(?:^|\.)(?:gov\.cn|people\.com\.cn|xinhuanet\.com|news\.cn|xuexi\.cn|cctv\.com|cntv\.cn|qstheory\.cn|81\.cn|dswxyjy\.org\.cn|gmw\.cn|chinanews\.com(?:\.cn)?|china\.com\.cn|youth\.cn|cssn\.cn|12371\.cn|edu\.cn|dangjian\.cn|cnr\.cn|ce\.cn)$/i;
-const WEB_SYSTEM=`你是“长征史料查证助手”的联网查找环节。自有资料库里没有查到观众这个问题的答案，请联网搜索后回答。
+const WEB_SYSTEM=`你是“长征路上”小征的联网查找环节。自有资料库里没有查到观众这个问题的答案，请联网搜索后回答。
 规则：1. 只回答与中国工农红军长征及相关革命历史有关的问题；无关的问题只输出 OFF_TOPIC。
 2. 只依据搜索到的网页作答，优先采用政府、党史和地方志机构、中央和省级主流媒体的网页；不同网页说法不一致时分别说明，不要自行调和。
 3. 观众的说法与网页记载不符时，先指出不符之处，再说明网页的记载。
@@ -247,7 +247,7 @@ function checkReply(parsed,question,current,loaded){
     if(!ids.length||!answer){answer=NO_DATA;ids=[];}
     else{badNumbers=unsupportedNumbers(answer,ids,question);badTitles=unsupportedTitles(answer,ids,question);risks=observedRisks(answer,ids,question);}
   }else{
-    ids=[];answer=(dropUnsourcedFacts(answer)||'我是长征史料查证助手小征，可以问我长征相关的问题。').slice(0,300);
+    ids=[];answer=(dropUnsourcedFacts(answer)||'我是小征，给你讲长征路上的真人真事，也可以帮你查证关于长征的说法。').slice(0,300);
   }
   return {type,ids,answer,badNumbers,badTitles,risks,action:cleanAction(parsed.action,current),followups:cleanFollowups(parsed.followups,question)};
 }
@@ -314,7 +314,7 @@ export default {async fetch(request, env) {
   const gist=e=>e.id.startsWith('story_')?e.name.replace(/（[^）]*）$/,''):e.text.replace(/\s+/g,'').slice(0,26)+'…';
   const catalogue=nodes.map(n=>`[${n.id}] ${n.date} ${n.name}：${n.title}\n`+evidence.filter(e=>e.node===n.id).map(e=>`  - ${e.id}：${gist(e)}`).join('\n')).join('\n');
   const visit=tour?`观众正在按路线参观：${tour.route.map(nodeName).join(' → ')}${tour.route.includes(current.id)?`（当前第 ${tour.route.indexOf(current.id)+1} / ${tour.route.length} 站）`:'（当前节点不在路线中）'}；已看过：${tour.visited.map(nodeName).join('、')||'暂无'}。可以据此自然地衔接前后站，但衔接中的史实同样只能来自资料。`:'观众没有选择路线，正在自由浏览。';
-  const system=`你是“长征史料查证助手”小征，是一个会自己查资料、核对出处、会操作页面的智能体，面向自主学习的观众，语气亲切、简洁。你的职责是查证：观众提问或给出一句说法，你查阅资料后依据原文回答。
+  const system=`你是“长征路上”的小征，给观众讲长征路上有出处的真人真事，是一个会自己查资料、核对出处、会操作页面的智能体，面向想了解长征的普通观众，语气亲切、简洁。你的职责是讲述和查证：观众想听故事、提问或给出一句说法，你查阅资料后依据原文讲述或回答。自我介绍时说明你讲长征故事、回答问题，也能查证关于长征的说法。
 资料范围：目前收录的是中央红军（红一方面军）主力的长征路线，从中央苏区到吴起镇，另有直罗镇和红军三大主力会师；红二、红四方面军和红二十五军的长征只有少量资料。观众问到你能查什么、资料范围，或问到其他各路红军而资料不足时，如实说明这一点。
 ${free?'观众在首页直接提问，没有正在参观的节点；请根据问题本身，用工具选取相关资料作答。':`当前参观节点是 ${current.name}（${current.id}）。${visit}`}
 

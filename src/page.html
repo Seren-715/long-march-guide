@@ -6,8 +6,8 @@
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="data:,">
-<title>长征路上 · 长征史料查证助手</title>
-<meta name="description" content="长征史料查证助手小征：目前收录中央红军主力长征路线的 __NODE_COUNT__ 个历史节点、__SOURCE_COUNT__ 条整理史料。提问或贴一句说法，它查阅资料、核对后回答并附出处，查不到会直接说明。">
+<title>长征路上 · 真人真事，皆有出处</title>
+<meta name="description" content="万水千山，从一个人说起。小征给你讲长征路上的真人真事，皆有出处：目前收录中央红军主力长征路线的 __NODE_COUNT__ 个历史节点、__SOURCE_COUNT__ 条整理史料。提问或贴一句说法，它查阅资料、核对后回答并附出处，查不到会直接说明。">
 <style>
 [hidden]{display:none!important}
 :root{
@@ -526,9 +526,9 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <main class="home" id="home">
 <div class="home-inner">
 <div class="home-side">
-<div class="home-mark"><span class="seal" aria-hidden="true">征</span>长征史料查证助手</div>
-<h1>想查证<em>长征</em>的哪一段？</h1>
-<p class="home-sub">我是小征。你提问，或贴一句关于长征的说法，我去查有出处的史料，核对后回答；资料里没有的，我会直接告诉你。</p>
+<div class="home-mark"><span class="seal" aria-hidden="true">征</span>真人真事，皆有出处</div>
+<h1>万水千山，从<em>一个人</em>说起</h1>
+<p class="home-sub">我是小征，给你讲长征路上的真人真事。每个故事都有出处；你也可以随时问我，听到拿不准的说法，贴给我来核对。</p>
 <p class="home-scope">目前收录的是<b>中央红军主力</b>的长征路线：从中央苏区到吴起镇，共 23 处；另有直罗镇、会宁、将台堡三处。其他各路红军的资料还很少。</p>
 <div class="starts" role="group" aria-label="开始方式">
 <button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
@@ -537,7 +537,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 </div>
 <form class="composer" id="home-form">
 <label class="sr-only" for="home-q">向小征提问</label>
-<textarea id="home-q" rows="1" maxlength="500" placeholder="问一个关于长征的问题，或贴一句说法让我查证…" enterkeyhint="send"></textarea>
+<textarea id="home-q" rows="1" maxlength="500" placeholder="想听哪一段，或有什么想问的…" enterkeyhint="send"></textarea>
 <div class="composer-bar"><span class="ctx-pill" title="提问会围绕这个节点"><i></i><span id="ctx-text"></span></span><span class="spacer"></span><button type="submit" class="send-round" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div>
 </form>
 
@@ -549,7 +549,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="hm-stage" id="hm-stage"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="hm-route"></polyline></svg></div>
 <p class="hm-note">位置按各处的大致经纬度摆放（上北下南），相邻太近的略有挪动，非精确地图；虚线只表示先后顺序，不是行军路线。点任意一处，进入对应一站的讲解。</p>
 </section>
-<div class="about" id="about"><p>长征路上 · 长征史料查证助手。目前收录的是中央红军主力的长征路线（中央苏区至吴起镇），另有到陕北之后的直罗镇和红军三大主力会师；红二、红四方面军和红二十五军的长征只有少量资料。节点资料整理自公开文章，每条均附原文链接。</p><p>位置图为节点示意，非精确地理地图与行军路线，不代表各路红军的完整路线。</p><p>回答由 AI 根据资料生成，请结合原文核对；标有“网络来源”的内容来自联网搜索，未经人工核对；提问和参观偏好会发送给 DeepSeek，请勿输入个人敏感信息。</p></div>
+<div class="about" id="about"><p>长征路上 · 真人真事，皆有出处。小征讲述长征路上的故事，回答和核对关于长征的问题。目前收录的是中央红军主力的长征路线（中央苏区至吴起镇），另有到陕北之后的直罗镇和红军三大主力会师；红二、红四方面军和红二十五军的长征只有少量资料。节点资料整理自公开文章，每条均附原文链接。</p><p>位置图为节点示意，非精确地理地图与行军路线，不代表各路红军的完整路线。</p><p>回答由 AI 根据资料生成，请结合原文核对；标有“网络来源”的内容来自联网搜索，未经人工核对；提问和参观偏好会发送给 DeepSeek，请勿输入个人敏感信息。</p></div>
 </div>
 </main>
 
@@ -1334,7 +1334,7 @@ async function ask(question, opts = {}) {
 $('chat-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = input.value.trim(); if (!q) return; input.value = ''; autosize(input); updateCount(); ask(q); });
 $('home-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = homeQ.value.trim(); if (!q) { homeQ.focus(); return; } homeQ.value = ''; autosize(homeQ); ask(q, { fromHome: true }); });
 
-addMessage('小征', '你好，我是长征史料查证助手小征。可以向我提问，也可以贴一句关于长征的说法让我查证；我会查阅资料、核对后回答，并附上出处，方便你核对原文。目前收录的是中央红军主力长征路线的资料。', [], { quiet: true });
+addMessage('小征', '你好，我是小征，给你讲长征路上的真人真事。想听故事、想问问题，或者有拿不准的说法想核对，都可以告诉我；我讲的内容都附出处，方便你核对原文。目前收录的是中央红军主力长征路线的资料。', [], { quiet: true });
 if (location.hash === '#fujian') openFujian(false); else if (find(initialHash)) { viewed.add(selected); setView('session'); } else setView('home');
 })();
 </script>
