@@ -257,7 +257,12 @@ function unsupportedDates(answer,ids){
 function unsupportedNumbers(answer,ids,question){
   const claims=withoutRefutedQuestionFacts(answer,question);
   const allowed=new Set(ids.flatMap(id=>numbersAllowedIn(evidence.find(e=>e.id===id).text)));
-  return [...new Set([...numbersClaimedIn(claims).filter(n=>!allowed.has(n)),...unsupportedDates(claims,ids)])];
+  const describe=key=>{
+    if(key.startsWith('N:'))return key.slice(2);
+    if(key.startsWith('A:'))return String(Number(key.slice(2))/10000)+'万';
+    return key;
+  };
+  return [...new Set([...numbersClaimedIn(claims).filter(n=>!allowed.has(n)).map(describe),...unsupportedDates(claims,ids)])];
 }
 // 回答中的书名号内容（文件、文章名）必须与所引资料或用户问题中的写法完全一致。
 const squash=text=>String(text).replace(/\s+/g,'');
