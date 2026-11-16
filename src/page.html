@@ -377,7 +377,18 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-card:before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:2px;background:var(--accent)}
 .story-card h3,.story-card h4{display:flex;align-items:baseline;gap:10px;margin:0 0 6px;font:700 17px/1.4 var(--serif)}
 .story-card h3 small,.story-card h4 small{font:400 12px var(--font);color:var(--text3)}
-#fujian-list .story-card .btn{display:flex;margin-top:12px}
+#fujian-list .story-card .btn{display:inline-flex;margin-top:12px}
+.fujian-page{width:min(860px,100%);margin:0 auto;padding:clamp(28px,5vw,64px) clamp(20px,5vw,64px) 80px}
+.fujian-kicker{color:var(--accent);font-size:12px;font-weight:600;letter-spacing:.14em}
+.fujian-page h1{font-family:var(--serif);font-size:clamp(28px,3vw,40px);line-height:1.3;margin:12px 0}
+.fujian-intro{max-width:660px;color:var(--text2);line-height:1.9;margin:0 0 12px}
+.fujian-note{border-left:3px solid var(--accent-line);padding:4px 0 4px 14px;color:var(--text3);font-size:13px;line-height:1.8;margin:22px 0 32px}
+.fujian-section-title{font-size:14px;margin:0 0 18px;color:var(--text2)}
+#fujian-list .story-card{margin:0;padding:24px 0;border:0;border-top:1px solid var(--border);border-radius:0;background:transparent}
+#fujian-list .story-card:before{display:none}
+#fujian-list .story-card h3{font-size:20px;margin:0 0 10px}
+#fujian-list .story-card p{line-height:1.9}
+.session.topic-mode .read-head,.session.topic-mode #map3d,.session.topic-mode #exhibit,.session.topic-mode #chat-chips,.session.topic-mode #chat-form .ctx-pill{display:none}
 .story-card p{margin:0 0 8px;font-size:15px;line-height:1.85}
 .story-note{display:block;margin:0 0 8px;font-size:12px;color:var(--accent)}
 .ask-here{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:28px;padding:14px 16px;border-radius:14px;background:var(--bg2);font-size:13px;color:var(--text2)}
@@ -493,7 +504,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="starts" role="group" aria-label="开始方式">
 <button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
 <button type="button" class="start" id="start-people" aria-haspopup="dialog"><b>人物档案</b><span>从人物故事认识长征</span></button>
-<button type="button" class="start" id="start-fujian" aria-haspopup="dialog"><b>八闽儿女的长征</b><span>探寻福建与长征的故事</span></button>
+<button type="button" class="start" id="start-fujian"><b>八闽儿女的长征</b><span>探寻福建与长征的故事</span></button>
 </div>
 <form class="composer" id="home-form">
 <label class="sr-only" for="home-q">向小征提问</label>
@@ -531,11 +542,6 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="dialog-head"><div><h2 id="people-title">人物档案</h2><p>认识长征中的人物，阅读与他们相关的故事</p></div><button type="button" class="dialog-close" id="people-close" aria-label="关闭">×</button></div>
 <div class="dialog-body"><p class="plan-note">人物简介按已整理资料逐步补充；节点是讲解分类，不表示故事一定发生在该节点地点。</p><div id="people-list"></div><div id="person-detail" hidden></div></div>
 </dialog>
-<dialog class="route-dialog" id="fujian-dialog" aria-labelledby="fujian-title">
-<div class="dialog-head"><div><h2 id="fujian-title" tabindex="-1">八闽儿女的长征</h2><p>福建籍人物、出发地和群众支援</p></div><button type="button" class="dialog-close" id="fujian-close" aria-label="关闭">×</button></div>
-<div class="dialog-body"><p class="plan-note">本专题包括长征前、长征中和会师后的相关经历；归档节点用于浏览分类，不一定是事件发生地。</p><div id="fujian-list"></div></div>
-</dialog>
-
 <main class="session" id="session" data-pane="read" hidden>
 <div class="pane-switch" role="tablist" aria-label="切换视图"><button type="button" role="tab" id="sw-read" aria-selected="true">讲解</button><button type="button" role="tab" id="sw-chat" aria-selected="false">对话<span class="dot" id="chat-dot" hidden></span></button></div>
 <aside class="side-tools" id="side-tools" aria-label="功能入口"></aside>
@@ -549,7 +555,14 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <p class="disclaimer">回答由 AI 根据资料生成，请结合原文核对；提问会发送给 DeepSeek，请勿输入个人敏感信息。</p>
 </div>
 </section>
-<section class="pane read-pane" id="read-pane" aria-label="节点讲解">
+<section class="pane read-pane" id="read-pane" aria-label="讲解内容">
+<section class="fujian-page" id="fujian-page" aria-labelledby="fujian-title" hidden>
+<div class="fujian-kicker">专题 · 福建与长征</div>
+<h1 id="fujian-title" tabindex="-1">八闽儿女的长征</h1>
+<p class="fujian-intro">从长征出发地的群众支援，到福建籍红军将士的经历，一起走近这段与八闽儿女相连的历史。阅读时可以随时向小征提问。</p>
+<p class="fujian-note">本专题包括长征前、长征中和会师后的相关经历；归档节点用于浏览分类，不一定是事件发生地。</p>
+<h2 class="fujian-section-title">专题资料 · 10 条</h2><div id="fujian-list"></div>
+</section>
 <div class="read-head">
 <div class="tour" id="tour" hidden>
 <div class="tour-info"><span class="tour-name" id="tour-name" tabindex="-1"></span><span class="tour-count" id="tour-count"></span><div class="tour-steps" id="tour-steps"></div></div>
@@ -581,7 +594,7 @@ const mobile = () => window.matchMedia('(max-width: 900px)').matches;
 const fromHash = () => { try { return decodeURIComponent(location.hash.slice(1)); } catch { return ''; } };
 const initialHash = fromHash();
 let selected = (find(initialHash) ? initialHash : nodes[0]?.id) || '';
-let view = 'home', pane = 'read', chatOnly = false, lastRelated = null;
+let view = 'home', pane = 'read', chatOnly = false, topicMode = false, lastRelated = null;
 let hasFreeConversation = false, freeChatSnapshot = null;
 let route = [], routeName = '', completed = new Set(), visited = new Set(), viewed = new Set(), finished = false;
 let chatHistory = [], busy = false, contextVersion = 0, summaryText = '', planVersion = 0, planning = false;
@@ -638,7 +651,7 @@ $('read-selection').addEventListener('click', () => { const text = selectedSpeec
 $('stop-audio').addEventListener('pointerdown', e => e.preventDefault());
 $('stop-audio').addEventListener('click', stopSpeaking);
 function narration(n) { const d = decisionOf(n.id); if (d && !decided.has(n.id)) return n.name + '。' + d.situation + d.question; return (n.date || '') + '，' + n.name + '。' + (n.title || '') + '。' + (n.text || ''); }
-function setTts(on) { ttsOn = on; $('tts-toggle').setAttribute('aria-pressed', String(on)); try { localStorage.setItem('lmg-tts', on ? '1' : '0'); } catch {} if (!on) stopSpeaking(); else if (view === 'session') speak(narration(find(selected))); }
+function setTts(on) { ttsOn = on; $('tts-toggle').setAttribute('aria-pressed', String(on)); try { localStorage.setItem('lmg-tts', on ? '1' : '0'); } catch {} if (!on) stopSpeaking(); else if (view === 'session' && !topicMode) speak(narration(find(selected))); }
 
 function el(tag, className, text) { const e = document.createElement(tag); if (className) e.className = className; if (text != null) e.textContent = String(text); return e; }
 function safeLink(url) { try { const u = new URL(url); return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : ''; } catch { return ''; } }
@@ -755,25 +768,34 @@ $('people-close').addEventListener('click', closePeople);
 $('people-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closePeople(); });
 
 /* ---------- 八闽儿女的长征 ---------- */
-function closeFujian() { const d = $('fujian-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
-function openFujian() {
-  const d = $('fujian-dialog'), list = $('fujian-list'); list.replaceChildren();
+function setTopicMode(on) {
+  if (topicMode !== on) { chatHistory = []; contextVersion++; }
+  topicMode = on;
+  $('session').classList.toggle('topic-mode', on);
+  $('fujian-page').hidden = !on;
+  $('sw-read').firstChild.textContent = on ? '专题' : '讲解';
+}
+function openFujian(push = true) {
+  stopSpeaking();
+  if (chatOnly) setChatOnly(false);
+  setTopicMode(true);
+  const list = $('fujian-list'); list.replaceChildren();
   for (const t of STORIES.filter(t => t.id.startsWith('story_fj_') && t.reviewed === true && find(t.node))) {
     const card = el('article', 'story-card'), heading = el('h3', '', t.title);
     heading.append(el('small', '', t.date)); card.append(heading, el('p', '', t.text));
     if (t.note) card.append(el('p', 'plan-note', t.note));
     const u = safeLink(t.url); if (u) card.append(srcLink(u, t.source));
     const go = el('button', 'btn btn-ghost', '查看关联节点：' + find(t.node).name + ' →'); go.type = 'button';
-    go.addEventListener('click', () => { closeFujian(); choose(t.node); requestAnimationFrame(() => { const story = document.getElementById('story-' + t.id); if (story) { story.scrollIntoView({block:'center',behavior:motion()}); story.tabIndex = -1; story.focus({preventScroll:true}); } }); });
+    go.addEventListener('click', () => { choose(t.node); requestAnimationFrame(() => { const story = document.getElementById('story-' + t.id); if (story) { story.scrollIntoView({block:'center',behavior:motion()}); story.tabIndex = -1; story.focus({preventScroll:true}); } }); });
     card.append(go); list.append(card);
   }
   if (!list.children.length) list.append(el('p', 'plan-note', '专题资料暂未收录。'));
-  if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
-  requestAnimationFrame(() => $('fujian-title').focus());
+  setView('session'); setPane('read'); $('bar-mid').replaceChildren(el('span', 'crumb', '八闽儿女的长征'));
+  $('read-pane').scrollTo({top:0}); window.scrollTo(0, 0);
+  if (push && location.hash !== '#fujian') history.pushState(null, '', '#fujian');
+  requestAnimationFrame(() => $('fujian-title').focus({preventScroll:true}));
 }
-$('start-fujian').addEventListener('click', openFujian);
-$('fujian-close').addEventListener('click', closeFujian);
-$('fujian-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeFujian(); });
+$('start-fujian').addEventListener('click', () => openFujian());
 
 
 /* ---------- 节点条 ---------- */
@@ -825,7 +847,7 @@ function setChatOnly(on) {
 }
 $('return-chat').addEventListener('click', () => {
   if (!hasFreeConversation) return;
-  stopSpeaking(); if (freeChatSnapshot) { selected = freeChatSnapshot.node; chatHistory = freeChatSnapshot.history.slice(); }
+  stopSpeaking(); if (topicMode) setTopicMode(false); if (freeChatSnapshot) { selected = freeChatSnapshot.node; chatHistory = freeChatSnapshot.history.slice(); }
   contextVersion++; setChatOnly(true); setView('session'); setPane('chat');
   if (location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} }
   status.textContent = ''; input.focus({ preventScroll: true });
@@ -840,7 +862,7 @@ function setPane(p) {
 }
 $('sw-read').addEventListener('click', () => setPane('read'));
 $('sw-chat').addEventListener('click', () => setPane('chat'));
-function goHome(push = true) { if (chatOnly) { freeChatSnapshot = { node: selected, history: chatHistory.slice() }; contextVersion++; } stopSpeaking(); spokenFor = null; setView('home'); if (push && location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} } }
+function goHome(push = true) { setTopicMode(false); if (chatOnly) { freeChatSnapshot = { node: selected, history: chatHistory.slice() }; contextVersion++; } stopSpeaking(); spokenFor = null; setView('home'); if (push && location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} } }
 $('go-home').addEventListener('click', () => goHome());
 
 /* ---------- 选择节点 ---------- */
@@ -852,6 +874,7 @@ function selectNode(id) {
 function syncHash() { if (selected && fromHash() !== selected) { try { history.pushState(null, '', '#' + encodeURIComponent(selected)); } catch {} } }
 function choose(id, opts = {}) {
   if (!find(id)) return;
+  if (topicMode) setTopicMode(false);
   if (planning) { planVersion++; setPlanNote('你已切换节点，本次规划结果将不应用。'); }
   if (chatOnly) setChatOnly(false);
   selectNode(id);
@@ -861,7 +884,7 @@ function choose(id, opts = {}) {
   if (opts.push !== false) syncHash();
   if (opts.focus) stopEls.get(id)?.focus({ preventScroll: true });
 }
-window.addEventListener('popstate', () => { const id = fromHash(); if (find(id)) { if (id !== selected || view !== 'session') choose(id, { push: false }); } else if (view !== 'home') goHome(false); });
+window.addEventListener('popstate', () => { const id = fromHash(); if (location.hash === '#fujian') openFujian(false); else if (find(id)) { if (id !== selected || view !== 'session' || topicMode) choose(id, { push: false }); } else if (view !== 'home') goHome(false); });
 
 /* ---------- 渲染 ---------- */
 let shownKey = null;
@@ -901,7 +924,7 @@ function renderExhibit() {
   nav.append(pb, nb); parts.push(nav);
   exhibit.replaceChildren(...parts);
   exhibit.style.animation = 'none'; void exhibit.offsetWidth; exhibit.style.animation = '';
-  if (ttsOn && view === 'session' && spokenFor !== selected) { spokenFor = selected; speak(narration(n)); }
+  if (ttsOn && view === 'session' && !topicMode && spokenFor !== selected) { spokenFor = selected; speak(narration(n)); }
 }
 let spokenFor = null;
 function refsOf(ids) { const box = el('div', 'refs'); const seen = new Set(); for (const id of ids) { const e = evidenceOf(id); const u = e && safeLink(e.url); if (u && !seen.has(u)) { seen.add(u); box.append(srcLink(u, e.title, 'ref')); } } return box; }
@@ -1081,6 +1104,7 @@ if (TTS) { $('tts-toggle').hidden = false; $('tts-toggle').setAttribute('aria-pr
 /* ---------- 导览 ---------- */
 function makeSummary(seen) { return '长征路上 · 参观小结\n\n本次打开过 ' + seen.length + ' 个节点：' + seen.map(n => n.name).join('、') + '。\n\n' + seen.map(n => n.date + ' · ' + n.name + '\n' + n.text + '\n资料：' + n.source + '\n' + n.url).join('\n\n') + '\n\n说明：节点图为示意，不代表各路红军的完整路线。'; }
 function applyPlan(ids, reason, name) {
+  if (topicMode) setTopicMode(false);
   if (chatOnly) setChatOnly(false);
   route = ids; routeName = name || '我的路线'; completed = new Set(); visited = new Set(); summaryText = ''; finished = false; resetLabels();
   if (!route.length) { status.textContent = '暂无可用节点。'; return; }
@@ -1236,7 +1260,7 @@ async function ask(question, opts = {}) {
   busy = true; shownKey = null; renderExhibit(); renderChips(); document.querySelectorAll('.side-q').forEach(x => { x.disabled = true; }); $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); status.textContent = '小征正在查阅资料并思考…';
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
-  const free = chatOnly;
+  const free = chatOnly || topicMode;
   const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour, ...(free ? { free: true } : {}) });
   let payload = build();
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
@@ -1267,7 +1291,7 @@ $('chat-form').addEventListener('submit', e => { e.preventDefault(); if (busy) r
 $('home-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = homeQ.value.trim(); if (!q) { homeQ.focus(); return; } homeQ.value = ''; autosize(homeQ); ask(q, { fromHome: true }); });
 
 addMessage('小征', '你好，我是长征史料查证助手小征。可以向我提问，也可以贴一句关于长征的说法让我查证；我会查阅资料、核对后回答，并附上出处，方便你核对原文。目前收录的是中央红军主力长征路线的资料。', [], { quiet: true });
-if (find(initialHash)) { viewed.add(selected); setView('session'); } else setView('home');
+if (location.hash === '#fujian') openFujian(false); else if (find(initialHash)) { viewed.add(selected); setView('session'); } else setView('home');
 })();
 </script>
 </body>
