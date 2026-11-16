@@ -381,6 +381,12 @@ for(const good of [
   assert.equal(log.length,1,'正确会师陈述不得被误拒：'+good[0]);
   assert.equal(body.answer,good[0]);assert.deepEqual(body.sources.flatMap(x=>x.ids),[good[1]]);
 }
+// 三大主力在“会宁和将台堡地区”会师是两地汇总的正确表达，不得误认为红二在会宁单独会师。
+log=script([reply({type:'history',answer:'1936年10月，红一、红二、红四方面军在会宁和将台堡地区会师，标志着长征胜利结束。',sources:['jiangtaibao']})]);
+body=await (await worker.fetch(make({question:'三大主力红军会师在哪里？',node:'jiangtaibao'}),env)).json();
+assert.equal(log.length,1,'地区性总结不应被当成会宁部队归属错误');
+assert.match(body.answer,/会宁和将台堡地区会师/);
+assert.deepEqual(body.sources.flatMap(x=>x.ids),['jiangtaibao']);
 // 宁化1300名妇女的后续经历：原志条目只证明长征前支前，不证明全体随军或全部未参加。
 for(const wrong of [
   '宁化妇女挑粮是长征前的活动，这1300人全部参加了长征。',
