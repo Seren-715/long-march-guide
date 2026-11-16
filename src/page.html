@@ -251,6 +251,14 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-whys button,.story-next{text-align:left;padding:11px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);font-size:14.5px;transition:border-color .15s,background .15s}
 .story-whys button:hover,.story-next:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--bg))}
 .story-next{display:block;width:100%}
+.story-list{display:grid;gap:8px}
+.story-next span{display:block;margin-top:3px;font-size:12px;color:var(--text3)}
+.story-all{display:block;margin:10px auto 0;font-size:13px;color:var(--accent)}
+.story-note{margin:10px 0 14px;padding:10px 12px;border-radius:10px;background:#fff8ec;border:1px solid #f1dfbd;font-size:13px;line-height:1.7;color:#6b4a12}
+.story-note b{display:block;font-size:12px;margin-bottom:2px;color:#8a5a00}
+.tales-bar{grid-column:1/-1;display:flex;justify-content:space-between;margin-top:-2px}
+.tales-bar button{font-size:12.5px;color:var(--text3);padding:2px 4px}
+.tales-bar button:hover{color:var(--accent)}
 .story-next small{display:block;font-size:12px;color:var(--accent);margin-bottom:2px}
 .story-next b{font-family:var(--serif);font-size:15.5px}
 .trust{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:var(--text3)}
@@ -692,7 +700,29 @@ const STORIES = Array.isArray(DATA.stories) ? DATA.stories : [];
 const storiesOf = id => STORIES.filter(t => t.node === id && visible(t));
 const told = new Set();
 /* ---------- 从故事开始：首页卡片与分段阅读 ---------- */
-const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).filter(g => g && Array.isArray(g.parts) && g.parts.length);
+const storyById = id => STORIES.find(t => t.id === id && t.reviewed === true);
+// 把一篇故事的原文按句子分成两到四段，逐段展开；不改动原文
+function splitStory(text) {
+  const sents = String(text).match(/[^。！？]+[。！？]?[”」』）]?/g) || [String(text)], total = sents.join('').length, n = Math.min(4, Math.max(2, Math.round(total / 70))), target = total / n, out = []; let cur = '';
+  for (let i = 0; i < sents.length; i++) { cur += sents[i]; const left = sents.slice(i + 1).join('').length; if (out.length < n - 1 && cur.length >= target * .8 && left >= target * .5) { out.push(cur); cur = ''; } }
+  if (cur) out.push(cur); return out;
+}
+// 资料整理说明里只保留对读者有用的句子（不同记载、未确认之处），去掉内部备注和网址
+function publicNote(note) { return String(note || '').split(/(?<=[。；])|(?<=https?:\/\/\S+)\s+/).map(x => x.trim()).filter(x => x.length > 6 && !/https?:|原条|无法打开|未能打开|403|节点|归类|归入|关联|本图|回读|低年级|讲解可/.test(x)).join(''); }
+const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).map(g => {
+  if (!g || !g.id || !g.hook) return null;
+  if (Array.isArray(g.parts) && g.parts.length) return find(g.node) ? { ...g, place: { node: g.node, text: g.place || '' } } : null;
+  const t = storyById(g.story), n = t && find(t.node); if (!t || !n) return null;
+  const chunks = splitStory(t.text), terms = g.terms || [];
+  return { ...g, kind: 'person', title: t.title, date: t.date, node: n.id,
+    parts: chunks.map(text => ({ text, sources: [t.id], terms: terms.filter(x => text.includes(x.word)) })),
+    background: g.background || [{ label: '同一时期的长征', text: n.text, sources: [n.id] }],
+    note: publicNote(t.note),
+    place: { node: n.id, text: g.place || '路线上和这个故事时间最接近的一站是「' + n.name + '」。' },
+    whys: g.whys || (n.questions || []).slice(0, 3) };
+}).filter(Boolean);
+GUIDES.forEach((g, i) => { if (!g.next) g.next = [GUIDES[(i + 1) % GUIDES.length].id]; });
+const readTales = new Set();
 const guideSource = id => { const e = evidenceOf(id); if (e) return e; const t = STORIES.find(x => x.id === id); return t ? { title: t.source, url: t.url } : null; };
 function guideRefs(ids) { const box = el('div', 'refs'), seen = new Set(); for (const id of ids || []) { const e = guideSource(id), u = e && safeLink(e.url); if (u && !seen.has(u)) { seen.add(u); box.append(srcLink(u, e.title || '查看资料', 'ref')); } } return box; }
 // 正文里带虚线的词可以点开，看两三句背景，不离开故事
@@ -702,6 +732,13 @@ function guideText(part) {
   p.append(document.createTextNode(rest)); wrap.append(p, ...notes); return wrap;
 }
 function closeStory() { const d = $('story-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
+function showStoryDialog() { const d = $('story-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); } }
+function taleCard(g, cls) { const b = el('button', cls); b.type = 'button'; b.append(el('small', '', g.tag + (readTales.has(g.id) ? ' · 已读' : '')), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => openStory(g.id)); return b; }
+function openStoryList() {
+  const d = $('story-dialog'), body = $('story-body'); d.classList.remove('event');
+  $('story-tag').textContent = '真人真事，皆有出处'; $('story-title').textContent = '长征路上的故事';
+  const list = el('div', 'story-list'); for (const g of GUIDES) list.append(taleCard(g, 'story-next')); body.replaceChildren(list); body.scrollTop = 0; showStoryDialog();
+}
 function openStory(id) {
   const g = GUIDES.find(x => x.id === id); if (!g) return;
   const d = $('story-dialog'), body = $('story-body'); d.classList.toggle('event', g.kind === 'event');
@@ -710,25 +747,36 @@ function openStory(id) {
   const parts = el('div', 'story-parts'), go = el('div', 'story-go'), more = el('button', 'btn btn-primary', ''), count = el('small'); more.type = 'button'; go.append(more, count); body.append(parts, go);
   let shown = 0;
   const finale = () => {
-    go.remove(); const box = el('div', 'story-more');
+    go.remove(); readTales.add(g.id); renderTales(); const box = el('div', 'story-more');
+    if (g.kind !== 'event') box.append(guideRefs(g.parts[0].sources));
+    if (g.note) { const nt = el('div', 'story-note'); nt.append(el('b', '', '关于这段记载'), document.createTextNode(g.note)); box.append(nt); }
     if ((g.background || []).length) { box.append(el('h3', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); box.append(item); } }
     if (g.place && find(g.place.node)) { const pl = el('div', 'story-place'); const btn = el('button', 'btn btn-ghost', '在路线上看这一站 →'); btn.type = 'button'; btn.addEventListener('click', () => { closeStory(); choose(g.place.node); }); pl.append(el('span', '', g.place.text), btn); box.append(pl); }
     if ((g.whys || []).length) { box.append(el('h3', '', '读到这里，你可能想问')); const w = el('div', 'story-whys'); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; closeStory(); ask(q, { fromHome: view !== 'session', story: g.id }); }); w.append(b); } box.append(w); }
     const nx = (g.next || []).map(n => GUIDES.find(x => x.id === n)).filter(Boolean)[0];
-    if (nx) { box.append(el('h3', '', '再听一个')); const b = el('button', 'story-next'); b.type = 'button'; b.append(el('small', '', nx.tag), el('b', '', nx.hook)); b.addEventListener('click', () => openStory(nx.id)); box.append(b); }
+    if (nx) { box.append(el('h3', '', '再听一个')); box.append(taleCard(nx, 'story-next')); const all = el('button', 'story-all', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', openStoryList); box.append(all); }
     body.append(box); box.scrollIntoView({ behavior: motion(), block: 'nearest' });
   };
   const reveal = () => {
-    const part = g.parts[shown++], item = el('div', 'story-part'), h = el('h3'); if (part.date) h.append(el('em', '', part.date)); h.append(document.createTextNode(part.label || '')); item.append(h, guideText(part), guideRefs(part.sources)); parts.append(item);
+    const part = g.parts[shown++], item = el('div', 'story-part');
+    if (part.label || part.date) { const h = el('h3'); if (part.date) h.append(el('em', '', part.date)); h.append(document.createTextNode(part.label || '')); item.append(h); }
+    item.append(guideText(part)); if (g.kind === 'event') item.append(guideRefs(part.sources)); parts.append(item);
     if (shown > 1) item.scrollIntoView({ behavior: motion(), block: 'nearest' });
     if (shown >= g.parts.length) finale(); else { more.textContent = shown === g.parts.length - 1 && g.kind !== 'event' ? '后来呢？' : '接着往下看'; count.textContent = shown + ' / ' + g.parts.length; }
   };
-  more.addEventListener('click', reveal); reveal();
-  if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
+  more.addEventListener('click', reveal); reveal(); showStoryDialog();
 }
 $('story-close').addEventListener('click', closeStory);
 $('story-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeStory(); });
-(function renderTales() { const box = $('tales'); if (!GUIDES.length) return; for (const g of GUIDES) { const b = el('button', 'tale'); b.type = 'button'; b.append(el('small', '', g.tag), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => openStory(g.id)); box.append(b); } box.hidden = false; })();
+// 首页每次展示两个故事，“换两个”在排在前面的精选故事里轮换
+let taleOffset = 0;
+function renderTales() {
+  const box = $('tales'); if (!GUIDES.length) return; const pool = GUIDES.slice(0, Math.min(6, GUIDES.length)); box.replaceChildren();
+  for (let i = 0; i < Math.min(2, pool.length); i++) box.append(taleCard(pool[(taleOffset + i) % pool.length], 'tale'));
+  const bar = el('div', 'tales-bar'); const swap = el('button', '', '换两个'); swap.type = 'button'; swap.addEventListener('click', () => { taleOffset = (taleOffset + 2) % pool.length; renderTales(); });
+  const all = el('button', '', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', openStoryList); bar.append(swap, all); box.append(bar); box.hidden = false;
+}
+renderTales();
 function tellStory(n) {
   const list = storiesOf(n.id); if (!list.length) return;
   const t = list.find(x => !told.has(x.id)) || list[0]; told.add(t.id);

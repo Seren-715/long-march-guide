@@ -251,20 +251,27 @@ log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇
   const {storyGuides}=await import('./src/story-guides.js');const {stories:allStories}=await import('./src/stories.js');const {nodes:allNodes}=await import('./src/data.js');
   const texts=new Map();for(const n of allNodes){texts.set(n.id,n.text);for(const e of n.extra||[])texts.set(e.id,e.text);}for(const s of allStories)if(s.reviewed===true)texts.set(s.id,s.text);
   const digits=s=>(String(s).replace(/\s/g,'').match(/\d+(?:\.\d+)?/g)||[]);
-  assert.ok(storyGuides.length>=2);
+  assert.ok(storyGuides.length>=10);assert.equal(new Set(storyGuides.map(g=>g.id)).size,storyGuides.length);
+  const checkPart=(g,part)=>{assert.ok(part.sources.length,g.id);for(const id of part.sources)assert.ok(texts.has(id),`${g.id} 引用了不存在的资料 ${id}`);const cited=part.sources.map(id=>texts.get(id)).join('').replace(/\s/g,'');for(const d of digits(part.text))assert.ok(cited.includes(d),`${g.id}「${part.label||part.word}」里的数字 ${d} 不在所列资料中`);};
   for(const g of storyGuides){
-    assert.ok(g.hook&&g.title&&g.parts.length>=2,g.id);assert.ok(allNodes.some(n=>n.id===g.place.node),g.id);for(const n of g.next)assert.ok(storyGuides.some(x=>x.id===n),g.id);
-    for(const part of [...g.parts,...g.background,...[...g.parts,...g.background].flatMap(p=>p.terms||[])]){
-      assert.ok(part.sources.length,g.id);for(const id of part.sources)assert.ok(texts.has(id),`${g.id} 引用了不存在的资料 ${id}`);
-      const cited=part.sources.map(id=>texts.get(id)).join('').replace(/\s/g,'');
-      for(const d of digits(part.text))assert.ok(cited.includes(d),`${g.id}「${part.label||part.word}」里的数字 ${d} 不在所列资料中`);
-      if(part.word)assert.ok([...g.parts,...g.background].some(p=>p.text.includes(part.word)),`${g.id} 的可点词「${part.word}」不在正文中`);
+    assert.ok(g.hook&&g.tag,g.id);
+    if(g.story){
+      // 人物故事：正文取已审核故事的原文；问句里的数字必须出自原文
+      const st=allStories.find(s=>s.id===g.story);assert.ok(st&&st.reviewed===true&&st.text.length>=120,`${g.id} 对应的故事不存在、未审核或太短`);assert.ok(allNodes.some(n=>n.id===st.node),g.id);assert.equal(g.parts,undefined,g.id);
+      for(const d of digits(g.hook))assert.ok(st.text.replace(/\s/g,'').includes(d),`${g.id} 问句里的数字 ${d} 不在故事原文中`);
+    }else{
+      assert.ok(g.title&&g.parts.length>=2&&allNodes.some(n=>n.id===g.node),g.id);
+      for(const part of g.parts){checkPart(g,part);for(const term of part.terms||[]){checkPart(g,term);assert.ok(part.text.includes(term.word),`${g.id} 的可点词「${term.word}」不在正文中`);}}
     }
+    for(const part of g.background||[])checkPart(g,part);
   }
   // 读故事时提问：服务端只认已登记的故事 ID，并把该故事的资料预先取出
   log=script([reply({type:'history',answer:'红军在贵州习水土城青杠坡与川军激战。',sources:['chishui_tucheng']})]);
   body=await (await worker.fetch(make({question:'一渡之前发生了什么',node:'start',free:true,story:'guide_sidu_chishui'}),env)).json();
   assert.match(log[0].messages[0].content,/刚读完故事《四渡赤水》/);assert.match(log[0].messages[0].content,/\[chishui_tucheng\] [^\n]*青杠坡/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['chishui_tucheng']);
+  log=script([reply({type:'history',answer:'贺子珍冲出去替伤员遮挡。',sources:['story_he_zizhen']})]);
+  body=await (await worker.fetch(make({question:'她救的是谁',node:'start',free:true,story:'guide_he_zizhen'}),env)).json();
+  assert.match(log[0].messages[0].content,/刚读完故事《十七块弹片》/);assert.match(log[0].messages[0].content,/\[story_he_zizhen\][^\n]*钟赤兵/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['story_he_zizhen']);
   log=script([reply({type:'chat',answer:'你好。',sources:[]})]);
   await (await worker.fetch(make({question:'你好',node:'start',free:true,story:'no_such_story'}),env)).json();assert.doesNotMatch(log[0].messages[0].content,/刚读完故事/);
 }
