@@ -144,14 +144,14 @@ function stripLinks(text){
 }
 // 汉字数字转数值，例如“十七”→17、“二十五”→25、“一万”→10000。
 const CN_DIGITS={零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10,百:100,千:1000,万:10000};
-function cnToNumber(text){let total=0,section=0,digit=0;for(const ch of text){const v=CN_DIGITS[ch];if(v==null)return null;if(v===10000){total+=(section+digit)*v;section=0;digit=0;}else if(v>=10){section+=(digit||1)*v;digit=0;}else digit=v;}return total+section+digit;}
+function cnToNumber(text){let total=0,section=0,digit=0;for(const ch of text){const v=CN_DIGITS[ch];if(v==null)return null;if(v===10000){total+=(section+digit||1)*v;section=0;digit=0;}else if(v>=10){section+=(digit||1)*v;digit=0;}else digit=v;}return total+section+digit;}
 const arabicIn=text=>(String(text).replaceAll('．','.').match(/\d+(?:\.\d+)?/g)||[]).map(x=>String(Number(x)));
 // 小数必须整体匹配：2.6 不能只靠引用另一条资料中独立出现的 2 和 6 通过数字检查。
 // 资料一侧：所有阿拉伯数字和汉字数字都算作“出现过”，宁可宽一些，避免误杀。
-const numbersAllowedIn=text=>[...arabicIn(text),...[...String(text).matchAll(/[零〇一二两三四五六七八九十百千万]+/g)].map(m=>cnToNumber(m[0])).filter(v=>v!=null).map(String)];
+const numbersAllowedIn=text=>[...arabicIn(text),...[...String(text).matchAll(/(?<![\d.．])[零〇一二两三四五六七八九十百千万]+/g)].map(m=>cnToNumber(m[0])).filter(v=>v!=null).map(String)];
 // 回答一侧：阿拉伯数字，以及与量词连用的汉字数量（“三个月”“十七名”“两个团”），不含“第一次”这类序数和部队番号。
 // 不含“军、师、团、营、连”等：它们多出现在部队番号（红二十五军、红四团）或“两军”“三军会师”这类泛称中，不是数量。
-const CN_QUANTITY=/(?<!第)([零〇一二两三四五六七八九十百千万]+)(?=[个名人条次天年月日夜里座根艘只路批位])/g;
+const CN_QUANTITY=/(?<![第\d.．])([零〇一二两三四五六七八九十百千万]+)(?=[个名人条次天年月日夜里座根艘只路批位])/g;
 // “两个故事”“三个方面”这类是在组织回答，不是史实中的数量，不核对。
 const META_AFTER=/^个(故事|问题|方面|节点|站|原因|例子|资料|地方|阶段|角度|要点)/;
 const numbersClaimedIn=text=>[...arabicIn(text),...[...String(text).matchAll(CN_QUANTITY)].filter(m=>!META_AFTER.test(String(text).slice(m.index+m[1].length))).map(m=>cnToNumber(m[1])).filter(v=>v!=null).map(String)];
