@@ -145,6 +145,14 @@ function stripLinks(text){
 // 校验数字与日期的完整表达，而非把“3万人”拆成 3 和 万、把年月日拆开匹配。
 // 仍是保守规则：只能发现部分越界表达，不能替代史实的逐句核验。
 const CN_DIGITS={零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10,百:100,千:1000,万:10000};
+// 仅折叠一字符宽的全角数字和日期标点，保持索引不变（日期片段会按索引屏蔽）。
+const NUMERIC_MARKS={'／':'/','－':'-','．':'.'};
+function normalizeNumerals(value){
+  return String(value).replace(/[０-９／－．]/g,ch=>{
+    const point=ch.charCodeAt(0);
+    return point>=0xFF10&&point<=0xFF19?String.fromCharCode(point-0xFEE0):NUMERIC_MARKS[ch];
+  });
+}
 function cnToNumber(text){
   let total=0,section=0,digit=0;
   for(const ch of text){const v=CN_DIGITS[ch];if(v==null)return null;
@@ -177,21 +185,24 @@ const HISTORICAL_EVENTS=[
   ['maoergai',/毛儿盖/],['huili',/会理/],['houchang',/猴场/]
 ];
 const eventKeys=text=>HISTORICAL_EVENTS.filter(([,pattern])=>pattern.test(text)).map(([id])=>id);
-function clauseAt(text,start,end){
-  const left=Math.max(text.lastIndexOf('。',start),text.lastIndexOf('！',start),text.lastIndexOf('？',start),text.lastIndexOf('；',start),text.lastIndexOf('\n',start));
-  let right=text.length;
-  for(const mark of ['。','！','？','；','\n']){const idx=text.indexOf(mark,end);if(idx>=0&&idx<right)right=idx;}
+function clauseAt(text,start,end,minor=false){
+  const marks=minor?['，',',','、','。','！','？','；',';','\n']:['。','！','？','；',';','\n'];
+  let left=-1,right=text.length;
+  for(const mark of marks){
+    left=Math.max(left,text.lastIndexOf(mark,start));
+    const idx=text.indexOf(mark,end);if(idx>=0&&idx<right)right=idx;
+  }
   return text.slice(left+1,right);
 }
 function dateFacts(text){
-  const source=String(text),out=[];
+  const source=normalizeNumerals(text),out=[];
   const add=(match,y,m,d,endM,endD)=>{
     const valid=Number.isInteger(y)&&y>=1&&Number.isInteger(m)&&m>=1&&m<=12
       &&(d==null||validCalendarDay(y,m,d))
       &&(endD==null&&(endM==null||endM===m)
         ||endD!=null&&validCalendarDay(y,endM,endD)&&(endM>m||endM===m&&endD>=d));
     const start=match.index,end=start+match[0].length;
-    out.push({raw:match[0],start,end,y,m,d,endM,endD,valid,context:clauseAt(source,start,end)});
+    out.push({raw:match[0],start,end,y,m,d,endM,endD,valid,context:clauseAt(source,start,end),localContext:clauseAt(source,start,end,true)});
   };
   for(const m of source.matchAll(CN_DATE_RE)){
     add(m,toDateNumber(m[1]),toDateNumber(m[2]),m[3]?toDateNumber(m[3]):null,
@@ -207,27 +218,38 @@ function maskDates(text,facts){
 }
 const META_AFTER=/^个(故事|问题|方面|节点|站|原因|例子|资料|地方|阶段|角度|要点)/;
 const CN_QUANTITY=/(?<![第\d.．])([零〇一二两三四五六七八九十百千万]+)(?=[个名人条次天年月日夜里座根艘只路批位])/g;
-function numberTokens(text,source){
-  const dateItems=dateFacts(text),masked=maskDates(text,dateItems),keys=new Set();
-  // 允许由完整日期推导出同一年份；不允许把“15日至17日”拆成独立人数。
-  for(const d of dateItems)if(d.valid)keys.add('N:'+d.y);
-  const raw=[...masked],amounts=[],magnitude={万:10000,千:1000,百:100};
-  for(const m of masked.matchAll(/(?<![\d.．])(\d+(?:[.．]\d+)?)\s*([万千百])/g)){
-    keys.add('A:'+String(Number(m[1].replace('．','.'))*magnitude[m[2]]));
-    amounts.push([m.index,m.index+m[0].length]);
+// 只解析有数量级（万、千、百）或人数单位（人、名）的数字。
+// 精度：near=近/约/将近/大约，over=余/多/超过/至少，exact=无修饰。
+const COUNT_TOKEN=/(近|约|将近|大约|左右|上下|超过|多于|至少)?\s*(\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百千万]+)\s*([万千百])?\s*(余人|余名|多人|多名|人|名)?/g;
+function countFacts(text){
+  const normalized=normalizeNumerals(text),out=[],mag={万:10000,千:1000,百:100};
+  for(const m of normalized.matchAll(COUNT_TOKEN)){
+    if(!m[3]&&!m[4]&&!/[万千百]/.test(m[2]))continue;
+    const value=(/^\d/.test(m[2])?Number(m[2]):cnToNumber(m[2]))*(m[3]?mag[m[3]]:1);
+    if(!Number.isFinite(value)||value<=0)continue;
+    const qualifier=(/^(近|约|将近|大约|左右|上下)$/.test(m[1]||''))?'near'
+      :(/^(超过|多于|至少)$/.test(m[1]||'')||/^(余|多)/.test(m[4]||''))?'over':'exact';
+    out.push({raw:m[0],value,qualifier,start:m.index,end:m.index+m[0].length});
   }
-  for(const [a,b] of amounts)for(let k=a;k<b;k++)raw[k]=' ';
+  return out;
+}
+function numberTokens(text,source){
+  const normalized=normalizeNumerals(text),dates=dateFacts(normalized),maskedDate=maskDates(normalized,dates),counts=countFacts(maskedDate);
+  const keys=new Set(),raw=[...maskedDate];
+  for(const d of dates)if(d.valid)keys.add('N:'+d.y);
+  for(const c of counts){
+    keys.add('A:'+String(c.value));
+    for(let k=c.start;k<c.end;k++)raw[k]=' ';
+  }
   const remaining=raw.join('');
   for(const m of remaining.matchAll(/(?<![\d.．])\d+(?:[.．]\d+)?/g))keys.add('N:'+String(Number(m[0].replace('．','.'))));
-  const addCn=v=>{const n=cnToNumber(v);if(n!=null)keys.add(/[万千百]/.test(v)?'A:'+String(n):'N:'+String(n));};
+  const addCn=v=>{const n=cnToNumber(v);if(n!=null)keys.add('N:'+String(n));};
   if(source){
     for(const m of remaining.matchAll(/[零〇一二两三四五六七八九十百千万]+/g))addCn(m[0]);
   }else{
     for(const m of remaining.matchAll(CN_QUANTITY)){
       if(!META_AFTER.test(remaining.slice(m.index+m[1].length)))addCn(m[1]);
     }
-    // “近万福建儿女”没有紧邻量词，但仍是人数数量，而不是没有数字。
-    for(const m of remaining.matchAll(/(?:近|约|将近|大约)\s*(万)(?=[^\d零〇一二两三四五六七八九十百千万]|$)/g))keys.add('A:10000');
   }
   return keys;
 }
@@ -235,14 +257,23 @@ function numbersAllowedIn(text){return [...numberTokens(text,true)];}
 function numbersClaimedIn(text){return [...numberTokens(text,false)];}
 const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(\d{4}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[\/\-\.．]\d{1,2}[\/\-\.．]\d{1,2}|\s*年)?|\d+(?:\.\d+)?\s*(?:万(?:人|名)?|人|名))/g;
 function withoutRefutedQuestionFacts(answer,question){
-  const compact=String(question).replace(/\s+/g,'');
-  return String(answer).replace(EXPLICIT_NEGATION,(match,fact)=>
+  const compact=normalizeNumerals(question).replace(/\s+/g,'');
+  return normalizeNumerals(answer).replace(EXPLICIT_NEGATION,(match,fact)=>
     compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的数字）':match);
 }
 function dateSupported(claim,source){
   if(!claim.valid||!source.valid||claim.y!==source.y)return false;
-  const claimedEvents=eventKeys(claim.context),sourceEvents=eventKeys(source.context);
-  if(claimedEvents.length&&!claimedEvents.some(event=>sourceEvents.includes(event)))return false;
+  // 优先绑定日期所在的逗号分句；若分句不含事件，才回看整个句号句。
+  // 一段有两个事件但无法分离日期归属时保守拒绝，而不是任一事件匹配即放行。
+  const boundEvents=d=>{
+    const local=eventKeys(d.localContext);
+    if(local.length)return local;
+    const whole=eventKeys(d.context);
+    return whole.length<=1?whole:null;
+  };
+  const claimedEvents=boundEvents(claim),sourceEvents=boundEvents(source);
+  if(claimedEvents===null||sourceEvents===null)return false;
+  if(claimedEvents.length&&!claimedEvents.every(event=>sourceEvents.includes(event)))return false;
   if(claim.d===null)return claim.m>=source.m&&claim.m<=(source.endM||source.m);
   if(source.d===null)return false;
   const ordinal=(month,day)=>month*32+day;
@@ -256,13 +287,19 @@ function unsupportedDates(answer,ids){
 }
 function unsupportedNumbers(answer,ids,question){
   const claims=withoutRefutedQuestionFacts(answer,question);
-  const allowed=new Set(ids.flatMap(id=>numbersAllowedIn(evidence.find(e=>e.id===id).text)));
+  const citedTexts=ids.map(id=>evidence.find(e=>e.id===id).text);
+  const allowed=new Set(citedTexts.flatMap(numbersAllowedIn));
+  // 不能把“近2.6万”作为“精确26000人”的来源；同值换单位须保留近似性质。
+  const citedCounts=citedTexts.flatMap(countFacts),claimedCounts=countFacts(maskDates(claims,dateFacts(claims)));
+  const badPrecision=claimedCounts.filter(c=>!citedCounts.some(s=>s.value===c.value
+    &&(c.qualifier==='exact'?s.qualifier==='exact':s.qualifier===c.qualifier||s.qualifier==='exact')));
   const describe=key=>{
     if(key.startsWith('N:'))return key.slice(2);
     if(key.startsWith('A:'))return String(Number(key.slice(2))/10000)+'万';
     return key;
   };
-  return [...new Set([...numbersClaimedIn(claims).filter(n=>!allowed.has(n)).map(describe),...unsupportedDates(claims,ids)])];
+  return [...new Set([...numbersClaimedIn(claims).filter(n=>!allowed.has(n)).map(describe),
+    ...badPrecision.map(c=>'数量精度：'+c.raw.trim()),...unsupportedDates(claims,ids)])];
 }
 // 回答中的书名号内容（文件、文章名）必须与所引资料或用户问题中的写法完全一致。
 const squash=text=>String(text).replace(/\s+/g,'');
