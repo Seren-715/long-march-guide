@@ -82,9 +82,34 @@ res=await worker.fetch(make({question:'遵义会议哪天开？',node:'zunyi'}),
 // 两次都不合格 → 降级为资料不足
 attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'历时370天。',sources:['zunyi']})};
 res=await worker.fetch(make({question:'走了多久？',node:'zunyi'}),env);body=await res.json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);assert.deepEqual(body.sources,[]);
-// 问题里出现的数字允许在回答中复述（例如否定错误前提）
-globalThis.fetch=async()=>reply({type:'history',answer:'不是1900年，遵义会议于1935年1月召开。',sources:['zunyi']});
-res=await worker.fetch(make({question:'遵义会议是1900年召开的吗？',node:'zunyi'}),env);body=await res.json();assert.match(body.answer,/1900/);assert.equal(body.sources.length,1);
+// 可以明确否定用户错误数字，但不能因此把同一数字当作成立的史实。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'不是1900年，遵义会议于1935年1月召开。',sources:['zunyi']})};
+res=await worker.fetch(make({question:'遵义会议是1900年召开的吗？',node:'zunyi'}),env);body=await res.json();assert.equal(attempts,1);assert.match(body.answer,/1900/);assert.equal(body.sources.length,1);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+  ?{type:'history',answer:'遵义会议于1900年召开。',sources:['zunyi']}
+  :{type:'history',answer:'不是1900年，遵义会议于1935年1月召开。',sources:['zunyi']})};
+body=await (await worker.fetch(make({question:'遵义会议是1900年召开的吗？',node:'zunyi'}),env)).json();
+assert.equal(attempts,2);assert.match(body.answer,/不是1900年/);
+// 即使各组成数字在来源其他位置出现，也不能重新组合成年月日，更不能通过无效月份。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+  ?{type:'history',answer:'遵义会议于1935年17月15日召开。',sources:['zunyi']}
+  :{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+body=await (await worker.fetch(make({question:'遵义会议是1935年17月15日吗？',node:'zunyi'}),env)).json();
+assert.equal(attempts,2);assert.match(body.answer,/1月15日至17日/);assert.doesNotMatch(body.answer,/17月/);
+// 日历上不存在的日期，和来源中同年同月但不存在的日期也必须重新核验。
+for(const falseDate of ['1935年2月30日','1935年1月19日']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+    ?{type:'history',answer:'遵义会议于'+falseDate+'召开。',sources:['zunyi']}
+    :{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+  body=await (await worker.fetch(make({question:'遵义会议是哪天召开的？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,2,'未拦截拼接或无效日期 '+falseDate);assert.match(body.answer,/1月15日至17日/);
+}
+// 时间范围内的明确日期与只回答月份仍应通过，不应过度拒答。
+for(const date of ['1935年1月15日','1935年1月17日','1935年1月']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'遵义会议于'+date+'召开。',sources:['zunyi']})};
+  body=await (await worker.fetch(make({question:'遵义会议哪天开？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,1,'误拦截有据日期 '+date);assert.match(body.answer,/1935/);
+}
 // 截断的输出视为格式错误并重试
 attempts=0;globalThis.fetch=async()=>{attempts++;return attempts===1?reply('{"type":"history","answer":"遵义',{finish_reason:'length'}):reply({type:'history',answer:'1935 年 1 月召开。',sources:['zunyi']})};
 res=await worker.fetch(make({question:'遵义会议何时？',node:'zunyi'}),env);assert.equal(res.status,200);assert.equal(attempts,2);
