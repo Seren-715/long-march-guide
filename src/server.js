@@ -162,7 +162,7 @@ function toDateNumber(x){
 const YEAR_EXPR='(?:\\d{4}|[零〇一二三四五六七八九]{4}|[一二三四五六七八九十百千零〇]{5,9})';
 const PART_EXPR='(?:\\d{1,2}|[零〇一二两三四五六七八九十]{1,3})';
 const CN_DATE_RE=new RegExp('('+YEAR_EXPR+')\\s*年\\s*('+PART_EXPR+')\\s*月(?:\\s*('+PART_EXPR+')\\s*[日号](?:\\s*(?:至|到|—|－|-|～|~)\\s*(?:('+PART_EXPR+')\\s*月\\s*)?('+PART_EXPR+')\\s*[日号])?)?','g');
-const SEP_DATE_RE=/(?<!\d)(\d{4})\s*([\/\-\.．])\s*(\d{1,2})\s*\2\s*(\d{1,2})(?!\d)/g;
+const SEP_DATE_RE=/(?<!\d)(\d{4})\s*([\/\-\.．])\s*(\d{1,2})(?:\s*\2\s*(\d{1,2}))?(?!\d)/g;
 function validCalendarDay(y,m,d){
   if(m<1||m>12||d<1||d>31)return false;
   const date=new Date(Date.UTC(y,m-1,d));
@@ -197,7 +197,7 @@ function dateFacts(text){
     add(m,toDateNumber(m[1]),toDateNumber(m[2]),m[3]?toDateNumber(m[3]):null,
       m[4]?toDateNumber(m[4]):toDateNumber(m[2]),m[5]?toDateNumber(m[5]):null);
   }
-  for(const m of source.matchAll(SEP_DATE_RE))add(m,Number(m[1]),Number(m[3]),Number(m[4]),Number(m[3]),null);
+  for(const m of source.matchAll(SEP_DATE_RE))add(m,Number(m[1]),Number(m[3]),m[4]?Number(m[4]):null,Number(m[3]),null);
   return out.sort((a,b)=>a.start-b.start);
 }
 function maskDates(text,facts){
@@ -240,10 +240,10 @@ function withoutRefutedQuestionFacts(answer,question){
     compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的数字）':match);
 }
 function dateSupported(claim,source){
-  if(!claim.valid||!source.valid||claim.y!==source.y||claim.m!==source.m)return false;
+  if(!claim.valid||!source.valid||claim.y!==source.y)return false;
   const claimedEvents=eventKeys(claim.context),sourceEvents=eventKeys(source.context);
   if(claimedEvents.length&&!claimedEvents.some(event=>sourceEvents.includes(event)))return false;
-  if(claim.d===null)return true;
+  if(claim.d===null)return claim.m>=source.m&&claim.m<=(source.endM||source.m);
   if(source.d===null)return false;
   const ordinal=(month,day)=>month*32+day;
   return ordinal(claim.m,claim.d)>=ordinal(source.m,source.d)
