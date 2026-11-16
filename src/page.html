@@ -319,7 +319,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .hpin-body i{position:absolute;inset:0;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#fff;border:2px solid var(--accent);box-shadow:0 3px 8px rgba(120,30,20,.22);transition:background .2s}
 .hpin-body b{position:absolute;inset:0;display:grid;place-items:center;font:700 11px/1 var(--font);color:var(--accent);font-variant-numeric:tabular-nums;transition:color .2s}
 .hpin:after{content:"";position:absolute;left:8px;bottom:-3px;width:14px;height:6px;border-radius:50%;background:rgba(120,30,20,.28);opacity:0}
-.hpin.in .hpin-body{animation:pin-drop .46s cubic-bezier(.3,.9,.4,1) both}
+.hpin.in .hpin-body{animation:pin-drop .5s cubic-bezier(.3,.9,.4,1) both}
 .hpin.in:after{animation:pin-ring .55s ease-out .28s both}
 .hpin.done .hpin-body i,.hpin.now .hpin-body i,.hpin:hover .hpin-body i{background:var(--accent)}
 .hpin.done .hpin-body b,.hpin.now .hpin-body b,.hpin:hover .hpin-body b{color:#fff}
@@ -334,6 +334,28 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .hpin:focus-visible .hpin-body i{outline:2px solid var(--accent);outline-offset:2px}
 .hm-stage.static .hpin.in .hpin-body,.hm-stage.static .hpin.in:after{animation:none}
 .hm-note{margin:8px 2px 0;font-size:12px;color:var(--text3)}
+.hm-stage.big .hpin{width:40px;height:46px}.hm-stage.big .hpin-body{width:38px;height:38px}.hm-stage.big .hpin-body b{font-size:15px}.hm-stage.big .hpin:after{left:12px;width:18px}.hm-stage.big .hpin span{font-size:14.5px;padding:4px 12px}.hm-stage.big .hpin:not(.left):not(.above):not(.below) span{left:46px;top:5px}.hm-stage.big .hpin.left span{right:46px;top:5px}.hm-stage.big .map-route{stroke-width:2}
+/* 宽屏：路线图在左（放大），提问区在右（略收小） */
+@media (min-width:1080px){
+  .home-inner{max-width:1320px;padding:18px 32px 40px;position:relative}
+  .home-map{margin:0}
+  .hm-stage{max-width:none;aspect-ratio:auto;height:max(780px,calc(100vh - var(--bar) - 96px));margin-top:6px}
+  .home-side{position:absolute;z-index:3;display:flex;flex-direction:column;justify-content:center}
+  .home-side .home-mark{margin-bottom:8px;font-size:11px}
+  .home-side .home-mark .seal{width:26px;height:26px;font-size:15px}
+  .home-side h1{font-size:27px;margin-bottom:8px}
+  .home-side .home-sub{font-size:13.5px;line-height:1.65;margin-bottom:6px}
+  .home-side .home-scope{font-size:12px;line-height:1.6;margin-bottom:0}
+  .home-side .starts{gap:8px;margin:14px 0 10px}
+  .home-side .start{padding:10px 12px;border-radius:13px;gap:2px}
+  .home-side .start b{font-size:13.5px}
+  .home-side .start span{font-size:11.5px}
+  .home-side .composer{padding:11px 11px 8px 15px;border-radius:20px}
+  .home-side .composer textarea{font-size:15px}
+  .home-side .composer-bar{margin-top:0}
+  .home-side .resume{margin-top:10px}
+  .about{margin-top:40px}
+}
 @keyframes pin-drop{0%{transform:translateY(-90px) scale(.9);opacity:0}18%{opacity:1}62%{transform:translateY(0) scale(1)}76%{transform:translateY(-7px) scale(1.04)}100%{transform:translateY(0) scale(1)}}
 @keyframes pin-ring{0%{opacity:.8;transform:scale(.6)}100%{opacity:0;transform:scale(2.6)}}
 .map-note{position:absolute;left:10px;bottom:8px;z-index:2;font-size:11px;color:#5e504b;background:rgba(255,250,246,.85);padding:3px 9px;border-radius:999px}
@@ -497,6 +519,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 
 <main class="home" id="home">
 <div class="home-inner">
+<div class="home-side">
 <div class="home-mark"><span class="seal" aria-hidden="true">征</span>长征史料查证助手</div>
 <h1>想查证<em>长征</em>的哪一段？</h1>
 <p class="home-sub">我是小征。你提问，或贴一句关于长征的说法，我去查有出处的史料，核对后回答；资料里没有的，我会直接告诉你。</p>
@@ -514,6 +537,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 
 <div class="resume" id="resume" hidden><div class="resume-text"><small>继续参观</small><span id="resume-text"></span></div><button type="button" class="btn btn-primary" id="resume-go">继续 →</button></div>
 
+</div>
 <section class="home-map" id="home-map" aria-label="中央红军主力长征路线示意" hidden>
 <div class="hm-head"><b>中央红军主力长征路线</b><span class="hm-caption" id="hm-caption" aria-live="off"></span><button type="button" class="hm-replay" id="hm-replay">重播</button></div>
 <div class="hm-stage" id="hm-stage"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="hm-route"></polyline></svg></div>
@@ -1044,9 +1068,12 @@ $('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
   // 排版：先按经纬度算出位置；挨得太近的标点略微挪开；再给每个地名挑一个不遮挡的方向（右、左、下、上）
   function layout() {
     const W = stage.clientWidth, H = stage.clientHeight; if (!W || !H) return;
-    const small = W < 520, pw = small ? 27 : 31, ph = small ? 29 : 34, pad = { l: small ? 26 : 96, r: small ? 26 : 96, t: ph + 8, b: 30 };
-    const k = Math.min((W - pad.l - pad.r) / (x1 - x0), (H - pad.t - pad.b) / (y1 - y0)), ox = pad.l + (W - pad.l - pad.r - (x1 - x0) * k) / 2, oy = pad.t + (H - pad.t - pad.b - (y1 - y0) * k) / 2;
-    const T = list.map((_, i) => [ox + (X[i] - x0) * k, oy + (Y[i] - y0) * k]), P = T.map(p => p.slice());
+    const small = W < 520, big = W >= 660, pw = small ? 27 : big ? 44 : 31, ph = small ? 29 : big ? 48 : 34, pad = { l: small ? 26 : 96, r: small ? 26 : 96, t: ph + 8, b: 30 };
+    const wide = matchMedia('(min-width:1080px)').matches, sideEl = document.querySelector('.home-side');
+    // 宽屏：路线横向拉开占满整幅，提问区放进路线右侧的空白处，被路线半包围
+    if (wide) { pad.l = 130; pad.r = 130; pad.b = 48; }
+    const k0 = Math.min((W - pad.l - pad.r) / (x1 - x0), (H - pad.t - pad.b) / (y1 - y0)), ky = wide ? (H - pad.t - pad.b) / (y1 - y0) : k0, kx = wide ? Math.min((W - pad.l - pad.r) / (x1 - x0), ky * 1.9) : k0, ox = pad.l + (W - pad.l - pad.r - (x1 - x0) * kx) / 2, oy = pad.t + (H - pad.t - pad.b - (y1 - y0) * ky) / 2;
+    stage.classList.toggle('big', big); const T = list.map((_, i) => [ox + (X[i] - x0) * kx, oy + (Y[i] - y0) * ky]), P = T.map(p => p.slice());
     // 两个标点的方框有重叠时，沿重叠较少的方向各退一半；同时有一股很弱的力把标点拉回真实位置，避免越挪越远
     for (let it = 0; it < 400; it++) {
       let moved = false;
@@ -1057,12 +1084,16 @@ $('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
       if (!moved) break;
       for (let i = 0; i < P.length; i++) { P[i][0] += (T[i][0] - P[i][0]) * .02; P[i][1] += (T[i][1] - P[i][1]) * .02; }
     }
+    // 提问区的范围：左边让开西线各站，上边贴着右上角的标点，下边贴着下面一排标点的顶端
+    let panel = null;
+    if (wide) { const L = W * .5, near = P.filter(p => p[0] > L - 30), mid = H * .45; const top = Math.max(H * .1, ...near.filter(p => p[1] < mid).map(p => p[1] + 12)), bot = Math.min(H * .8, ...near.filter(p => p[1] >= mid).map(p => p[1] - ph - 12)); panel = [L, top, W * .985, bot]; }
+    if (sideEl) { if (panel) { const sw = Math.min(540, panel[2] - panel[0] - 20); sideEl.style.left = (stage.offsetLeft + (panel[0] + panel[2] - sw) / 2) + 'px'; sideEl.style.width = sw + 'px'; sideEl.style.top = (stage.offsetTop + panel[1]) + 'px'; sideEl.style.height = (panel[3] - panel[1]) + 'px'; } else sideEl.removeAttribute('style'); }
     const hit = (a, c) => a[0] < c[2] && c[0] < a[2] && a[1] < c[3] && c[1] < a[3];
     const body = P.map(p => [p[0] - pw / 2, p[1] - ph, p[0] + pw / 2, p[1] + 2]), placed = [];
     P.forEach((p, i) => {
-      const w = list[i].name.length * 12 + 18, h = 22, c = { r: [p[0] + pw / 2 + 3, p[1] - ph + 1], l: [p[0] - pw / 2 - 3 - w, p[1] - ph + 1], b: [p[0] - w / 2, p[1] + 5], t: [p[0] - w / 2, p[1] - ph - h - 3] };
+      const w = list[i].name.length * (big ? 14.5 : 12) + (big ? 28 : 18), h = big ? 30 : 22, c = { r: [p[0] + pw / 2 + 3, p[1] - ph + 1], l: [p[0] - pw / 2 - 3 - w, p[1] - ph + 1], b: [p[0] - w / 2, p[1] + 5], t: [p[0] - w / 2, p[1] - ph - h - 3] };
       let best = 'r', score = 1e9;
-      for (const side of ['r', 'l', 'b', 't']) { const box = [c[side][0], c[side][1], c[side][0] + w, c[side][1] + h]; let s = 0; body.forEach((q, j) => { if (j !== i && hit(box, q)) s += 3; }); placed.forEach(q => { if (hit(box, q)) s += 2; }); if (box[0] < -4 || box[2] > W + 4 || box[1] < -ph) s += 4; if (s < score) { score = s; best = side; } if (!s) break; }
+      for (const side of ['r', 'l', 'b', 't']) { const box = [c[side][0], c[side][1], c[side][0] + w, c[side][1] + h]; let s = 0; body.forEach((q, j) => { if (j !== i && hit(box, q)) s += 3; }); placed.forEach(q => { if (hit(box, q)) s += 2; }); if (panel && hit(box, panel)) s += 5; if (box[0] < -4 || box[2] > W + 4 || box[1] < -ph) s += 4; if (s < score) { score = s; best = side; } if (!s) break; }
       if (!score) placed.push([c[best][0], c[best][1], c[best][0] + w, c[best][1] + h]);
       const b = pins[i]; b.style.left = (p[0] / W * 100).toFixed(2) + '%'; b.style.top = (p[1] / H * 100).toFixed(2) + '%'; b.classList.remove('left', 'below', 'above', 'quiet'); if (score) b.classList.add('quiet'); if (best === 'l') b.classList.add('left'); else if (best === 'b') b.classList.add('below'); else if (best === 't') b.classList.add('above');
       list[i].at2 = [p[0] / W * 100, p[1] / H * 100];
@@ -1081,9 +1112,9 @@ $('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
     layout(); const id = ++run; stage.classList.remove('static', 'all'); pins.forEach(b => b.classList.remove('in', 'now', 'done')); line.setAttribute('points', '');
     for (let i = 0; i < list.length; i++) {
       if (id !== run) return;
-      if (i) await extend(i - 1, 130, id); if (id !== run) return;
+      if (i) extend(i - 1, 170, id); // 连线与落点同时进行，不等上一个落定
       pins.forEach(x => x.classList.remove('now')); pins[i].classList.add('in', 'now'); if (i) pins[i - 1].classList.add('done'); caption(list[i]);
-      await wait(i === list.length - 1 ? 700 : 190);
+      await wait(i === list.length - 1 ? 750 : 190); // 上一个标点落到约三分之一时，下一个就开始
     }
     if (id === run) finish();
   }
