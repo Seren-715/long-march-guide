@@ -36,9 +36,14 @@ npm run check:kb
 
 本地预览打开 `http://127.0.0.1:4173`。本地预览默认不载入 API 密钥，能浏览页面和路线，模型问答会提示尚未配置；如需在本地试用真实问答，用 `DEEPSEEK_API_KEY=你的密钥 npm run dev` 启动（对话签名密钥自动随机生成，可用 `HOST`、`PORT` 改监听地址）；不要把密钥写入源码或前端。线上密钥由 Sites 服务端环境变量管理，包含 `DEEPSEEK_API_KEY` 和独立随机的 `HISTORY_SIGNING_KEY`；不得写入源码或前端。
 
+## 八闽儿女的长征（福建专题）
+
+补充了 10 条福建相关故事与概述资料，直接接入“长征故事”和 Agent 检索工具。每条附独立来源链接和需要核验的边界提示；涵盖中复村出发、宁化妇女支前、曾繁益、杨成武、傅连暲、邓六金、谢小梅、吴富莲和蔡威等。注意“福建籍参加长征”和“从福建出发”并非同一概念，长征前支前工作及会师后西路军事迹已分别标注。详见 [`docs/八闽儿女长征史料专题-2026-11-16.md`](docs/八闽儿女长征史料专题-2026-11-16.md) 与 [福建专题查证样例](docs/福建专题Agent查证样例-2026-11-16.md)。
+
 ## 代码与材料
 
 - `src/data.js`：节点、资料与建议问题。
+- `src/fujian-stories.js`：福建专题故事、来源与口径备注（通过 `src/stories.js` 接入应用）。
 - `src/page.html`：交互界面。
 - `src/stories.js`：长征故事（真人真事），挂在节点上展示，已审核的同时作为问答资料；只收有权威来源的报道或党史叙述，`reviewed` 规则同上。
 - `scripts/map/build_map.py`：沙盘鸟瞰图的 Blender 建模与渲染脚本，输出 `src/assets/longmarch-map.webp` 和 `src/map-layout.json`。重新生成：`python -m venv venv && ./venv/bin/pip install bpy numpy && ./venv/bin/python scripts/map/build_map.py`（只更新坐标可加 `--no-render`）。这是地形示意，不画边界、不标行政区。
