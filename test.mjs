@@ -171,7 +171,7 @@ body=await (await worker.fetch(make({question:'如果资料没有记录，能推
   for(const st of stories){assert.ok(st.id&&st.title&&st.text&&st.source&&st.url&&st.date,'故事字段不全：'+st.id);assert.ok(nodeIds.has(st.node),'故事节点不存在：'+st.id);assert.ok(!kbIds.has(st.id),'故事 ID 与资料冲突：'+st.id);assert.match(st.url,/^https?:\/\//);assert.equal(typeof st.reviewed,'boolean');}
   assert.match(html,/"stories":\[/);
   // 已审核的故事进入问答资料，并可作为出处返回
-  const reviewed=stories.find(s=>s.reviewed);
+  const reviewed=stories.find(s=>s.id==='story_banbei_beizi'&&s.reviewed);
   globalThis.fetch=async(url,options)=>{seen=JSON.parse(options.body);return reply({type:'history',answer:'红军行进到湖南汝城县沙洲村时，三名女红军把仅有的一条被子剪下一半留给徐解秀。',sources:[reviewed.id]})};
   res=await worker.fetch(make({question:'讲个故事吧',node:reviewed.node}),env);body=await res.json();assert.equal(res.status,200);assert.equal(body.sources[0].id,reviewed.id);assert.match(seen.messages[0].content,/故事·/);assert.match(seen.messages[0].content,new RegExp('\\['+reviewed.id+'\\]'));
   // 带故事来源的对话凭证可在下一轮使用
@@ -204,6 +204,12 @@ body=await (await worker.fetch(make({question:'遵义会议什么时候开的',n
 log=script([toolReply([toolCall('search_materials',{query:'彝海结盟'}),toolCall('read_materials',{ids:['wuqi_summary','nope']},'c2')]),reply({type:'history',answer:'中央红军行程 2.5 万里到达陕北。',sources:['wuqi_summary']})]);
 body=await (await worker.fetch(make({question:'走了多少里',node:'start',free:true}),env)).json();
 assert.match(log[1].messages.at(-2).content,/yihai/);assert.match(log[1].messages.at(-1).content,/2\.5 万里/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['wuqi_summary']);assert.match(body.steps[0].text,/检索“彝海结盟”/);
+// 专题故事的整理说明必须随资料提供给模型，且保留来源，不把长征前支前等同于随军。
+log=script([toolReply([toolCall('read_materials',{ids:['story_fj_ninghua_grain']})]),reply({type:'history',answer:'资料记载的是长征前的挑粮支前，不能据此判断她们是否参加长征。',sources:['story_fj_ninghua_grain']})]);
+body=await (await worker.fetch(make({question:'宁化挑粮的妇女都参加长征了吗？',node:'start',free:true}),env)).json();
+assert.match(log[1].messages.at(-1).content,/资料整理说明，非原文引述/);assert.match(log[1].messages.at(-1).content,/长征前/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['story_fj_ninghua_grain']);
+log=script([reply({type:'history',answer:'宁化妇女挑粮是长征前的活动，并不是她们随中央红军参加长征。',sources:['story_fj_ninghua_grain']}),reply({type:'history',answer:'资料只记载她们在长征前挑粮支前，不能据此判断她们后来是否参加长征。',sources:['story_fj_ninghua_grain']})]);
+body=await (await worker.fetch(make({question:'宁化妇女都参加长征了吗？',node:'start'}),env)).json();assert.equal(log.length,2);assert.match(body.answer,/不能据此判断/);
 // 常用称谓可检索到对应人物，不改变资料原文。
 log=script([toolReply([toolCall('search_materials',{query:'周总理'})]),reply({type:'history',answer:'周恩来病倒后由担架队抬过草地。',sources:['story_zhou_enlai']})]);
 body=await (await worker.fetch(make({question:'周总理过草地',node:'start',free:true}),env)).json();
