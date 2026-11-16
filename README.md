@@ -47,6 +47,8 @@ npm run check:kb
 - `src/data.js`：节点、资料与建议问题。
 - `src/page.html`：交互界面。
 - `src/fujian-stories.js`：福建专题故事及来源。
+- `src/longmarch-story-additions.js`：新增长征故事草稿（老山界、铜锣湾、白面瑶寨、单家集、夹金山），完成复核前保持 `reviewed: false`。
+- `docs/长征故事补充与来源核验-2026-11-16.md`：新增故事、既有故事补充、来源链接与叙述边界。
 - `src/stories.js`：长征故事（真人真事），挂在节点上展示，已审核的同时作为问答资料；只收有权威来源的报道或党史叙述，`reviewed` 规则同上。
 - `scripts/map/build_map.py`：沙盘鸟瞰图的 Blender 建模与渲染脚本，输出 `src/assets/longmarch-map.webp` 和 `src/map-layout.json`。重新生成：`python -m venv venv && ./venv/bin/pip install bpy numpy && ./venv/bin/python scripts/map/build_map.py`（只更新坐标可加 `--no-render`）。这是地形示意，不画边界、不标行政区。
 - `src/server.js`：Worker 请求处理与模型调用。
