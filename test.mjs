@@ -242,7 +242,7 @@ assert.equal(log.length,2);assert.match(body.answer,/近万/);
 // “近万人”不能仅凭一个出现“2.6万”的来源通过：万位单位不能从小数后缀被单独采信。
 log=script([
   reply({type:'history',answer:'福建日报证实只有近万人参加长征。',sources:['story_fj_count_26k']}),
-  reply({type:'history',answer:'福建日报文章记载近2.6万福建子弟，不能据此认定近万人。',sources:['story_fj_count_26k']})
+  reply({type:'history',answer:'福建日报文章记载近2.6万福建子弟，但不同数字的统计口径尚未核实。',sources:['story_fj_count_26k']})
 ]);
 body=await (await worker.fetch(make({question:'福建籍长征人数是不是近万人？',node:'start',free:true}),env)).json();
 assert.equal(log.length,2);assert.match(body.answer,/近2\.6万/);
