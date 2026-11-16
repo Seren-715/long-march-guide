@@ -155,11 +155,58 @@ const CN_QUANTITY=/(?<![第\d.．])([零〇一二两三四五六七八九十百�
 // “两个故事”“三个方面”这类是在组织回答，不是史实中的数量，不核对。
 const META_AFTER=/^个(故事|问题|方面|节点|站|原因|例子|资料|地方|阶段|角度|要点)/;
 const numbersClaimedIn=text=>[...arabicIn(text),...[...String(text).matchAll(CN_QUANTITY)].filter(m=>!META_AFTER.test(String(text).slice(m.index+m[1].length))).map(m=>cnToNumber(m[1])).filter(v=>v!=null).map(String)];
-// 回答中的数字只接受已引用资料正文作为依据；用户问题中的数字可能是待核查的错误前提。
-// 保留 question 形参与调用方兼容，但绝不把提问数字当作可证实事实。
+// 只在“明确否定”且该数字确实来自用户问题时，允许复述错误数字。
+// 肯定、引用不明或只是转述问题的数字仍需有史料支持；不恢复“用户数字自动白名单”。
+const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(\d+(?:\.\d+)?\s*(?:年(?:\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?)?|万(?:人|名)?|人|名)?)/g;
+function withoutRefutedQuestionFacts(answer,question){
+  const compact=String(question).replace(/\s+/g,'');
+  return String(answer).replace(EXPLICIT_NEGATION,(match,fact)=>{
+    return compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的数字）':match;
+  });
+}
+// 检查日期是否构成同一个有来源支持的“年-月-日”，而不是把不同位置的数字拼起来。
+// 支持 YYYY年M月、YYYY年M月D日、YYYY年M月D日至D日（同月范围）。
+const FULL_DATE=/(\d{4})\s*年\s*(\d{1,2})\s*月(?:\s*(\d{1,2})\s*日(?:\s*至\s*(?:(\d{1,2})\s*月\s*)?(\d{1,2})\s*日)?)?/g;
+function validCalendarDay(y,m,d){
+  if(m<1||m>12||d<1||d>31)return false;
+  const date=new Date(Date.UTC(y,m-1,d));
+  return date.getUTCFullYear()===y&&date.getUTCMonth()+1===m&&date.getUTCDate()===d;
+}
+function dateFacts(text){
+  const out=[];
+  for(const match of String(text).matchAll(FULL_DATE)){
+    const y=Number(match[1]),m=Number(match[2]),d=match[3]?Number(match[3]):null;
+    const endM=match[4]?Number(match[4]):m,endD=match[5]?Number(match[5]):null;
+    out.push({raw:match[0],y,m,d,endM,endD,
+      valid:m>=1&&m<=12&&(d===null||validCalendarDay(y,m,d))
+        &&(endD===null||(validCalendarDay(y,endM,endD)&&(endM>m||(endM===m&&endD>=d))))});
+  }
+  return out;
+}
+function dateSupported(claim,source){
+  if(!claim.valid)return false;
+  if(claim.y!==source.y||claim.m!==source.m||!source.valid)return false;
+  if(claim.d===null)return true; // 资料有具体日期时，也支持只回答到月份
+  if(source.d===null)return false;
+  const srcEndMonth=source.endD===null?source.m:source.endM;
+  const srcEndDay=source.endD===null?source.d:source.endD;
+  const claimEndMonth=claim.endD===null?claim.m:claim.endM;
+  const claimEndDay=claim.endD===null?claim.d:claim.endD;
+  const ordinal=(month,day)=>month*32+day;
+  return ordinal(claim.m,claim.d)>=ordinal(source.m,source.d)
+    &&ordinal(claimEndMonth,claimEndDay)<=ordinal(srcEndMonth,srcEndDay);
+}
+function unsupportedDates(answer,ids){
+  const cited=ids.map(id=>evidence.find(e=>e.id===id).text).join('\n');
+  const sourceDates=dateFacts(cited);
+  return dateFacts(answer).filter(d=>!sourceDates.some(s=>dateSupported(d,s))).map(d=>d.raw);
+}
+// 回答中的肯定性数字必须由所引资料正文支持；仅被明确否定的用户错误数字可复述。
+// 这不是完整的事实蕴含核验；跨句主体、部队和因果关联仍需单独审计。
 function unsupportedNumbers(answer,ids,question){
+  const claims=withoutRefutedQuestionFacts(answer,question);
   const allowed=new Set(ids.flatMap(id=>numbersAllowedIn(evidence.find(e=>e.id===id).text)));
-  return [...new Set(numbersClaimedIn(answer).filter(n=>!allowed.has(n)))];
+  return [...new Set([...numbersClaimedIn(claims).filter(n=>!allowed.has(n)),...unsupportedDates(claims,ids)])];
 }
 // 回答中的书名号内容（文件、文章名）必须与所引资料或用户问题中的写法完全一致。
 const squash=text=>String(text).replace(/\s+/g,'');
