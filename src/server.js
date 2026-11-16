@@ -145,7 +145,8 @@ function stripLinks(text){
 // 汉字数字转数值，例如“十七”→17、“二十五”→25、“一万”→10000。
 const CN_DIGITS={零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10,百:100,千:1000,万:10000};
 function cnToNumber(text){let total=0,section=0,digit=0;for(const ch of text){const v=CN_DIGITS[ch];if(v==null)return null;if(v===10000){total+=(section+digit)*v;section=0;digit=0;}else if(v>=10){section+=(digit||1)*v;digit=0;}else digit=v;}return total+section+digit;}
-const arabicIn=text=>(String(text).match(/\d+/g)||[]).map(x=>String(Number(x)));
+const arabicIn=text=>(String(text).replaceAll('．','.').match(/\d+(?:\.\d+)?/g)||[]).map(x=>String(Number(x)));
+// 小数必须整体匹配：2.6 不能只靠引用另一条资料中独立出现的 2 和 6 通过数字检查。
 // 资料一侧：所有阿拉伯数字和汉字数字都算作“出现过”，宁可宽一些，避免误杀。
 const numbersAllowedIn=text=>[...arabicIn(text),...[...String(text).matchAll(/[零〇一二两三四五六七八九十百千万]+/g)].map(m=>cnToNumber(m[0])).filter(v=>v!=null).map(String)];
 // 回答一侧：阿拉伯数字，以及与量词连用的汉字数量（“三个月”“十七名”“两个团”），不含“第一次”这类序数和部队番号。
@@ -154,9 +155,10 @@ const CN_QUANTITY=/(?<!第)([零〇一二两三四五六七八九十百千万]+)
 // “两个故事”“三个方面”这类是在组织回答，不是史实中的数量，不核对。
 const META_AFTER=/^个(故事|问题|方面|节点|站|原因|例子|资料|地方|阶段|角度|要点)/;
 const numbersClaimedIn=text=>[...arabicIn(text),...[...String(text).matchAll(CN_QUANTITY)].filter(m=>!META_AFTER.test(String(text).slice(m.index+m[1].length))).map(m=>cnToNumber(m[1])).filter(v=>v!=null).map(String)];
-// 回答里的数字必须出现在所引资料或用户问题中。
+// 回答中的数字只接受已引用资料正文作为依据；用户问题中的数字可能是待核查的错误前提。
+// 保留 question 形参与调用方兼容，但绝不把提问数字当作可证实事实。
 function unsupportedNumbers(answer,ids,question){
-  const allowed=new Set([...ids.flatMap(id=>numbersAllowedIn(evidence.find(e=>e.id===id).text)),...numbersAllowedIn(question)]);
+  const allowed=new Set(ids.flatMap(id=>numbersAllowedIn(evidence.find(e=>e.id===id).text)));
   return [...new Set(numbersClaimedIn(answer).filter(n=>!allowed.has(n)))];
 }
 // 回答中的书名号内容（文件、文章名）必须与所引资料或用户问题中的写法完全一致。
@@ -276,19 +278,24 @@ export default {async fetch(request, env) {
   const limited=rateLimit(request,env,'chat');if(limited)return tooMany(limited);
   const question=data.question.trim(),current=nodes.find(n=>n.id===data.node),tour=cleanTour(data.tour),free=data.free===true;
   // 预先取出：当前节点的资料（首页直接提问时没有当前节点），以及上文回答引用过的资料。其余资料由模型调用工具取。
-  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id));
+  // 福建人数问题涉及多个来源口径。为避免模型只查一条就宣布“资料只有一种数字”，
+  // 将三份分别有明确出处的计数资料一起预载；这是系统资料准备，不伪称模型主动检索。
+  const fujianCountQuery=/(?:福建|闽籍|闽西|八闽).*(?:人数|多少人|多少|几万|数字|数量|口径|统计|差异|不同)|(?:人数|数量|数字|口径|统计|差异).*(?:福建|闽籍|闽西|八闽)|(?:近3万|近2\\.6万|近万人).*(?:红军|长征|人数|福建|口径)/.test(data.question);
+  const countIds=new Set(['story_fj_overview','story_fj_count_26k','story_fj_count_10k']);
+  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||(fujianCountQuery&&countIds.has(e.id)));
   const state={loaded:new Set(preload.map(e=>e.id)),action:null,current:free?null:current.id,tour};
   const gist=e=>e.id.startsWith('story_')?e.name.replace(/（[^）]*）$/,''):e.text.replace(/\s+/g,'').slice(0,26)+'…';
   const catalogue=nodes.map(n=>`[${n.id}] ${n.date} ${n.name}：${n.title}\n`+evidence.filter(e=>e.node===n.id).map(e=>`  - ${e.id}：${gist(e)}`).join('\n')).join('\n');
   const visit=tour?`观众正在按路线参观：${tour.route.map(nodeName).join(' → ')}${tour.route.includes(current.id)?`（当前第 ${tour.route.indexOf(current.id)+1} / ${tour.route.length} 站）`:'（当前节点不在路线中）'}；已看过：${tour.visited.map(nodeName).join('、')||'暂无'}。可以据此自然地衔接前后站，但衔接中的史实同样只能来自资料。`:'观众没有选择路线，正在自由浏览。';
   const system=`你是“长征史料查证助手”小征，是一个会自己查资料、核对出处、会操作页面的智能体，面向自主学习的观众，语气亲切、简洁。你的职责是查证：观众提问或给出一句说法，你查阅资料后依据原文回答。
-资料范围：目前收录的是中央红军（红一方面军）主力的长征路线，从中央苏区到吴起镇，另有直罗镇和红军三大主力会师；红二、红四方面军和红二十五军的长征只有少量资料。观众问到你能查什么、资料范围，或问到其他各路红军而资料不足时，如实说明这一点。
+资料范围：目前收录的是中央红军（红一方面军）主力的长征路线，从中央苏区到吴起镇，另有直罗镇和红军三大主力会师；红二、红四方面军和红二十五军的长征只有少量资料。
+福建人数特别规则：涉及“福建籍参加长征有多少人”“不同报道的数字为什么不一致”时，要同时比较 story_fj_overview、story_fj_count_26k、story_fj_count_10k 三份正文并分别引用。政府文章写“近3万福建子弟兵”（中央红军出发口径），福建日报写“近2.6万福建子弟”，退役军人事务厅展陈写“近万福建儿女”。后两者并没有公布足以认定统计差异原因的明确范围；不得擅称“2.6万是闽西而3万是全省”，更不能声称“资料只有一种具体数字”。若尚未核实具体统计方法，应明确说不能确定原因。观众问到你能查什么、资料范围，或问到其他各路红军而资料不足时，如实说明这一点。
 ${free?'观众在首页直接提问，没有正在参观的节点；请根据问题本身，用工具选取相关资料作答。':`当前参观节点是 ${current.name}（${current.id}）。${visit}`}
 
 一、工作方式：你手里只有资料目录和下方“已取出的资料”。目录里每条资料只列出开头几个字，用来判断该取哪些，不能当作依据。回答历史问题前，先判断已取出的资料够不够；不够就调用 read_stop（按节点取全部资料）、read_materials（按资料 ID 取若干条）或 search_materials（按关键词检索），可以多次调用，直到能回答或确认资料里没有。涉及总体情况（总里程、总时间、胜利结束）、多支部队或多个节点的问题，要把目录里相关的资料都取出来再答。故事的“资料整理说明”用于提示年代、部队归属和争议边界，它不是原文引述；不要将没有证据证明的内容断言为不存在。不要凭记忆作答：sources 只能填本次已取出的资料 ID，其余一律无效。需要操作页面时调用对应工具，不要只在文字里说“带你去”。可以在同一轮里同时调用多个取资料的工具；页面操作每次回答只做一个。
 二、先确定观众实际问了什么，直接回答该问题，不自行增加需要逐项回答的额外问题或相关话题。单一事实问题优先用一两句话回答；除非用户要求展开，否则不堆砌其他人物、事件和背景。例如用户只问某条河在哪里，就只回答其地理位置，不主动讲渡河过程、时间、意义或资料缺口。只有用户实际问到的部分缺少依据，才说明该部分资料不足；不要因为你自己想到的延伸问题缺少资料而拒答。用户问题有多项时，保留有依据的答案，只指出实际被问到且无法回答的部分。
 最终回答先判断问题类型 type：
-- "history"：与长征相关的史实、原因、意义、比较、总结等问题；问候、感谢里同时提出了这类问题的，也按 history 回答其中的历史部分。只依据已取出的资料作答，逐项回答用户提出的各个问题；用户明确问到的某一项在资料中没有依据时，简短说明这一项资料里没有具体提到，不得遗漏也不得编造；用户没有问到的内容，不要主动提“资料没有记载”“其他细节资料中没有”“资料有限”之类的话，直接讲资料里有的即可，结尾也不要加这类声明。尽量沿用资料原文的说法；资料未说明的事实必须明确说不知道，不得猜测或编造，可以同时给出资料里相关的事实。如果已取出的资料对同一事实有分歧，应明确说明不同来源各自的说法，分别列出支持的资料 ID，不要先把其中一种写成确定事实、之后再补充存在分歧；问题没有要求具体争议细节时，可以不提该细节。不要自行推算时间间隔、数量或比例，不要做资料之外的评价、假设或推测。sources 必须列出回答中每一项事实所依据的资料 ID；不可用没有支持该事实的资料代替。严格保留时间、部队、事件及人数的适用范围，不把长征初期的兵力变化写成单场战役的伤亡数字。回答中的日期、数量等数字必须原样出自所引资料。
+- "history"：与长征相关的史实、原因、意义、比较、总结等问题；问候、感谢里同时提出了这类问题的，也按 history 回答其中的历史部分。只依据已取出的资料作答，逐项回答用户提出的各个问题；用户明确问到的某一项在资料中没有依据时，简短说明这一项资料里没有具体提到，不得遗漏也不得编造；用户没有问到的内容，不要主动提“资料没有记载”“其他细节资料中没有”“资料有限”之类的话，直接讲资料里有的即可，结尾也不要加这类声明。尽量沿用资料原文的说法；资料未说明的事实必须明确说不知道，不得猜测或编造，可以同时给出资料里相关的事实。如果已取出的资料对同一事实有分歧，应明确说明不同来源各自的说法，分别列出支持的资料 ID，不要先把其中一种写成确定事实、之后再补充存在分歧；问题没有要求具体争议细节时，可以不提该细节。不要自行推算时间间隔、数量或比例，不要做资料之外的评价、假设或推测。sources 必须列出回答中每一项事实所依据的资料 ID；不可用没有支持该事实的资料代替。严格保留时间、部队、事件及人数的适用范围，不把长征初期的兵力变化写成单场战役的伤亡数字。回答中的日期、数量等数字必须原样出自所引资料。用户问题中的数字即使出现过，也不算证据；纠正错误前提时优先直接写有据可查的正确数字，不要把用户提供的错误数字重复当作事实。
 - "chat"：单纯的问候、感谢、询问你是谁或本站怎么用。简短友好地回应，可介绍你能讲解的内容和操作方式；不陈述任何史实（包括时间、人物、事件和评价），sources 为空。不需要调用工具。
 - "off_topic"：与长征学习无关。礼貌说明你只讲解长征，并建议一个可以问的方向；sources 为空。不需要调用工具。
 三、查证说法：观众贴出一句关于长征的说法并问对不对、是否属实时，type 为 history；先取出相关资料，再逐项说明：哪些与资料一致，哪些与资料不符（给出资料中的说法），哪些资料里没有提到；并列出 sources。不要因为说法里有错误就整句否定，也不要替资料补充它没有的内容。
@@ -345,11 +352,11 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         // 重答后仍有对不上出处的数字或文件名：只删掉含这些内容的句子，保留核对通过的部分；删完没有内容或涉及高风险表述时，才整体改为“资料不足”。
         const parts=result.risks.length?[]:result.answer.split(/(?<=[。！？!?；;\n])/),kept=parts.filter(s=>!unsupportedNumbers(s,result.ids,question).length&&!unsupportedTitles(s,result.ids,question).length);
         const rest=kept.join('').trim();
-        if(rest&&kept.length<parts.length&&/[\u4e00-\u9fff]{6,}/.test(rest)){result.answer=rest;step({kind:'verify',text:'删去未能核对的内容',detail:`${parts.length-kept.length} 句`,ok:false});step({kind:'verify',text:'核对出处与数字',detail:`引用 ${result.ids.length} 条资料，通过`,ok:true});}
+        if(rest&&kept.length<parts.length&&/[\u4e00-\u9fff]{6,}/.test(rest)){result.answer=rest;step({kind:'verify',text:'删去未能核对的内容',detail:`${parts.length-kept.length} 句`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
         else{result.answer=NO_DATA;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
         result.badNumbers=[];result.badTitles=[];result.risks=[];
       }
-      else if(result.type==='history'&&result.ids.length)step({kind:'verify',text:'核对出处与数字',detail:`引用 ${result.ids.length} 条资料，通过`,ok:true});
+      else if(result.type==='history'&&result.ids.length)step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});
       const {type,ids,answer,followups}=result,action=state.action||result.action;
       const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
       const grouped=new Map();
