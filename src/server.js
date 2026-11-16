@@ -42,6 +42,34 @@ async function callModel(env,messages,maxTokens,signal,tools,toolChoice){
   return fetch('https://api.deepseek.com/chat/completions',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+env.DEEPSEEK_API_KEY},signal,body:JSON.stringify({model:env.DEEPSEEK_MODEL||'deepseek-chat',messages,response_format:{type:'json_object'},temperature:0.2,max_tokens:maxTokens,...(tools?{tools,tool_choice:toolChoice||'auto'}:{})})});
 }
 
+// —— 联网兜底 ——
+// 知识库里查不到时，用带联网搜索工具的模型在网上查找。网页内容没有经过人工核对，回答和来源都单独标注为“网络来源”。
+const TRUSTED_SITE=/(?:^|\.)(?:gov\.cn|people\.com\.cn|xinhuanet\.com|news\.cn|xuexi\.cn|cctv\.com|cntv\.cn|qstheory\.cn|81\.cn|dswxyjy\.org\.cn|gmw\.cn|chinanews\.com(?:\.cn)?|china\.com\.cn|youth\.cn|cssn\.cn|12371\.cn|edu\.cn|dangjian\.cn|cnr\.cn|ce\.cn)$/i;
+const WEB_SYSTEM=`你是“长征史料查证助手”的联网查找环节。自有资料库里没有查到观众这个问题的答案，请联网搜索后回答。
+规则：1. 只回答与中国工农红军长征及相关革命历史有关的问题；无关的问题只输出 OFF_TOPIC。
+2. 只依据搜索到的网页作答，优先采用政府、党史和地方志机构、中央和省级主流媒体的网页；不同网页说法不一致时分别说明，不要自行调和。
+3. 观众的说法与网页记载不符时，先指出不符之处，再说明网页的记载。
+4. 网页里没有找到的内容，直接说没有找到，不要用自己的记忆补充，不要编造数字和出处。
+5. 直接对提问的人说话，称“你”，不要出现“观众”“用户”这类说法。
+6. 回答不超过 250 字，用平实的中文，不要写网址、Markdown 记号、表情符号和小标题。`;
+const webEnabled=env=>env.WEB_SEARCH!=='off';
+async function webLookup(env,question,signal){
+  const res=await fetch('https://api.deepseek.com/chat/completions',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+env.DEEPSEEK_API_KEY},signal,body:JSON.stringify({model:env.DEEPSEEK_WEB_MODEL||'deepseek-flash',messages:[{role:'system',content:WEB_SYSTEM},{role:'user',content:question}],tools:[{type:'deepseek_web_search',name:'deepseek_web_search'}],thinking:{type:'disabled'},temperature:0.2,max_tokens:700})});
+  if(!res.ok)return null;
+  const message=(await res.json()).choices?.[0]?.message||{};
+  let answer=String(message.content||'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/https?:\/\/\S+/g,'').replace(/[*#`>]+/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim().slice(0,500);
+  if(!answer)return null;
+  if(/^OFF_TOPIC/.test(answer))return {offTopic:true};
+  const found=new Map();
+  for(const group of Array.isArray(message.server_tool_calls)?message.server_tool_calls:[])for(const call of group?.calls||[])for(const src of call?.sources||[])if(src&&typeof src.url==='string'&&!found.has(src.url))found.set(src.url,src);
+  const cited=[...new Set((Array.isArray(message.annotations)?message.annotations:[]).map(a=>a?.url_citation?.url).filter(u=>typeof u==='string'))];
+  const urls=(cited.length?cited:[...found.keys()].slice(0,3)).slice(0,5),titles=new Map((message.annotations||[]).map(a=>[a?.url_citation?.url,a?.url_citation?.title]));
+  const sources=[];
+  for(const url of urls){let host='';try{const u=new URL(url);if(!/^https?:$/.test(u.protocol))continue;host=u.hostname}catch{continue}const f=found.get(url)||{};sources.push({url,title:String(titles.get(url)||f.title||host).slice(0,80),site:String(f.site_name||host).slice(0,30),trusted:TRUSTED_SITE.test(host)});}
+  if(!sources.length)return null; // 没有任何网页出处的回答不采用
+  return {answer,sources};
+}
+
 // —— 智能体工具 ——
 // 模型不再直接拿到全部资料，而是自己决定调用哪些工具：查阅节点资料、检索、操作页面。
 // 回答只能引用本轮已取出的资料（loaded），其余 ID 一律作废。
@@ -310,7 +338,22 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
     const messages=[{role:'system',content:system},...history,{role:'user',content:question}];
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
     const steps=[],step=s=>{steps.push(s);emit({step:s});};
+    const useWeb=webEnabled(env)&&(data.web==='auto'||data.web==='only');
+    // 联网查找：单独计时；成功时返回网络来源的回答，失败时返回 null（保留原回答）
+    const lookup=async()=>{
+      step({kind:'web',text:data.web==='only'?'联网查找':'资料库里没有查到，联网查找'});
+      clearTimeout(timer);const t=setTimeout(()=>controller.abort(),40000);
+      try{
+        const found=await webLookup(env,question,controller.signal);
+        if(!found){step({kind:'verify',text:'联网没有查到可用的网页出处',ok:false});return null;}
+        if(found.offTopic)return {status:200,body:{answer:'这个问题和长征关系不大，我只查证长征相关的内容。',sources:[],type:'off_topic',followups:[],steps}};
+        step({kind:'verify',text:'整理网络来源',detail:`${found.sources.length} 个网页，未经人工核对`,ok:false});
+        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,question,answer:found.answer.slice(0,800),sources:[],at:Date.now()});
+        return {status:200,body:{answer:found.answer,sources:[],web:{sources:found.sources},historyToken,type:'history',followups:[],steps}};
+      }catch{step({kind:'verify',text:'联网查找失败',ok:false});return null}finally{clearTimeout(t)}
+    };
     try {
+      if(useWeb&&data.web==='only'){const out=await lookup();return out||{status:200,body:{answer:'联网没有查到可靠的网页出处，暂时无法回答这个问题。',sources:[],type:'history',followups:[],steps}};}
       let result=null,corrected=false,nudged=false,toolCalls=0;
       for(let round=0;round<7;round++){
         const last=round===6||toolCalls>=8;
@@ -356,10 +399,14 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       }
       else if(result.type==='history'&&result.ids.length)step({kind:'verify',text:'核对出处与数字',detail:`引用 ${result.ids.length} 条资料，通过`,ok:true});
       const {type,ids,answer,followups}=result,action=state.action||result.action;
+      // 历史问题在资料库里没有查到出处：联网兜底；查到一部分但说明了资料没有涉及的内容：让页面提供“联网再查”
+      const gap=/(?:资料|文献|记载|知识库)[^。]{0,24}(?:没有|未|不足|无法|尚无)|不知道/.test(answer);
+      if(useWeb&&type==='history'&&!ids.length&&!action){const out=await lookup();if(out)return out;}
+      const canWeb=useWeb&&type==='history'&&ids.length>0&&gap&&!action;
       const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
       const grouped=new Map();
       for(const id of ids){const e=evidence.find(x=>x.id===id),existing=grouped.get(e.url);if(existing){existing.ids.push(id);existing.excerpt+='\n'+e.text}else grouped.set(e.url,{id,ids:[id],title:e.source,url:e.url,excerpt:e.text});}
-      return {status:200,body:{answer,sources:[...grouped.values()],historyToken,type,action,followups,steps}};
+      return {status:200,body:{answer,sources:[...grouped.values()],historyToken,type,action,followups,steps,...(canWeb?{canWeb:true}:{})}};
     } catch(e) {return {status:502,body:{error:e?.name==='AbortError'?'助手响应超时，请稍后重试。':'连接模型服务失败，请稍后重试。'}}} finally {clearTimeout(timer)}
   };
   // 页面请求 stream:true 时逐行返回（NDJSON）：先是处理步骤 {"step":…}，最后一行 {"done":…} 或 {"error":…}。

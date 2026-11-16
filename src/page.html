@@ -213,6 +213,12 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .msg-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.75}
 .asked-at{display:inline-block;font-size:12px;color:var(--text3);margin-bottom:2px}
 .msg.error .msg-text{color:var(--accent)}
+.trust{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:var(--text3)}
+.trust:before{content:"";width:7px;height:7px;border-radius:50%;background:#2e7d4f}
+.trust.web{color:#8a5a00}.trust.web:before{background:#c77700}
+.webrefs{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:2px}
+.webref{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%}.webref small{font-size:11px;color:#8a5a00}
+.webask{margin-top:10px;font-size:13px}
 .refs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ref{display:inline-flex;align-items:center;gap:5px;max-width:100%;height:26px;padding:0 10px;border:1px solid var(--border);border-radius:999px;background:var(--bg);font-size:12px;color:var(--text2);text-decoration:none;overflow:hidden}
 .ref svg{flex:none;width:10px;height:10px}
@@ -543,7 +549,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="hm-stage" id="hm-stage"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline class="map-route" id="hm-route"></polyline></svg></div>
 <p class="hm-note">位置按各处的大致经纬度摆放（上北下南），相邻太近的略有挪动，非精确地图；虚线只表示先后顺序，不是行军路线。点任意一处，进入对应一站的讲解。</p>
 </section>
-<div class="about" id="about"><p>长征路上 · 长征史料查证助手。目前收录的是中央红军主力的长征路线（中央苏区至吴起镇），另有到陕北之后的直罗镇和红军三大主力会师；红二、红四方面军和红二十五军的长征只有少量资料。节点资料整理自公开文章，每条均附原文链接。</p><p>位置图为节点示意，非精确地理地图与行军路线，不代表各路红军的完整路线。</p><p>回答由 AI 根据资料生成，请结合原文核对；提问和参观偏好会发送给 DeepSeek，请勿输入个人敏感信息。</p></div>
+<div class="about" id="about"><p>长征路上 · 长征史料查证助手。目前收录的是中央红军主力的长征路线（中央苏区至吴起镇），另有到陕北之后的直罗镇和红军三大主力会师；红二、红四方面军和红二十五军的长征只有少量资料。节点资料整理自公开文章，每条均附原文链接。</p><p>位置图为节点示意，非精确地理地图与行军路线，不代表各路红军的完整路线。</p><p>回答由 AI 根据资料生成，请结合原文核对；标有“网络来源”的内容来自联网搜索，未经人工核对；提问和参观偏好会发送给 DeepSeek，请勿输入个人敏感信息。</p></div>
 </div>
 </main>
 
@@ -576,7 +582,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <div class="chips" id="chat-chips"></div>
 <form class="composer" id="chat-form"><label class="sr-only" for="question">向小征提问</label><textarea id="question" rows="1" maxlength="500" placeholder="继续提问…" enterkeyhint="send"></textarea><div class="composer-bar"><span class="ctx-pill" aria-hidden="true"><i></i><span id="ctx-text2"></span></span><span class="spacer"></span><span class="count" id="count"></span><button class="send-round" id="send" type="submit" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div></form>
 <div class="dock-meta"><span id="status" role="status"></span></div>
-<p class="disclaimer">回答由 AI 根据资料生成，请结合原文核对；提问会发送给 DeepSeek，请勿输入个人敏感信息。</p>
+<p class="disclaimer">回答由 AI 根据资料生成，请结合原文核对；标有“网络来源”的内容来自联网搜索，未经人工核对；提问会发送给 DeepSeek，请勿输入个人敏感信息。</p>
 </div>
 </section>
 <section class="pane read-pane" id="read-pane" aria-label="讲解内容">
@@ -859,7 +865,7 @@ function renderSide() {
   const qs = sideQuestions();
   if (qs.length) { const sec = el('div', 'side-sec'); const h = el('h3', '', '可以这样问我'); const more = el('button', '', '换一批'); more.type = 'button'; more.addEventListener('click', () => { sideOffset += 1; renderSide(); }); h.append(more); sec.append(h); for (const q of qs) { const b = el('button', 'side-q', q); b.type = 'button'; b.disabled = busy; b.addEventListener('click', () => askChip(q)); sec.append(b); } side.append(sec); }
   if (mentioned.length) { const sec = el('div', 'side-sec'); sec.append(el('h3', '', '对话中提到的地点')); for (const id of mentioned) { const n = find(id); const b = el('button', 'side-place'); b.type = 'button'; b.append(el('i'), document.createTextNode(n.name), el('small', '', n.date)); b.addEventListener('click', () => choose(id)); sec.append(b); } side.append(sec); }
-  const foot = el('p', 'side-foot'); foot.append(document.createTextNode('回答只依据整理好的 ' + sourceCount + ' 条史料并附出处。')); const ab = el('button', '', '资料说明 →'); ab.type = 'button'; ab.addEventListener('click', () => $('bar-about').click()); foot.append(ab); side.append(foot);
+  const foot = el('p', 'side-foot'); foot.append(document.createTextNode('回答优先依据整理好的 ' + sourceCount + ' 条史料并附出处；资料里没有的，会联网查找并标明“网络来源”。')); const ab = el('button', '', '资料说明 →'); ab.type = 'button'; ab.addEventListener('click', () => $('bar-about').click()); foot.append(ab); side.append(foot);
 }
 function updateReturnChat() { $('return-chat').hidden = !hasFreeConversation || (view === 'session' && chatOnly); }
 function setChatOnly(on) {
@@ -1236,10 +1242,17 @@ function addMessage(who, text, sources = [], opts = {}) {
   if (opts.steps && opts.steps.length) body.append(stepList(opts.steps));
   body.append(el('div', 'msg-text', text));
   if (opts.related && opts.related.length) body.append(relatedCards(opts.related));
+  if (opts.web) {
+    // 网络来源：与已核对资料分开标注，每个网页写明站点；非权威站点另加提示
+    const box = el('div', 'webrefs'); box.append(el('div', 'trust web', '网络来源 · 未经人工核对，引用前请打开原文确认'));
+    for (const w of opts.web.slice(0, 5)) { const u = safeLink(w.url); if (!u) continue; const a = srcLink(u, (w.site ? w.site + '：' : '') + (w.title || '查看网页'), 'ref'); if (!w.trusted) { const row2 = el('span', 'webref'); row2.append(a, el('small', '', '非权威来源，仅供参考')); box.append(row2); } else box.append(a); }
+    body.append(box);
+  } else if (!mine && sources.some(s => s.excerpt)) body.append(el('div', 'trust ok', '依据：已人工核对的资料'));
   const refs = el('div', 'refs'); for (const s of sources) { const u = safeLink(s.url); if (u) refs.append(srcLink(u, s.title || '查看资料', 'ref')); } if (refs.childNodes.length) body.append(refs);
   const ex = sources.filter(s => typeof s.excerpt === 'string' && s.excerpt.trim());
   if (ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); body.append(d); }
   const follow = (opts.followups || []).filter(q => typeof q === 'string' && q.trim()).slice(0, 2);
+  if (opts.webAsk) { const b = el('button', 'btn btn-ghost webask', '资料里没有的部分，联网再查一下'); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(opts.webAsk, { webOnly: true }); }); body.append(b); }
   if (follow.length) { const box = el('div', 'followups'); for (const q of follow) { const c = el('button', 'chip', q); c.type = 'button'; c.addEventListener('click', () => askChip(q)); box.append(c); } body.append(box); }
   if (opts.actions && opts.actions.length) { messages.querySelectorAll('.quick button').forEach(b => { b.disabled = true; }); const box = el('div', 'quick'); for (const a of opts.actions) { const b = el('button', 'btn ' + (a.primary ? 'btn-primary' : 'btn-ghost'), a.label); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; a.run(); }); box.append(b); } body.append(box); }
   if (opts.retry) { const r = el('button', 'btn btn-ghost retry', '重试这个问题'); r.type = 'button'; r.addEventListener('click', () => { if (busy) return; const cur = input.value.trim(); if (cur && (cur !== opts.retry || selected !== opts.retryNode)) { status.textContent = '输入框已有未发送的问题，请先处理后再重试。'; input.focus(); return; } if (opts.retryNode && selected !== opts.retryNode) choose(opts.retryNode, { keepPane: true }); r.disabled = true; input.value = ''; autosize(input); ask(opts.retry); }); body.append(r); }
@@ -1247,7 +1260,7 @@ function addMessage(who, text, sources = [], opts = {}) {
   if (!mine && !opts.quiet && mobile() && view === 'session' && pane !== 'chat') $('chat-dot').hidden = false;
   return row;
 }
-function stepItem(s, live) { const li = el('li', (s.kind === 'act' ? 'act' : s.kind === 'verify' ? (s.ok ? 'ok' : 'bad') : '') + (live ? ' live' : '')); li.append(el('b', '', String(s.text || '').slice(0, 80))); if (s.detail) li.append(document.createTextNode(' · ' + String(s.detail).slice(0, 80))); return li; }
+function stepItem(s, live) { const li = el('li', (s.kind === 'act' || s.kind === 'web' ? 'act' : s.kind === 'verify' ? (s.ok ? 'ok' : 'bad') : '') + (live ? ' live' : '')); li.append(el('b', '', String(s.text || '').slice(0, 80))); if (s.detail) li.append(document.createTextNode(' · ' + String(s.detail).slice(0, 80))); return li; }
 function stepList(steps) { const ul = el('ul', 'steps'); ul.setAttribute('aria-label', '小征的处理过程'); for (const s of steps) if (s && typeof s === 'object') ul.append(stepItem(s)); return ul; }
 // 流式请求：服务端逐行返回处理步骤，最后一行是结果。不支持流式读取时退回普通请求。
 async function askStream(payload, onStep) {
@@ -1258,7 +1271,7 @@ async function askStream(payload, onStep) {
     const response = await fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...payload, stream: true }), signal: controller.signal });
     if (!(response.headers.get('content-type') || '').includes('ndjson') || !response.body) { let data; try { data = await response.json(); } catch { throw new Error('服务返回异常，请稍后再试。'); } if (!response.ok || !data || data.error) throw fail(data, response.status); return data; }
     const reader = response.body.getReader(), decoder = new TextDecoder(); let buf = '', result = null;
-    const handle = line => { if (!line.trim()) return; let obj; try { obj = JSON.parse(line); } catch { return; } if (obj.step) onStep(obj.step); else if (obj.done) result = obj.done; else if (obj.error) throw fail(obj, obj.status); };
+    const handle = line => { if (!line.trim()) return; let obj; try { obj = JSON.parse(line); } catch { return; } if (obj.step) { onStep(obj.step); clearTimeout(timer); timer = setTimeout(() => controller.abort(), 50000); } else if (obj.done) result = obj.done; else if (obj.error) throw fail(obj, obj.status); };
     while (true) { const { done, value } = await reader.read(); if (done) break; buf += decoder.decode(value, { stream: true }); let i; while ((i = buf.indexOf('\n')) >= 0) { handle(buf.slice(0, i)); buf = buf.slice(i + 1); } }
     handle(buf + decoder.decode());
     if (!result || typeof result !== 'object') throw new Error('服务返回异常，请稍后再试。');
@@ -1292,7 +1305,7 @@ async function ask(question, opts = {}) {
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
   const free = chatOnly || topicMode;
-  const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour, ...(free ? { free: true } : {}) });
+  const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(free ? { free: true } : {}) });
   let payload = build();
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
   const typing = showTyping();
@@ -1307,7 +1320,7 @@ async function ask(question, opts = {}) {
       if (matched.length) matched.forEach(n => markQuestionAnswered(n.id, question)); else markQuestionAnswered(questionNode, question);
       for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide();
     } else markQuestionAnswered(questionNode, question);
-    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [] });
+    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? question : null });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     if (ttsOn) speak(data.answer);

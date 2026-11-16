@@ -215,6 +215,17 @@ for(const bad of ['资料只记载她们在长征前挑粮支前，不能据此�
   log=script([reply({type:'history',answer:bad,sources:['story_fj_ninghua_grain']}),reply({type:'history',answer:'这个说法没有依据。资料记载的是长征前的挑粮支前，不是参加长征的人数；是否有人后来参加长征，资料没有记载。',sources:['story_fj_ninghua_grain']})]);
   body=await (await worker.fetch(make({question:'宁化妇女都参加长征了吗？',node:'start'}),env)).json();assert.equal(log.length,2,bad);assert.match(body.answer,/没有依据/);assert.match(log[1].messages.at(-1).content,/不要只答/);
 }
+// 联网兜底：只有页面请求 web 时才启用；资料库没有出处时改用网络来源并单独标注，没有网页出处的联网回答不采用。
+const webReply=(content,urls)=>Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content,annotations:urls.map(u=>({type:'url_citation',url_citation:{url:u,title:'网页标题'}})),server_tool_calls:[{calls:[{sources:urls.map(u=>({url:u,title:'网页标题',site_name:'某站'}))}]}]}}]});
+const none=reply({type:'history',answer:'资料里没有提到这一点。',sources:[]});
+log=script([b=>b.model==='deepseek-flash'?webReply('据网页记载，[某事](https://x.example/a)发生在1934年。https://x.example/a',['https://www.ninghua.gov.cn/a','https://blog.example.com/b','javascript:alert(1)']):none.clone()]);
+body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),env)).json();
+assert.equal(log.at(-1).model,'deepseek-flash');assert.equal(log.at(-1).tools[0].type,'deepseek_web_search');assert.deepEqual(body.sources,[]);assert.equal(body.web.sources.length,2);assert.equal(body.web.sources[0].trusted,true);assert.equal(body.web.sources[1].trusted,false);assert.doesNotMatch(body.answer,/https?:|\]\(/);assert.ok(body.steps.some(x=>x.kind==='web'));
+log=script([b=>b.model==='deepseek-flash'?webReply('没有出处的回答。',[]):none.clone()]);
+body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),env)).json();assert.equal(body.web,undefined);assert.match(body.answer,/资料/);
+log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true}),env)).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);assert.equal(body.web,undefined);
+log=script([webReply('OFF_TOPIC',[])]);body=await (await worker.fetch(make({question:'今天天气',node:'start',free:true,web:'only'}),env)).json();assert.equal(log.length,1);assert.equal(body.type,'off_topic');
+log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),{...env,WEB_SEARCH:'off'})).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);
 // 常用称谓可检索到对应人物，不改变资料原文。
 log=script([toolReply([toolCall('search_materials',{query:'周总理'})]),reply({type:'history',answer:'周恩来病倒后由担架队抬过草地。',sources:['story_zhou_enlai']})]);
 body=await (await worker.fetch(make({question:'周总理过草地',node:'start',free:true}),env)).json();
