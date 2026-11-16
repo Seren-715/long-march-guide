@@ -3,18 +3,18 @@
 // 与人工标注的“应命中资料”比对。指标：前 3 条命中率、前 8 条命中率（检索工具一次最多返回 8 条）、首个正确结果的平均倒数排名（MRR）。
 //
 // 用法：npm run eval:retrieval        （先 npm run build，或直接 npm test 会自动构建）
-// 可选：RETRIEVAL_OUT=报告路径（默认 docs/检索评估结果-<日期>.md）；RETRIEVAL_MIN=前 8 条命中率下限（低于则退出码 1，默认不检查）
+// 任一测试用例未达到前 8 条命中要求即以非零状态退出。可选：RETRIEVAL_OUT=报告路径；RETRIEVAL_MIN=前 8 条命中率下限。
 // 新增资料后，应在 CASES 里补上对应的查询。
 
 import { writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import worker from '../worker/index.js';
 
-// [查询, 应命中的资料 ID（命中任意一个即算对）]。查询既有关键词式的，也有口语问法。
+// [查询, 应命中资料 ID, {requireAll:true}?]。缺省为命中任一，跨来源比较题必须命中全部。
 export const CASES = [
   ['福建日报近2.6万福建子弟', ['story_fj_count_26k']],
   ['近万福建儿女福建长征英烈主题展', ['story_fj_count_10k']],
-  ['福建参加长征有多少人为什么统计不同', ['story_fj_overview', 'story_fj_count_26k', 'story_fj_count_10k']],
+  ['福建参加长征有多少人为什么统计不同', ['story_fj_overview', 'story_fj_count_26k', 'story_fj_count_10k'], {requireAll:true}],
   ['二万五千里', ['wuqi_distance_method', 'wuqi_summary', 'start_route_compare']],
   ['长征一共走了多少里', ['wuqi_summary', 'start_route_compare', 'wuqi_distance_method']],
   ['长征走了多长时间', ['wuqi_summary', 'start_route_dates']],
@@ -73,10 +73,14 @@ export async function search(query) {
 }
 export async function evaluate() {
   const rows = []; let h3 = 0, h8 = 0, mrr = 0;
-  for (const [query, expected] of CASES) {
-    const got = await search(query), rank = got.findIndex(id => expected.includes(id)) + 1;
+  for (const [query, expected, options={}] of CASES) {
+    const got = await search(query), positions=expected.map(id=>got.indexOf(id)+1);
+    // requireAll: 用最后一条必需资料的排名作为整题排名，而不是“任一命中”。
+    const rank = options.requireAll
+      ? (positions.every(p=>p>0)?Math.max(...positions):0)
+      : got.findIndex(id=>expected.includes(id))+1;
     if (rank && rank <= 3) h3++; if (rank && rank <= 8) h8++; if (rank) mrr += 1 / rank;
-    rows.push({ query, expected, got, rank });
+    rows.push({ query, expected, got, rank, requireAll:options.requireAll===true });
   }
   const n = CASES.length;
   return { rows, n, hit3: h3 / n, hit8: h8 / n, mrr: mrr / n };
@@ -84,10 +88,10 @@ export async function evaluate() {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const r = await evaluate(), pct = x => (x * 100).toFixed(1) + '%';
-  for (const x of r.rows) console.log((x.rank ? String(x.rank).padStart(2) : ' ✗'), x.query, x.rank ? '' : '→ 应命中 ' + x.expected.join('／') + '，实际 ' + (x.got.slice(0, 4).join('、') || '无'));
+  for (const x of r.rows) console.log((x.rank ? String(x.rank).padStart(2) : ' ✗'), x.query, x.rank ? '' : '→ 应命中 ' + (x.requireAll?'全部：':'任一：') + x.expected.join('／') + '，实际 ' + (x.got.slice(0, 8).join('、') || '无'));
   console.log(`\n查询 ${r.n} 个：前 3 条命中 ${pct(r.hit3)}，前 8 条命中 ${pct(r.hit8)}，MRR ${r.mrr.toFixed(3)}`);
   const date = new Date().toISOString().slice(0, 10), out = process.env.RETRIEVAL_OUT || `docs/检索评估结果-${date}.md`;
-  await writeFile(out, [`# 检索评估结果（${date}）`, '', `- 查询 ${r.n} 个，只测 search_materials 检索工具，不调用模型。`, `- 前 3 条命中率 ${pct(r.hit3)}，前 8 条命中率 ${pct(r.hit8)}，MRR ${r.mrr.toFixed(3)}。`, '- “排名”是第一条应命中资料出现的位置；“未命中”表示前 8 条里没有。', '', '| 查询 | 应命中（任一） | 排名 | 实际返回（前 8 条） |', '| --- | --- | --- | --- |', ...r.rows.map(x => `| ${x.query} | ${x.expected.join('、')} | ${x.rank || '未命中'} | ${x.got.join('、') || '无'} |`), ''].join('\n'));
+  await writeFile(out, [`# 检索评估结果（${date}）`, '', `- 查询 ${r.n} 个，只测 search_materials 检索工具，不调用模型。`, `- 前 3 条命中率 ${pct(r.hit3)}，前 8 条命中率 ${pct(r.hit8)}，MRR ${r.mrr.toFixed(3)}。`, '- “排名”是第一条应命中资料出现的位置；“未命中”表示前 8 条里没有。', '', '| 查询 | 应命中（全部/任一） | 排名 | 实际返回（前 8 条） |', '| --- | --- | --- | --- |', ...r.rows.map(x => `| ${x.query} | ${x.requireAll?'全部':'任一'}：${x.expected.join('、')} | ${x.rank || '未命中'} | ${x.got.join('、') || '无'} |`), ''].join('\n'));
   console.log('报告：' + out);
-  const min = Number(process.env.RETRIEVAL_MIN); if (min && r.hit8 < min) process.exit(1);
+  const min = Number(process.env.RETRIEVAL_MIN); if (r.rows.some(x=>!x.rank)||(min&&r.hit8<min)) process.exitCode=1;
 }
