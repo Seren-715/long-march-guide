@@ -188,6 +188,49 @@ for(const approximate of ['近26000人','近2.6万人','约两万六千人']){
   assert.equal(attempts,1,'保持近似限定的等值表达被拒：'+approximate);
   assert.equal(body.sources[0].id,'story_fj_count_26k');
 }
+// 核心知识库事实绑定：泸定桥原文将5月29日和大渡河写在同一长句中，曾导致合法回答被拒。
+for(const answer of ['飞夺泸定桥发生于1935年5月29日。','1935年5月29日，中央红军飞夺泸定桥。']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer,sources:['luding']})};
+  body=await (await worker.fetch(make({question:'飞夺泸定桥是什么时候？',node:'luding'}),env)).json();
+  assert.equal(attempts,1,'泸定桥有据日期不得误拒：'+answer);
+  assert.match(body.answer,/5月29日/);assert.equal(body.sources[0].id,'luding');
+}
+// 大渡河节点先前把“25日晨”省略年份月份，完整归一后也应能独立支持5月25日。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'强渡大渡河发生于1935年5月25日。',sources:['dadu']})};
+body=await (await worker.fetch(make({question:'强渡大渡河是哪天？',node:'dadu'}),env)).json();
+assert.equal(attempts,1,'大渡河5月25日有据日期被误拒');assert.equal(body.sources[0].id,'dadu');
+// 三事件各自的正确日期，无论顺序如何都应保留，不能过度拒答。
+for(const answer of [
+  '湘江之战于1934年11月27日开始，遵义会议于1935年1月15日召开，飞夺泸定桥发生在1935年5月29日。',
+  '1935年5月29日红军飞夺泸定桥；1935年1月15日召开遵义会议；1934年11月27日进行湘江之战。'
+]){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer,sources:['xiangjiang','zunyi','luding']})};
+  body=await (await worker.fetch(make({question:'湘江、遵义会议和泸定桥分别是什么时间？',node:'luding'}),env)).json();
+  assert.equal(attempts,1,'三事件正确日期被误拒：'+answer);
+  assert.match(body.answer,/泸定桥/);assert.equal(body.sources.length,1);
+  assert.deepEqual(body.sources[0].ids,['xiangjiang','zunyi','luding']);
+}
+// 两个或三个事件交换已知日期，必须继续被拦截并要求重答。
+for(const answer of [
+  '湘江之战于1935年5月29日开始，红军于1934年11月27日飞夺泸定桥。',
+  '湘江之战于1934年11月27日开始，遵义会议于1935年5月29日召开，飞夺泸定桥发生在1935年1月15日。',
+  '1934年11月27日红军飞夺泸定桥；1935年1月15日召开遵义会议；1935年5月29日进行湘江之战。'
+]){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+    ?{type:'history',answer,sources:['xiangjiang','zunyi','luding']}
+    :{type:'history',answer:'遵义会议于1935年1月15日召开，湘江之战于1934年11月27日开始，红军于1935年5月29日夺取泸定桥。',sources:['xiangjiang','zunyi','luding']})};
+  body=await (await worker.fetch(make({question:'三个重要事件分别何时？',node:'luding'}),env)).json();
+  assert.equal(attempts,2,'事件日期互换不应因多份引用而通过：'+answer);
+  assert.match(body.answer,/1935年5月29日夺取泸定桥/);
+}
+// 泸定桥文字提到了大渡河，不代表5月29日也适用于强渡大渡河。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+  ?{type:'history',answer:'强渡大渡河发生于1935年5月29日。',sources:['luding','dadu']}
+  :{type:'history',answer:'中央红军于1935年5月25日强渡大渡河。',sources:['dadu']})};
+body=await (await worker.fetch(make({question:'强渡大渡河是哪天？',node:'dadu'}),env)).json();
+assert.equal(attempts,2,'大渡河不能借用泸定桥5月29日日期');
+assert.match(body.answer,/5月25日/);
+
 // 截断的输出视为格式错误并重试
 attempts=0;globalThis.fetch=async()=>{attempts++;return attempts===1?reply('{"type":"history","answer":"遵义',{finish_reason:'length'}):reply({type:'history',answer:'1935 年 1 月召开。',sources:['zunyi']})};
 res=await worker.fetch(make({question:'遵义会议何时？',node:'zunyi'}),env);assert.equal(res.status,200);assert.equal(attempts,2);
