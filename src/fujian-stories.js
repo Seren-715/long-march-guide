@@ -22,7 +22,8 @@ export const fujianStories = [
     "note": "这是福建日报的报道用语；“近2.6万”不能擅自改写为“仅闽西子弟兵”或断言与近3万一定是不同统计对象。尚需核查原始统计依据。",
     "reviewed": true,
     "source": "《血色丰碑下的追寻与传承》·福建日报（福建省退役军人事务厅转载）",
-    "url": "https://tyjrswt.fujian.gov.cn/xwzx/mtjj/202609/t20260920_7215856.htm"
+    "url": "https://tyjrswt.fujian.gov.cn/xwzx/mtjj/202609/t20260920_7215856.htm",
+    "kind": "source_comparison"
   },
   {
     "id": "story_fj_count_10k",
@@ -33,7 +34,8 @@ export const fujianStories = [
     "note": "这条出处确有“近万福建儿女”，但与同部门另一专题“近3万”存在表述差异；当前只陈列原文及未厘清的口径，不能解释为“更准确人数”。",
     "reviewed": true,
     "source": "《福建长征英烈主题展⑥：壮行（出征篇）》·福建省退役军人事务厅",
-    "url": "https://tyjrswt.fujian.gov.cn/xwzx/mtjj/202607/t20260707_7175149.htm"
+    "url": "https://tyjrswt.fujian.gov.cn/xwzx/mtjj/202607/t20260707_7175149.htm",
+    "kind": "source_comparison"
   },
   {
     "id": "story_fj_zhongfu_farewell",
