@@ -205,11 +205,16 @@ log=script([toolReply([toolCall('search_materials',{query:'彝海结盟'}),toolC
 body=await (await worker.fetch(make({question:'走了多少里',node:'start',free:true}),env)).json();
 assert.match(log[1].messages.at(-2).content,/yihai/);assert.match(log[1].messages.at(-1).content,/2\.5 万里/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['wuqi_summary']);assert.match(body.steps[0].text,/检索“彝海结盟”/);
 // 专题故事的整理说明必须随资料提供给模型，且保留来源，不把长征前支前等同于随军。
-log=script([toolReply([toolCall('read_materials',{ids:['story_fj_ninghua_grain']})]),reply({type:'history',answer:'资料记载的是长征前的挑粮支前，不能据此判断她们是否参加长征。',sources:['story_fj_ninghua_grain']})]);
+log=script([toolReply([toolCall('read_materials',{ids:['story_fj_ninghua_grain']})]),reply({type:'history',answer:'资料记载的是长征前的挑粮支前，不是参加长征的人数；她们后来是否参加长征，资料没有记载。',sources:['story_fj_ninghua_grain']})]);
 body=await (await worker.fetch(make({question:'宁化挑粮的妇女都参加长征了吗？',node:'start',free:true}),env)).json();
 assert.match(log[1].messages.at(-1).content,/资料整理说明，非原文引述/);assert.match(log[1].messages.at(-1).content,/长征前/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['story_fj_ninghua_grain']);
-log=script([reply({type:'history',answer:'宁化妇女挑粮是长征前的活动，并不是她们随中央红军参加长征。',sources:['story_fj_ninghua_grain']}),reply({type:'history',answer:'资料只记载她们在长征前挑粮支前，不能据此判断她们后来是否参加长征。',sources:['story_fj_ninghua_grain']})]);
-body=await (await worker.fetch(make({question:'宁化妇女都参加长征了吗？',node:'start'}),env)).json();assert.equal(log.length,2);assert.match(body.answer,/不能据此判断/);
+// 纠正前提是允许的；只答“无法判断”或断言她们都没参加，会被打回重写。
+log=script([reply({type:'history',answer:'宁化妇女挑粮是长征前的活动，并不是她们随中央红军参加长征；她们后来的去向资料没有记载。',sources:['story_fj_ninghua_grain']})]);
+body=await (await worker.fetch(make({question:'宁化妇女都参加长征了吗？',node:'start'}),env)).json();assert.equal(log.length,1);assert.match(body.answer,/并不是/);
+for(const bad of ['资料只记载她们在长征前挑粮支前，不能据此判断她们后来是否参加长征。','这1300名妇女后来都没有参加长征。','是的，这1300名宁化妇女后来都参加了长征。']){
+  log=script([reply({type:'history',answer:bad,sources:['story_fj_ninghua_grain']}),reply({type:'history',answer:'这个说法没有依据。资料记载的是长征前的挑粮支前，不是参加长征的人数；是否有人后来参加长征，资料没有记载。',sources:['story_fj_ninghua_grain']})]);
+  body=await (await worker.fetch(make({question:'宁化妇女都参加长征了吗？',node:'start'}),env)).json();assert.equal(log.length,2,bad);assert.match(body.answer,/没有依据/);assert.match(log[1].messages.at(-1).content,/不要只答/);
+}
 // 常用称谓可检索到对应人物，不改变资料原文。
 log=script([toolReply([toolCall('search_materials',{query:'周总理'})]),reply({type:'history',answer:'周恩来病倒后由担架队抬过草地。',sources:['story_zhou_enlai']})]);
 body=await (await worker.fetch(make({question:'周总理过草地',node:'start',free:true}),env)).json();
