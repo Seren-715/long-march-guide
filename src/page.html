@@ -585,7 +585,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 <h1 id="fujian-title" tabindex="-1">八闽儿女的长征</h1>
 <p class="fujian-intro">从长征出发地的群众支援，到福建籍红军将士的经历，一起走近这段与八闽儿女相连的历史。阅读时可以随时向小征提问。</p>
 <p class="fujian-note">本专题包括长征前、长征中和会师后的相关经历；归档节点用于浏览分类，不一定是事件发生地。</p>
-<h2 class="fujian-section-title">专题资料 · 10 条</h2><div id="fujian-list"></div>
+<h2 class="fujian-section-title">专题资料 · 12 条（含 2 条人数口径辨析）</h2><div id="fujian-list"></div>
 </section>
 <div class="read-head">
 <div class="tour" id="tour" hidden>
@@ -633,7 +633,8 @@ const DRAFT = new URLSearchParams(location.search).has('draft');
 const visible = item => !!item && (item.reviewed === true || DRAFT);
 const decisionOf = () => null, decided = new Map();   // 抉择时刻已移除；保留空实现，其余讲解流程不变
 const STORIES = Array.isArray(DATA.stories) ? DATA.stories : [];
-const storiesOf = id => STORIES.filter(t => t.node === id && visible(t));
+// 统计口径核验属于可引用史料，不应被“讲个故事”功能当作人物故事朗读。
+const storiesOf = id => STORIES.filter(t => t.node === id && visible(t) && t.kind !== 'source_comparison');
 const told = new Set();
 function tellStory(n) {
   const list = storiesOf(n.id); if (!list.length) return;
@@ -809,9 +810,12 @@ function openFujian(push = true) {
     heading.append(el('small', '', t.date)); card.append(heading, el('p', '', t.text));
     if (t.note) card.append(el('p', 'plan-note', t.note));
     const u = safeLink(t.url); if (u) card.append(srcLink(u, t.source));
-    const go = el('button', 'btn btn-ghost', '查看关联节点：' + find(t.node).name + ' →'); go.type = 'button';
-    go.addEventListener('click', () => { choose(t.node); requestAnimationFrame(() => { const story = document.getElementById('story-' + t.id); if (story) { story.scrollIntoView({block:'center',behavior:motion()}); story.tabIndex = -1; story.focus({preventScroll:true}); } }); });
-    card.append(go); list.append(card);
+    if (t.kind !== 'source_comparison') {
+      const go = el('button', 'btn btn-ghost', '查看关联节点：' + find(t.node).name + ' →'); go.type = 'button';
+      go.addEventListener('click', () => { choose(t.node); requestAnimationFrame(() => { const story = document.getElementById('story-' + t.id); if (story) { story.scrollIntoView({block:'center',behavior:motion()}); story.tabIndex = -1; story.focus({preventScroll:true}); } }); });
+      card.append(go);
+    }
+    list.append(card);
   }
   if (!list.children.length) list.append(el('p', 'plan-note', '专题资料暂未收录。'));
   setView('session'); setPane('read'); $('bar-mid').replaceChildren(el('span', 'crumb', '八闽儿女的长征'));
