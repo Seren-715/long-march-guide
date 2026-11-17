@@ -257,10 +257,9 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-list .story-next{display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:280px;aspect-ratio:3/4;padding:20px 18px;border-radius:12px;overflow-wrap:anywhere}
 /* 书本卡片像实体按钮一样抬起、按下 */
 .story-list .story-next{box-shadow:0 5px 0 #e6d1ca,0 10px 20px rgba(71,37,29,.08);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}
-.story-list .story-next:hover{transform:translateY(-2px);box-shadow:0 7px 0 #e6d1ca,0 14px 24px rgba(71,37,29,.11)}
 .story-list .story-next:active,.story-list .story-next.is-pressed{transform:translateY(5px);box-shadow:0 0 0 #e6d1ca,0 2px 5px rgba(71,37,29,.08);border-color:var(--accent-line)}
 html.story-opening::view-transition-old(root){animation:none}
-html.story-opening::view-transition-new(root){animation:story-reveal .65s ease-out both;mix-blend-mode:normal}
+html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-out both;mix-blend-mode:normal}
 @keyframes story-reveal{from{clip-path:circle(0 at var(--story-x) var(--story-y))}to{clip-path:circle(var(--story-radius) at var(--story-x) var(--story-y))}}
 .story-list .story-next small{margin-bottom:16px}
 .story-list .story-next b{font-size:17px;line-height:1.65}
@@ -777,7 +776,7 @@ function openStoryFromCard(card, id) {
       const transition = document.startViewTransition(() => { opened = true; openStory(id); });
       transition.finished.catch(() => {}).finally(() => { root.classList.remove('story-opening'); storyOpening = false; });
     } catch { root.classList.remove('story-opening'); storyOpening = false; if (!opened) openStory(id); }
-  }, 500);
+  }, 300);
 }
 function taleCard(g, cls) { const b = el('button', cls); b.type = 'button'; b.append(el('small', '', g.tag + (readTales.has(g.id) ? ' · 已读' : '')), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => { if (b.closest('.story-list')) openStoryFromCard(b, g.id); else openStory(g.id); }); return b; }
 function openStoryList(push = true) {
