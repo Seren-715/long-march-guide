@@ -253,6 +253,12 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-whys button:hover,.story-next:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--bg))}
 .story-next{display:block;width:100%}
 .story-page:has(.story-list){width:min(1200px,100%)}
+/* 故事分类筛选 */
+.story-cats{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.story-cats .chip{text-align:center}
+.story-cats .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.story-cats .chip small{margin-left:6px;opacity:.75;font-size:12px}
+.story-cat-note{margin:0 0 16px;font-size:13.5px;line-height:1.7;color:var(--text2)}
 .story-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
 .story-list .story-next{display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:280px;aspect-ratio:3/4;padding:20px 18px;border-radius:12px;overflow-wrap:anywhere}
 /* 书本卡片像实体按钮一样抬起、按下 */
@@ -782,10 +788,16 @@ function openStoryFromCard(card, id) {
   }, 500);
 }
 function taleCard(g, cls) { const b = el('button', cls); b.type = 'button'; b.append(el('small', '', g.tag + (readTales.has(g.id) ? ' · 已读' : '')), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => { if (b.closest('.story-list')) openStoryFromCard(b, g.id); else openStory(g.id); }); return b; }
+let storyCat = '';
 function openStoryList(push = true) {
   const body = $('story-body'); $('story-page').classList.remove('event'); $('story-back').hidden = true;
   $('story-tag').textContent = '真人真事，皆有出处'; $('story-title').textContent = '长征路上的故事';
-  const list = el('div', 'story-list'); for (const g of GUIDES) list.append(taleCard(g, 'story-next')); body.replaceChildren(list);
+  const CATS = [['', '全部', '所有能读的故事，挑一个开始。'], ['人物故事', '人物故事', '从一个人的经历讲起：他（她）做了什么，后来怎样。'], ['事件故事', '事件故事', '一场战斗、一次渡河或一次会合是怎样发生的。'], ['会议与决策', '会议与决策', '关键时刻，大家争论什么、最后怎样定下方向。'], ['军民与民族', '军民与民族', '红军与沿途群众、少数民族之间发生的事。']];
+  const bar = el('div', 'story-cats'), note = el('p', 'story-cat-note'), list = el('div', 'story-list');
+  const draw = cat => { const row = CATS.find(c => c[0] === cat) || CATS[0]; note.textContent = row[2]; list.replaceChildren(...GUIDES.filter(g => !cat || g.cat === cat).map(g => taleCard(g, 'story-next'))); [...bar.children].forEach((b, i) => b.setAttribute('aria-pressed', CATS[i][0] === cat ? 'true' : 'false')); storyCat = cat; };
+  CATS.forEach(([key, label]) => { const n = key ? GUIDES.filter(g => g.cat === key).length : GUIDES.length; if (key && !n) return; const b = el('button', 'chip', label); b.type = 'button'; b.append(el('small', '', String(n))); b.addEventListener('click', () => draw(key)); b.dataset.cat = key; bar.append(b); });
+  CATS.splice(0, CATS.length, ...CATS.filter(c => !c[0] || GUIDES.some(g => g.cat === c[0])));
+  body.replaceChildren(bar, note, list); draw(storyCat);
   showStoryPage('长征路上的故事', '#stories', push); currentStory = null;
 }
 function openStory(id, push = true) {
