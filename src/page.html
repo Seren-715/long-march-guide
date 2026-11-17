@@ -252,7 +252,15 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-whys button,.story-next{text-align:left;padding:11px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);font-size:14.5px;transition:border-color .15s,background .15s}
 .story-whys button:hover,.story-next:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--bg))}
 .story-next{display:block;width:100%}
-.story-list{display:grid;gap:8px}
+.story-page:has(.story-list){width:min(1200px,100%)}
+.story-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.story-list .story-next{display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:280px;aspect-ratio:3/4;padding:20px 18px;border-radius:12px;overflow-wrap:anywhere}
+.story-list .story-next small{margin-bottom:16px}
+.story-list .story-next b{font-size:17px;line-height:1.65}
+.story-list .story-next span{margin-top:auto;padding-top:16px;line-height:1.6}
+@media(max-width:1250px){.story-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:980px){.story-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
+@media(max-width:420px){.story-list .story-next{min-height:280px;padding:16px 14px}.story-list .story-next b{font-size:15px}}
 .story-next span{display:block;margin-top:3px;font-size:12px;color:var(--text3)}
 .story-all{display:block;margin:10px auto 0;font-size:13px;color:var(--accent)}
 .tale-note{margin:10px 0 14px;padding:10px 12px;border-radius:10px;background:#fff8ec;border:1px solid #f1dfbd;font-size:13px;line-height:1.7;color:#6b4a12}
