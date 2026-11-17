@@ -211,7 +211,8 @@ const HISTORICAL_EVENTS=[
   ['liping',/黎平/],['gouba',/苟坝/],['dadu',/大渡河/],
   ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
   ['lazikou',/腊子口/],['wuqi',/吴起镇/],['jiajin',/夹金山/],
-  ['maoergai',/毛儿盖/],['huili',/会理/],['houchang',/猴场/]
+  ['maoergai',/毛儿盖/],['huili',/会理/],['houchang',/猴场/],
+  ['bangluo',/榜罗镇/],['hadapu',/哈达铺/],['wujiang',/强渡乌江|渡过乌江|乌江渡河/]
 ];
 const eventKeys=text=>HISTORICAL_EVENTS.filter(([,pattern])=>pattern.test(text)).map(([id])=>id);
 function clauseAt(text,start,end,minor=false){
@@ -238,6 +239,22 @@ function dateFacts(text){
       m[4]?toDateNumber(m[4]):toDateNumber(m[2]),m[5]?toDateNumber(m[5]):null);
   }
   for(const m of source.matchAll(SEP_DATE_RE))add(m,Number(m[1]),Number(m[3]),m[4]?Number(m[4]):null,Number(m[3]),null);
+  // 省略年份的月日和省略年月的日期只继承同一句中明确出现的年月。
+  const partial=new RegExp('(?<![\\d年])('+PART_EXPR+')\\s*月\\s*('+PART_EXPR+')\\s*[日号](?:\\s*(?:至|到|—|－|-|～|~)\\s*(?:('+PART_EXPR+')\\s*月\\s*)?('+PART_EXPR+')\\s*[日号])?|(?<![\\d月年])('+PART_EXPR+')\\s*[日号]','g');
+  for(const m of source.matchAll(partial)){
+    if(out.some(d=>m.index>=d.start&&m.index<d.end))continue;
+    const before=source.slice(0,m.index),boundary=Math.max(before.lastIndexOf('。'),before.lastIndexOf('！'),before.lastIndexOf('？'),before.lastIndexOf('\n'));
+    const prior=out.filter(d=>d.start>boundary&&d.end<=m.index).sort((a,b)=>b.start-a.start)[0];
+    if(!prior&&!m[1])continue;
+    const month=m[1]?toDateNumber(m[1]):(prior.endM||prior.m),day=toDateNumber(m[2]||m[5]);
+    const endMonth=m[3]?toDateNumber(m[3]):month,endDay=m[4]?toDateNumber(m[4]):null;
+    add(m,prior?.y||2000,month,day,endMonth,endDay);
+    if(!prior||prior.yearOmitted)out[out.length-1].yearOmitted=true;
+    if(prior&&!eventKeys(out[out.length-1].context).length){
+      const preceding=eventKeys(prior.context).length?eventKeys(prior.context):(prior.inheritedEvents||[]);
+      if(preceding.length===1)out[out.length-1].inheritedEvents=preceding;
+    }
+  }
   return out.sort((a,b)=>a.start-b.start);
 }
 function maskDates(text,facts){
@@ -265,7 +282,7 @@ function countFacts(text){
 function numberTokens(text,source){
   const normalized=normalizeNumerals(text),dates=dateFacts(normalized),maskedDate=maskDates(normalized,dates),counts=countFacts(maskedDate);
   const keys=new Set(),raw=[...maskedDate];
-  for(const d of dates)if(d.valid)keys.add('N:'+d.y);
+  for(const d of dates)if(d.valid&&!d.yearOmitted)keys.add('N:'+d.y);
   for(const c of counts){
     keys.add('A:'+String(c.value));
     for(let k=c.start;k<c.end;k++)raw[k]=' ';
@@ -284,25 +301,36 @@ function numberTokens(text,source){
 }
 function numbersAllowedIn(text){return [...numberTokens(text,true)];}
 function numbersClaimedIn(text){return [...numberTokens(text,false)];}
-const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(\d{4}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[\/\-\.．]\d{1,2}[\/\-\.．]\d{1,2}|\s*年)?|\d+(?:\.\d+)?\s*(?:万(?:人|名)?|人|名))/g;
+const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(?:在|于)?\s*(\d{4}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[\/\-\.．]\d{1,2}[\/\-\.．]\d{1,2}|\s*年)?|\d{1,2}\s*月(?:\s*\d{1,2}\s*[日号])?|\d+(?:\.\d+)?\s*(?:万(?:人|名)?|人|名))/g;
 function withoutRefutedQuestionFacts(answer,question){
   const compact=normalizeNumerals(question).replace(/\s+/g,'');
   return normalizeNumerals(answer).replace(EXPLICIT_NEGATION,(match,fact)=>
     compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的数字）':match);
 }
 function dateSupported(claim,source){
-  if(!claim.valid||!source.valid||claim.y!==source.y)return false;
+  if(!claim.valid||!source.valid||(!claim.yearOmitted&&(source.yearOmitted||claim.y!==source.y)))return false;
   // 优先绑定日期所在的逗号分句；若分句不含事件，才回看整个句号句。
   // 一段有两个事件但无法分离日期归属时保守拒绝，而不是任一事件匹配即放行。
   const boundEvents=d=>{
     const local=eventKeys(d.localContext);
     if(local.length)return local;
     const whole=eventKeys(d.context);
-    return whole.length<=1?whole:null;
+    if(!whole.length&&d.inheritedEvents)return d.inheritedEvents;
+    if(whole.length<=1)return whole;
+    // 日期后第一个实际提及的事件是更明确的局部候选；并列关联不清则拒绝。
+    const after=d.context.slice(Math.max(0,d.context.indexOf(d.raw)+d.raw.length));
+    const positions=HISTORICAL_EVENTS.map(([id,pattern])=>({id,index:after.search(pattern)})).filter(x=>x.index>=0).sort((a,b)=>a.index-b.index);
+    return positions.length&&(!positions[1]||positions[0].index<positions[1].index)?[positions[0].id]:null;
   };
   const claimedEvents=boundEvents(claim),sourceEvents=boundEvents(source);
   if(claimedEvents===null||sourceEvents===null)return false;
   if(claimedEvents.length&&!claimedEvents.every(event=>sourceEvents.includes(event)))return false;
+  // 哈达铺同一段中“到达”与干部会议日期不同，地点相同也不能互换。
+  if(claimedEvents.includes('hadapu')&&sourceEvents.includes('hadapu')){
+    const actions=text=>[/(?:到达|抵达|来到)/.test(text)?'arrival':'',/(?:干部会议|团以上会议)/.test(text)?'meeting':''].filter(Boolean);
+    const claimActions=actions(claim.localContext),sourceActions=actions(source.localContext).length?actions(source.localContext):actions(source.context);
+    if(claimActions.length&&(!sourceActions.length||!claimActions.every(action=>sourceActions.includes(action))))return false;
+  }
   if(claim.d===null)return claim.m>=source.m&&claim.m<=(source.endM||source.m);
   if(source.d===null)return false;
   const ordinal=(month,day)=>month*32+day;
@@ -524,7 +552,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
     };
     try {
       if(useWeb&&data.web==='only'){const out=await lookup();return out||{status:200,body:{answer:'联网没有查到可靠的网页出处，暂时无法回答这个问题。',sources:[],type:'history',followups:[],steps}};}
-      let result=null,corrected=false,nudged=false,toolCalls=0;
+      let result=null,firstFailed=null,corrected=false,nudged=false,toolCalls=0;
       for(let round=0;round<7;round++){
         const last=round===6||toolCalls>=8;
         const res=await callModel(env,messages,900,controller.signal,TOOLS,last?'none':'auto');
@@ -548,6 +576,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         // 自称是历史回答却没有引用任何已取出的资料：提醒先查资料再答（只提醒一次）。
         const abstained=/(?:资料|文献|记载|知识库).{0,20}(?:没有|未|不足|无法|尚无)/.test(parsed.answer);
         const unread=result.type==='history'&&!result.ids.length&&((Array.isArray(parsed.sources)&&parsed.sources.length>0)||!abstained);
+        if(failed&&!firstFailed)firstFailed=result;
         if((unread&&!nudged)||(failed&&!corrected)){
           if(unread)nudged=true;else corrected=true;
           const issues=unread?'你引用的资料还没有取出或尚未列出，请列出已查阅且支持回答的资料 ID；必要时调用 read_stop、read_materials 或 search_materials 取资料':[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:'',...result.risks].filter(Boolean).join('；');
@@ -560,11 +589,18 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       }
       if(!result) return {status:502,body:{error:'助手回复格式异常，请重试。'}};
       if(result.badNumbers.length||result.badTitles.length||result.risks.length){
-        // 重答后仍有对不上出处的数字或文件名：只删掉含这些内容的句子，保留核对通过的部分；删完没有内容或涉及高风险表述时，才整体改为“资料不足”。
-        const parts=result.risks.length?[]:result.answer.split(/(?<=[。！？!?；;\n])/),kept=parts.filter(s=>!unsupportedNumbers(s,result.ids,question).length&&!unsupportedTitles(s,result.ids,question).length);
-        const rest=kept.join('').trim();
-        if(rest&&kept.length<parts.length&&/[\u4e00-\u9fff]{6,}/.test(rest)){result.answer=rest;step({kind:'verify',text:'删去未能核对的内容',detail:`${parts.length-kept.length} 句`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
-        else{result.answer=NO_DATA;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
+        // 两次回答分别按完整句子核查：保留更完整的合格内容，不拼接不同版本。
+        const candidates=[result,firstFailed].filter(Boolean).map(candidate=>{
+          if(candidate.risks.length)return null; // 前提纠正等跨句约束不可拆开。
+          const parts=candidate.answer.split(/(?<=[。！？!?\n])/).filter(Boolean);
+          const kept=parts.filter(part=>!unsupportedNumbers(part,candidate.ids,question).length&&!unsupportedTitles(part,candidate.ids,question).length);
+          const answer=kept.join('').trim();
+          if(!answer||kept.length===parts.length||(answer.match(/[\u4e00-\u9fff]/g)||[]).length<6)return null;
+          if(unsupportedNumbers(answer,candidate.ids,question).length||unsupportedTitles(answer,candidate.ids,question).length||observedRisks(answer,candidate.ids,question).length)return null;
+          return {...candidate,answer,removed:parts.length-kept.length};
+        }).filter(Boolean).sort((a,b)=>b.answer.length-a.answer.length);
+        if(candidates.length){result=candidates[0];step({kind:'verify',text:'删去未能核对的内容',detail:`${result.removed} 句`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
+        else{const issues=[result.badNumbers.length?'日期或数字':'',result.badTitles.length?'书名':'',result.risks.length?'相关事实表述':''].filter(Boolean);result.answer=`现有资料不足以可靠回答这个问题：${issues.join('、')||'具体事实'}未能核对。`;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
         result.badNumbers=[];result.badTitles=[];result.risks=[];
       }
       else if(result.type==='history'&&result.ids.length)step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});
