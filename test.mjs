@@ -2,6 +2,35 @@ import assert from 'node:assert/strict';
 import worker from './worker/index.js';
 import { nodes } from './src/data.js';
 import { stories } from './src/stories.js';
+
+const allStoryIds=stories.map(st=>st.id);
+assert.equal(new Set(allStoryIds).size,allStoryIds.length,'故事 ID 必须唯一');
+for(const st of stories){
+  assert.ok(st.title&&st.node&&st.text&&st.source&&st.url,'故事字段不完整：'+st.id);
+  assert.ok(nodes.some(n=>n.id===st.node),'故事归档节点不存在：'+st.id);
+  assert.ok(st.url.startsWith('https://')||st.url.startsWith('http://'),'故事来源 URL 无效：'+st.id);
+}
+// 扩写稿：对应的故事必须存在且已审核；正文比原稿长，原正文保留在 brief；补充出处的链接有效；正文里不出现网址。
+{
+  const {storyLong}=await import('./src/story-long.js');
+  for(const [id,l] of Object.entries(storyLong)){
+    const st=stories.find(x=>x.id===id);assert.ok(st&&st.reviewed===true,'扩写稿对应的故事不存在或未审核：'+id);
+    assert.equal(st.text,l.text);assert.ok(st.brief&&st.brief!==st.text,id);assert.ok([...l.text].length>[...st.brief].length,'扩写稿未增加内容：'+id);assert.doesNotMatch(l.text,/https?:/);
+    for(const m of l.more||[]){const u=new URL(m.url);assert.ok(['http:','https:'].includes(u.protocol)&&m.title,id);}
+  }
+}
+// 针对本次叙事扩充设下限；概述型资料不统一强制凑字数。
+const expandedStoryIds=['story_banbei_beizi','story_chen_shuxiang','story_he_zizhen','story_zhou_enlai','story_banjie_pidai','story_he_jiesheng','story_17_yongshi','story_22_yongshi','story_yihai','story_mao_lamp','story_fj_zeng_fanyi','story_fj_yang_chengwu','story_laoshanjie_mother_rice','story_tongluowan_revolution_well','story_baimian_yao_rock','story_danjiaji_night_talk','story_jiajin_tan_fagui','story_yudu_bridge','story_hadapu_newspapers'];
+for(const id of expandedStoryIds){
+  const st=stories.find(x=>x.id===id);
+  assert.ok(st,'扩充故事缺失：'+id);
+  assert.ok([...st.text.replace(/\s/g,'')].length>=140,'故事正文意外缩短：'+id);
+  assert.ok(st.note && st.source, '须保留来源及事实边界：'+id);
+  const u=new URL(st.url);
+  assert.ok(['http:','https:'].includes(u.protocol)&&u.hostname,'来源链接无效：'+id);
+}
+assert.equal(stories.find(s=>s.id==='story_tongluowan_revolution_well').reviewed,false,'铜锣湾来源细节未核实，应保留草稿');
+
 // 测试替身：多数用例里模型一步给出带 sources 的最终回答。智能体要求先用工具取出资料才能引用，
 // 所以对带 tools 的请求，这里在最终回答前自动补一轮 read_stop 工具调用，再交还原定的回答。
 const realFetch=globalThis.fetch;let mockFetch=realFetch;
@@ -78,13 +107,159 @@ globalThis.fetch=async()=>reply({type:'off_topic',answer:'我只讲解长征，�
 res=await worker.fetch(make({question:'明天天气？',node:'zunyi'}),env);body=await res.json();assert.equal(body.type,'off_topic');assert.deepEqual(body.sources,[]);
 // 数字核对：首次数字不在所引资料中 → 带校验提示重试；重试合格则采用
 attempts=0;globalThis.fetch=async(url,options)=>{attempts++;seen=JSON.parse(options.body);return reply(attempts===1?{type:'history',answer:'遵义会议于1935年1月20日召开。',sources:['zunyi']}:{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
-res=await worker.fetch(make({question:'遵义会议哪天开？',node:'zunyi'}),env);body=await res.json();assert.equal(attempts,2);assert.match(seen.messages.at(-1).content,/数字 20/);assert.match(body.answer,/15 ?日至 ?17/);assert.equal(body.sources[0].id,'zunyi');
+res=await worker.fetch(make({question:'遵义会议哪天开？',node:'zunyi'}),env);body=await res.json();assert.equal(attempts,2);assert.match(seen.messages.at(-1).content,/1935年1月20日/);assert.match(body.answer,/15 ?日至 ?17/);assert.equal(body.sources[0].id,'zunyi');
 // 两次都不合格 → 降级为资料不足
 attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'历时370天。',sources:['zunyi']})};
 res=await worker.fetch(make({question:'走了多久？',node:'zunyi'}),env);body=await res.json();assert.equal(attempts,2);assert.match(body.answer,/资料不足/);assert.deepEqual(body.sources,[]);
-// 问题里出现的数字允许在回答中复述（例如否定错误前提）
-globalThis.fetch=async()=>reply({type:'history',answer:'不是1900年，遵义会议于1935年1月召开。',sources:['zunyi']});
-res=await worker.fetch(make({question:'遵义会议是1900年召开的吗？',node:'zunyi'}),env);body=await res.json();assert.match(body.answer,/1900/);assert.equal(body.sources.length,1);
+// 可以明确否定用户错误数字，但不能因此把同一数字当作成立的史实。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'不是1900年，遵义会议于1935年1月召开。',sources:['zunyi']})};
+res=await worker.fetch(make({question:'遵义会议是1900年召开的吗？',node:'zunyi'}),env);body=await res.json();assert.equal(attempts,1);assert.match(body.answer,/1900/);assert.equal(body.sources.length,1);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+  ?{type:'history',answer:'遵义会议于1900年召开。',sources:['zunyi']}
+  :{type:'history',answer:'不是1900年，遵义会议于1935年1月召开。',sources:['zunyi']})};
+body=await (await worker.fetch(make({question:'遵义会议是1900年召开的吗？',node:'zunyi'}),env)).json();
+assert.equal(attempts,2);assert.match(body.answer,/不是1900年/);
+// 即使各组成数字在来源其他位置出现，也不能重新组合成年月日，更不能通过无效月份。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+  ?{type:'history',answer:'遵义会议于1935年17月15日召开。',sources:['zunyi']}
+  :{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+body=await (await worker.fetch(make({question:'遵义会议是1935年17月15日吗？',node:'zunyi'}),env)).json();
+assert.equal(attempts,2);assert.match(body.answer,/1月15日至17日/);assert.doesNotMatch(body.answer,/17月/);
+// 日历上不存在的日期，和来源中同年同月但不存在的日期也必须重新核验。
+for(const falseDate of ['1935年2月30日','1935年1月19日']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+    ?{type:'history',answer:'遵义会议于'+falseDate+'召开。',sources:['zunyi']}
+    :{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+  body=await (await worker.fetch(make({question:'遵义会议是哪天召开的？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,2,'未拦截拼接或无效日期 '+falseDate);assert.match(body.answer,/1月15日至17日/);
+}
+// 时间范围内的明确日期与只回答月份仍应通过，不应过度拒答。
+for(const date of ['1935年1月15日','1935年1月17日','1935年1月']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'遵义会议于'+date+'召开。',sources:['zunyi']})};
+  body=await (await worker.fetch(make({question:'遵义会议哪天开？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,1,'误拦截有据日期 '+date);assert.match(body.answer,/1935/);
+}
+// 第二轮 Work 对抗复测：连字符、斜杠、点分日期不能绕过年月日范围检查。
+for(const bad of ['1935/17/15','1935-17-15','1935.17.15','一九三五年十七月十五日']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+    ?{type:'history',answer:'遵义会议于'+bad+'召开。',sources:['zunyi']}
+    :{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+  body=await (await worker.fetch(make({question:'遵义会议是哪天召开的？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,2,'错误日期未拦截 '+bad);assert.match(body.answer,/1月15日至17日/);
+}
+for(const good of ['1935/1/16','1935-1-16','1935.1.16','一九三五年一月十五日','1935年1月16日']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'遵义会议于'+good+'召开。',sources:['zunyi']})};
+  body=await (await worker.fetch(make({question:'遵义会议是哪天召开的？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,1,'有据日期被误拒 '+good);assert.equal(body.sources.length,1);
+}
+// “近3万人”不支持“近万人”，数量级与人数量都必须整体比对。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+  ?{type:'history',answer:'福建长征有近万人。',sources:['story_fj_overview']}
+  :{type:'history',answer:'福建省政府记载福建籍将士近3万人。',sources:['story_fj_overview']})};
+body=await (await worker.fetch(make({question:'福建长征有近万人吗？',node:'start',free:true}),env)).json();
+assert.equal(attempts,2,'不能从“近3万”引用放行“近万”');assert.match(body.answer,/近3万人/);
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'另一份专题展记载近万福建儿女。',sources:['story_fj_count_10k']})};
+body=await (await worker.fetch(make({question:'福建参加长征的人数是多少？',node:'start',free:true}),env)).json();
+assert.equal(attempts,1);assert.match(body.answer,/近万/);
+// 引用遵义资料的日期不能被错误嫁接到湘江战役。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+  ?{type:'history',answer:'湘江战役于1935年1月15日召开。',sources:['zunyi']}
+  :{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+body=await (await worker.fetch(make({question:'湘江战役是1935年1月15日吗？',node:'zunyi'}),env)).json();
+assert.equal(attempts,2,'引用遵义日期不得冒充湘江日期');assert.doesNotMatch(body.answer,/湘江战役于1935/);
+
+// 第三轮 Work 对抗发现的七个场景：通过实际 Worker 流程观察完整回答与重试。
+// 对日期与事件的校验仍是确定性规则，不能代替对原文的语义核验。
+for(const invalid of ['１９３５／１７／１５','１９３５年１７月１５日','1935／17／15']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+    ?{type:'history',answer:'遵义会议于'+invalid+'召开。',sources:['zunyi']}
+    :{type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+  body=await (await worker.fetch(make({question:'遵义会议哪天召开？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,2,'全角无效日期错误放行：'+invalid);
+  assert.match(body.answer,/1935年1月15日至17日/);
+}
+for(const valid of ['１９３５／１／１６','1935／1／16','１９３５年１月１６日']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'遵义会议于'+valid+'召开。',sources:['zunyi']})};
+  body=await (await worker.fetch(make({question:'遵义会议哪天召开？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,1,'全角合法日期误拦截：'+valid);
+  assert.equal(body.sources[0].id,'zunyi');
+}
+for(const swapped of [
+  '遵义会议于1934年11月27日召开，湘江战役于1935年1月15日发生。',
+  '1934年11月27日遵义会议召开，1935年1月15日湘江战役发生。'
+]){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+    ?{type:'history',answer:swapped,sources:['zunyi','xiangjiang']}
+    :{type:'history',answer:'遵义会议于1935年1月15日至17日召开，湘江之战发生于1934年11月27日至12月1日。',sources:['zunyi','xiangjiang']})};
+  body=await (await worker.fetch(make({question:'遵义会议和湘江之战分别是什么时间？',node:'zunyi'}),env)).json();
+  assert.equal(attempts,2,'两个事件日期互换错误放行');
+  assert.doesNotMatch(body.answer,/遵义会议于1934年11月27日/);
+}
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({
+  type:'history',answer:'遵义会议于1935年1月15日至17日召开，湘江之战于1934年11月27日至12月1日进行。',
+  sources:['zunyi','xiangjiang']
+})};
+body=await (await worker.fetch(make({question:'遵义会议和湘江战役何时？',node:'zunyi'}),env)).json();
+assert.equal(attempts,1,'两个事件日期分别正确时不应误拒');assert.equal(body.sources.length,2);
+// 同一数值的“近”不允许被删除，但阿拉伯/中文数字的等值近似转换应放行。
+for(const precise of ['2.6万人','两万六千人','26000人']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+    ?{type:'history',answer:'资料记载闽西子弟兵'+precise+'。',sources:['story_fj_count_26k']}
+    :{type:'history',answer:'福建日报报道闽西子弟兵近2.6万人。',sources:['story_fj_count_26k']})};
+  body=await (await worker.fetch(make({question:'闽西子弟兵长征人数是多少？',node:'start',free:true}),env)).json();
+  assert.equal(attempts,2,'近似史料不能无条件改写为精确 '+precise);
+  assert.match(body.answer,/近2\.6万人/);
+}
+for(const approximate of ['近26000人','近2.6万人','约两万六千人']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply({
+    type:'history',answer:'福建日报报道闽西子弟兵'+approximate+'。',sources:['story_fj_count_26k']})};
+  body=await (await worker.fetch(make({question:'闽西子弟兵长征人数是多少？',node:'start',free:true}),env)).json();
+  assert.equal(attempts,1,'保持近似限定的等值表达被拒：'+approximate);
+  assert.equal(body.sources[0].id,'story_fj_count_26k');
+}
+// 核心知识库事实绑定：泸定桥原文将5月29日和大渡河写在同一长句中，曾导致合法回答被拒。
+for(const answer of ['飞夺泸定桥发生于1935年5月29日。','1935年5月29日，中央红军飞夺泸定桥。']){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer,sources:['luding']})};
+  body=await (await worker.fetch(make({question:'飞夺泸定桥是什么时候？',node:'luding'}),env)).json();
+  assert.equal(attempts,1,'泸定桥有据日期不得误拒：'+answer);
+  assert.match(body.answer,/5月29日/);assert.equal(body.sources[0].id,'luding');
+}
+// 大渡河节点先前把“25日晨”省略年份月份，完整归一后也应能独立支持5月25日。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'强渡大渡河发生于1935年5月25日。',sources:['dadu']})};
+body=await (await worker.fetch(make({question:'强渡大渡河是哪天？',node:'dadu'}),env)).json();
+assert.equal(attempts,1,'大渡河5月25日有据日期被误拒');assert.equal(body.sources[0].id,'dadu');
+// 三事件各自的正确日期，无论顺序如何都应保留，不能过度拒答。
+for(const answer of [
+  '湘江之战于1934年11月27日开始，遵义会议于1935年1月15日召开，飞夺泸定桥发生在1935年5月29日。',
+  '1935年5月29日红军飞夺泸定桥；1935年1月15日召开遵义会议；1934年11月27日进行湘江之战。'
+]){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer,sources:['xiangjiang','zunyi','luding']})};
+  body=await (await worker.fetch(make({question:'湘江、遵义会议和泸定桥分别是什么时间？',node:'luding'}),env)).json();
+  assert.equal(attempts,1,'三事件正确日期被误拒：'+answer);
+  assert.match(body.answer,/泸定桥/);assert.equal(body.sources.length,3);
+  assert.deepEqual(body.sources.flatMap(x=>x.ids).sort(),['xiangjiang','zunyi','luding'].sort());
+}
+// 两个或三个事件交换已知日期，必须继续被拦截并要求重答。
+for(const answer of [
+  '湘江之战于1935年5月29日开始，红军于1934年11月27日飞夺泸定桥。',
+  '湘江之战于1934年11月27日开始，遵义会议于1935年5月29日召开，飞夺泸定桥发生在1935年1月15日。',
+  '1934年11月27日红军飞夺泸定桥；1935年1月15日召开遵义会议；1935年5月29日进行湘江之战。'
+]){
+  attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+    ?{type:'history',answer,sources:['xiangjiang','zunyi','luding']}
+    :{type:'history',answer:'遵义会议于1935年1月15日召开，湘江之战于1934年11月27日开始，红军于1935年5月29日夺取泸定桥。',sources:['xiangjiang','zunyi','luding']})};
+  body=await (await worker.fetch(make({question:'三个重要事件分别何时？',node:'luding'}),env)).json();
+  assert.equal(attempts,2,'事件日期互换不应因多份引用而通过：'+answer);
+  assert.match(body.answer,/1935年5月29日夺取泸定桥/);
+}
+// 泸定桥文字提到了大渡河，不代表5月29日也适用于强渡大渡河。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply(attempts===1
+  ?{type:'history',answer:'强渡大渡河发生于1935年5月29日。',sources:['luding','dadu']}
+  :{type:'history',answer:'中央红军于1935年5月25日强渡大渡河。',sources:['dadu']})};
+body=await (await worker.fetch(make({question:'强渡大渡河是哪天？',node:'dadu'}),env)).json();
+assert.equal(attempts,2,'大渡河不能借用泸定桥5月29日日期');
+assert.match(body.answer,/5月25日/);
+
 // 截断的输出视为格式错误并重试
 attempts=0;globalThis.fetch=async()=>{attempts++;return attempts===1?reply('{"type":"history","answer":"遵义',{finish_reason:'length'}):reply({type:'history',answer:'1935 年 1 月召开。',sources:['zunyi']})};
 res=await worker.fetch(make({question:'遵义会议何时？',node:'zunyi'}),env);assert.equal(res.status,200);assert.equal(attempts,2);
@@ -172,7 +347,7 @@ body=await (await worker.fetch(make({question:'如果资料没有记录，能推
   assert.match(html,/"stories":\[/);
   // 已审核的故事进入问答资料，并可作为出处返回
   const reviewed=stories.find(s=>s.id==='story_banbei_beizi'&&s.reviewed);
-  globalThis.fetch=async(url,options)=>{seen=JSON.parse(options.body);return reply({type:'history',answer:'红军行进到湖南汝城县沙洲村时，三名女红军把仅有的一条被子剪下一半留给徐解秀。',sources:[reviewed.id]})};
+  globalThis.fetch=async(url,options)=>{seen=JSON.parse(options.body);return reply({type:'history',answer:'红军行进到湖南汝城县沙洲村时，三位女红军把被子剪成两半，把一半留给徐解秀。',sources:[reviewed.id]})};
   res=await worker.fetch(make({question:'讲个故事吧',node:reviewed.node}),env);body=await res.json();assert.equal(res.status,200);assert.equal(body.sources[0].id,reviewed.id);assert.match(seen.messages[0].content,/故事·/);assert.match(seen.messages[0].content,new RegExp('\\['+reviewed.id+'\\]'));
   // 带故事来源的对话凭证可在下一轮使用
   res=await worker.fetch(make({question:'后来呢？',node:reviewed.node,historyTokens:[body.historyToken]}),env);assert.equal(res.status,200);
@@ -205,11 +380,158 @@ log=script([toolReply([toolCall('search_materials',{query:'彝海结盟'}),toolC
 body=await (await worker.fetch(make({question:'走了多少里',node:'start',free:true}),env)).json();
 assert.match(log[1].messages.at(-2).content,/yihai/);assert.match(log[1].messages.at(-1).content,/2\.5 万里/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['wuqi_summary']);assert.match(body.steps[0].text,/检索“彝海结盟”/);
 // 专题故事的整理说明必须随资料提供给模型，且保留来源，不把长征前支前等同于随军。
-log=script([toolReply([toolCall('read_materials',{ids:['story_fj_ninghua_grain']})]),reply({type:'history',answer:'资料记载的是长征前的挑粮支前，不能据此判断她们是否参加长征。',sources:['story_fj_ninghua_grain']})]);
+log=script([toolReply([toolCall('read_materials',{ids:['story_fj_ninghua_grain']})]),reply({type:'history',answer:'资料记载的是长征前的挑粮支前，不是参加长征的人数；她们后来是否参加长征，资料没有记载。',sources:['story_fj_ninghua_grain']})]);
 body=await (await worker.fetch(make({question:'宁化挑粮的妇女都参加长征了吗？',node:'start',free:true}),env)).json();
 assert.match(log[1].messages.at(-1).content,/资料整理说明，非原文引述/);assert.match(log[1].messages.at(-1).content,/长征前/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['story_fj_ninghua_grain']);
-log=script([reply({type:'history',answer:'宁化妇女挑粮是长征前的活动，并不是她们随中央红军参加长征。',sources:['story_fj_ninghua_grain']}),reply({type:'history',answer:'资料只记载她们在长征前挑粮支前，不能据此判断她们后来是否参加长征。',sources:['story_fj_ninghua_grain']})]);
-body=await (await worker.fetch(make({question:'宁化妇女都参加长征了吗？',node:'start'}),env)).json();assert.equal(log.length,2);assert.match(body.answer,/不能据此判断/);
+// 纠正前提是允许的；只答“无法判断”或断言她们都没参加，会被打回重写。
+log=script([reply({type:'history',answer:'宁化妇女挑粮是长征前的活动，并不是她们随中央红军参加长征；她们后来的去向资料没有记载。',sources:['story_fj_ninghua_grain']})]);
+body=await (await worker.fetch(make({question:'宁化妇女都参加长征了吗？',node:'start'}),env)).json();assert.equal(log.length,1);assert.match(body.answer,/并不是/);
+for(const bad of ['资料只记载她们在长征前挑粮支前，不能据此判断她们后来是否参加长征。','这1300名妇女后来都没有参加长征。','是的，这1300名宁化妇女后来都参加了长征。']){
+  log=script([reply({type:'history',answer:bad,sources:['story_fj_ninghua_grain']}),reply({type:'history',answer:'这个说法没有依据。资料记载的是长征前的挑粮支前，不是参加长征的人数；是否有人后来参加长征，资料没有记载。',sources:['story_fj_ninghua_grain']})]);
+  body=await (await worker.fetch(make({question:'宁化妇女都参加长征了吗？',node:'start'}),env)).json();assert.equal(log.length,2,bad);assert.match(body.answer,/没有依据/);assert.match(log[1].messages.at(-1).content,/不要只答/);
+}
+// 联网兜底：只有页面请求 web 时才启用；资料库没有出处时改用网络来源并单独标注，没有网页出处的联网回答不采用。
+const webReply=(content,urls)=>Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content,annotations:urls.map(u=>({type:'url_citation',url_citation:{url:u,title:'网页标题'}})),server_tool_calls:[{calls:[{sources:urls.map(u=>({url:u,title:'网页标题',site_name:'某站'}))}]}]}}]});
+const none=reply({type:'history',answer:'资料里没有提到这一点。',sources:[]});
+log=script([b=>b.model==='deepseek-flash'?webReply('据网页记载，[某事](https://x.example/a)发生在1934年。https://x.example/a',['https://www.ninghua.gov.cn/a','https://blog.example.com/b','javascript:alert(1)']):none.clone()]);
+body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),env)).json();
+assert.equal(log.at(-1).model,'deepseek-flash');assert.equal(log.at(-1).tools[0].type,'deepseek_web_search');assert.deepEqual(body.sources,[]);assert.equal(body.web.sources.length,2);assert.equal(body.web.sources[0].trusted,true);assert.equal(body.web.sources[1].trusted,false);assert.doesNotMatch(body.answer,/https?:|\]\(/);assert.ok(body.steps.some(x=>x.kind==='web'));
+log=script([b=>b.model==='deepseek-flash'?webReply('没有出处的回答。',[]):none.clone()]);
+body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),env)).json();assert.equal(body.web,undefined);assert.match(body.answer,/资料/);
+log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true}),env)).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);assert.equal(body.web,undefined);
+log=script([webReply('OFF_TOPIC',[])]);body=await (await worker.fetch(make({question:'今天天气',node:'start',free:true,web:'only'}),env)).json();assert.equal(log.length,1);assert.equal(body.type,'off_topic');
+log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),{...env,WEB_SEARCH:'off'})).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);
+// 故事引导：不新增史实。每段的出处必须存在，段落里的数字必须能在所列资料原文中找到；发生地和下一个故事必须有效。
+{
+  const {storyGuides}=await import('./src/story-guides.js');const {stories:allStories}=await import('./src/stories.js');const {nodes:allNodes}=await import('./src/data.js');
+  const texts=new Map();for(const n of allNodes){texts.set(n.id,n.text);for(const e of n.extra||[])texts.set(e.id,e.text);}for(const s of allStories)if(s.reviewed===true)texts.set(s.id,s.text);
+  const digits=s=>(String(s).replace(/\s/g,'').match(/\d+(?:\.\d+)?/g)||[]);
+  assert.ok(storyGuides.length>=10);assert.equal(new Set(storyGuides.map(g=>g.id)).size,storyGuides.length);
+  const checkPart=(g,part)=>{assert.ok(part.sources.length,g.id);for(const id of part.sources)assert.ok(texts.has(id),`${g.id} 引用了不存在的资料 ${id}`);const cited=part.sources.map(id=>texts.get(id)).join('').replace(/\s/g,'');for(const d of digits(part.text))assert.ok(cited.includes(d),`${g.id}「${part.label||part.word}」里的数字 ${d} 不在所列资料中`);};
+  for(const g of storyGuides){
+    assert.ok(g.hook&&g.tag,g.id);
+    if(g.story){
+      // 人物故事：正文取已审核故事的原文；问句里的数字必须出自原文
+      const st=allStories.find(s=>s.id===g.story);assert.ok(st&&st.reviewed===true&&st.text.length>=120,`${g.id} 对应的故事不存在、未审核或太短`);assert.ok(allNodes.some(n=>n.id===st.node),g.id);assert.equal(g.parts,undefined,g.id);
+      for(const d of digits(g.hook))assert.ok(st.text.replace(/\s/g,'').includes(d),`${g.id} 问句里的数字 ${d} 不在故事原文中`);
+    }else{
+      assert.ok(g.title&&g.parts.length>=2&&allNodes.some(n=>n.id===g.node),g.id);
+      for(const part of g.parts){checkPart(g,part);for(const term of part.terms||[]){checkPart(g,term);assert.ok(part.text.includes(term.word),`${g.id} 的可点词「${term.word}」不在正文中`);}}
+    }
+    for(const part of g.background||[])checkPart(g,part);
+  }
+  // 读故事时提问：服务端只认已登记的故事 ID，并把该故事的资料预先取出
+  log=script([reply({type:'history',answer:'红军在贵州习水土城青杠坡与川军激战。',sources:['chishui_tucheng']})]);
+  body=await (await worker.fetch(make({question:'一渡之前发生了什么',node:'start',free:true,story:'guide_sidu_chishui'}),env)).json();
+  assert.match(log[0].messages[0].content,/刚读完故事《四渡赤水》/);assert.match(log[0].messages[0].content,/\[chishui_tucheng\] [^\n]*青杠坡/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['chishui_tucheng']);
+  log=script([reply({type:'history',answer:'贺子珍冲出去替伤员遮挡。',sources:['story_he_zizhen']})]);
+  body=await (await worker.fetch(make({question:'她救的是谁',node:'start',free:true,story:'guide_he_zizhen'}),env)).json();
+  assert.match(log[0].messages[0].content,/刚读完故事《十七块弹片》/);assert.match(log[0].messages[0].content,/\[story_he_zizhen\][^\n]*钟赤兵/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['story_he_zizhen']);
+  log=script([reply({type:'chat',answer:'你好。',sources:[]})]);
+  await (await worker.fetch(make({question:'你好',node:'start',free:true,story:'no_such_story'}),env)).json();assert.doesNotMatch(log[0].messages[0].content,/刚读完故事/);
+}
+// 会师关系：数字与地点正确仍不能把10月9日在会宁会师的红四方面军错写成红二。
+for(const wrong of [
+  '1936年10月9日红二方面军在会宁与红一方面军会师。',
+  '1936年10月9日，在会宁与红一方面军会师的是红二方面军。'
+]){
+  log=script([
+    reply({type:'history',answer:wrong,sources:['huining']}),
+    reply({type:'history',answer:'1936年10月9日红四方面军在会宁与红一方面军会师。',sources:['huining']})
+  ]);
+  body=await (await worker.fetch(make({question:'会宁会师何时何地，哪些部队参加？',node:'huining'}),env)).json();
+  assert.equal(log.length,2,'错误的会宁会师部队应触发重答：'+wrong);
+  assert.match(body.answer,/红四方面军/);
+  assert.doesNotMatch(body.answer,/红二方面军/);
+  assert.ok(body.steps.some(step=>step.kind==='verify'&&step.ok===false),'需记录事实关系风险');
+}
+for(const good of [
+  ['1936年10月9日红四方面军在会宁与红一方面军会师。','huining','会宁何时会师？'],
+  ['1936年10月22日红二方面军在将台堡与红一方面军会师。','jiangtaibao','将台堡何时会师？'],
+  ['会宁会师的不是红二方面军，而是红四方面军。','huining','红二方面军在会宁会师了吗？']
+]){
+  log=script([reply({type:'history',answer:good[0],sources:[good[1]]})]);
+  body=await (await worker.fetch(make({question:good[2],node:good[1]}),env)).json();
+  assert.equal(log.length,1,'正确会师陈述不得被误拒：'+good[0]);
+  assert.equal(body.answer,good[0]);assert.deepEqual(body.sources.flatMap(x=>x.ids),[good[1]]);
+}
+// 三大主力在“会宁和将台堡地区”会师是两地汇总的正确表达，不得误认为红二在会宁单独会师。
+// （原测试的回答带“1936年10月”，在该分支自身的严格日期校验下就通不过：资料里的日期绑定在将台堡会师那一句。这里去掉月份，只测部队归属。）
+log=script([reply({type:'history',answer:'红一、红二、红四方面军在会宁和将台堡地区会师，标志着长征胜利结束。',sources:['jiangtaibao']})]);
+body=await (await worker.fetch(make({question:'三大主力红军会师在哪里？',node:'jiangtaibao'}),env)).json();
+assert.equal(log.length,1,'地区性总结不应被当成会宁部队归属错误');
+assert.match(body.answer,/会宁和将台堡地区会师/);
+assert.deepEqual(body.sources.flatMap(x=>x.ids),['jiangtaibao']);
+// 宁化1300名妇女的后续经历：原志条目只证明长征前支前，不证明全体随军或全部未参加。
+for(const wrong of [
+  '宁化妇女挑粮是长征前的活动，这1300人全部参加了长征。',
+  '这1300名妇女全部到达陕北。',
+  '这1300名妇女全部没有参加长征。'
+]){
+  log=script([
+    reply({type:'history',answer:wrong,sources:['story_fj_ninghua_grain']}),
+    reply({type:'history',answer:'这个说法没有依据。资料记载的是1300名宁化妇女在长征前挑粮支前，不是参加长征的人数；她们后来是否参加长征，资料没有记载。',sources:['story_fj_ninghua_grain']})
+  ]);
+  body=await (await worker.fetch(make({question:'宁化1300名妇女后来都参加长征了吗？',node:'start'}),env)).json();
+  assert.equal(log.length,2,'对宁化妇女后续去向的无依据断言应重答：'+wrong);
+  assert.match(body.answer,/不是参加长征的人数/);
+  assert.ok(body.steps.some(step=>step.kind==='verify'&&step.ok===false));
+}
+for(const good of [
+  '资料记载的不是这样。这1300名宁化妇女是在长征前挑粮支前，不是参加长征的人数；她们后来是否参加长征，资料没有记载。',
+  '资料没有说明这1300名妇女是否全部参加长征。',
+  '这1300名妇女全部参与了长征前的挑粮支前。'
+]){
+  log=script([reply({type:'history',answer:good,sources:['story_fj_ninghua_grain']})]);
+  body=await (await worker.fetch(make({question:'宁化1300名妇女做了什么，后来参加长征了吗？',node:'start'}),env)).json();
+  assert.equal(log.length,1,'宁化妇女有据或谨慎陈述应保留：'+good);
+  assert.equal(body.answer,good);
+  assert.deepEqual(body.sources.flatMap(x=>x.ids),['story_fj_ninghua_grain']);
+}
+// 比较两个会师时，不应因出现“红二方面军”就错拦在将台堡的正确事实。
+// 将台堡的资料不在当前节点里，要先用工具取出才能引用。
+log=script([toolReply([toolCall('read_stop',{nodes:['jiangtaibao']})]),reply({type:'history',answer:'1936年10月9日红四方面军在会宁与红一方面军会师；1936年10月22日红二方面军在将台堡与红一方面军会师。',sources:['huining','jiangtaibao']})]);
+body=await (await worker.fetch(make({question:'会宁与将台堡两次会师有何不同？',node:'huining'}),env)).json();
+assert.match(body.answer,/红四方面军/);assert.match(body.answer,/红二方面军/);
+assert.deepEqual(body.sources.flatMap(x=>x.ids).sort(),['huining','jiangtaibao'].sort());
+
+// 福建人数：三种报道各有出处，比较题必须可同时看到三条，并保留来源链接。
+log=script([reply({type:'history',answer:'福建省政府记载中央红军出发时福建籍近3万人，福建日报另记近2.6万福建子弟，福建省退役军人事务厅展陈另记近万福建儿女。这些记录的差异原因尚未厘清，不能擅自推断。',sources:['story_fj_overview','story_fj_count_26k','story_fj_count_10k']})]);
+body=await (await worker.fetch(make({question:'福建籍参加长征的红军有多少？不同资料为什么数字不同？',node:'start',free:true}),env)).json();
+assert.equal(log.length,1);
+for(const id of ['story_fj_overview','story_fj_count_26k','story_fj_count_10k'])assert.ok(log[0].messages[0].content.includes('['+id+']'),'未预载 '+id);
+assert.equal(body.sources.length,3);assert.match(body.answer,/近2\.6万/);assert.match(body.steps.at(-1).detail,/非史实核验/);
+// 即使用户提问包含 2.6，只有“近3万”的来源也不允许肯定“近2.6万”。
+log=script([
+  reply({type:'history',answer:'福建籍参加长征的红军确实只有近2.6万人。',sources:['story_fj_overview']}),
+  reply({type:'history',answer:'福建省政府记载中央红军出发时福建籍近3万人，福建日报另记近2.6万福建子弟，差异原因尚未核实。',sources:['story_fj_overview','story_fj_count_26k']})
+]);
+body=await (await worker.fetch(make({question:'福建参加长征的人数是不是2.6万人？',node:'start',free:true}),env)).json();
+assert.equal(log.length,2,'不能把用户问题中的 2.6 视为引用证据');
+assert.deepEqual(body.sources.flatMap(x=>x.ids).sort(),['story_fj_count_26k','story_fj_overview'].sort());
+// 非福建问题同理，错误的提问人数不能成为史实依据。
+log=script([
+  reply({type:'history',answer:'红军过草地时确实牺牲了12345人。',sources:['caodi']}),
+  reply({type:'history',answer:'现有资料没有记载草地牺牲的确切人数，不能据此确认。',sources:['caodi']})
+]);
+body=await (await worker.fetch(make({question:'红军过草地牺牲了12345人吗？',node:'caodi'}),env)).json();
+assert.equal(log.length,2);assert.doesNotMatch(body.answer,/12345/);
+// 2.6 必须作为一个小数与来源匹配，不能分别凭 2 和 6 放行。
+log=script([
+  reply({type:'history',answer:'福建日报记载近2.6万福建子弟参加长征。',sources:['story_fj_count_10k']}),
+  reply({type:'history',answer:'福建省退役军人事务厅专题展记载近万福建儿女。',sources:['story_fj_count_10k']})
+]);
+body=await (await worker.fetch(make({question:'福建参加长征的人数是多少？',node:'start',free:true}),env)).json();
+assert.equal(log.length,2);assert.match(body.answer,/近万/);
+
+// “近万人”不能仅凭一个出现“2.6万”的来源通过：万位单位不能从小数后缀被单独采信。
+log=script([
+  reply({type:'history',answer:'福建日报证实只有近万人参加长征。',sources:['story_fj_count_26k']}),
+  reply({type:'history',answer:'福建日报文章记载近2.6万福建子弟，但不同数字的统计口径尚未核实。',sources:['story_fj_count_26k']})
+]);
+body=await (await worker.fetch(make({question:'福建籍长征人数是不是近万人？',node:'start',free:true}),env)).json();
+assert.equal(log.length,2);assert.match(body.answer,/近2\.6万/);
+
 // 常用称谓可检索到对应人物，不改变资料原文。
 log=script([toolReply([toolCall('search_materials',{query:'周总理'})]),reply({type:'history',answer:'周恩来病倒后由担架队抬过草地。',sources:['story_zhou_enlai']})]);
 body=await (await worker.fetch(make({question:'周总理过草地',node:'start',free:true}),env)).json();
