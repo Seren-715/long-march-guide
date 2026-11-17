@@ -716,6 +716,13 @@ const decisionOf = () => null, decided = new Map();   // 抉择时刻已移除�
 const STORIES = Array.isArray(DATA.stories) ? DATA.stories : [];
 // 统计口径核验属于可引用史料，不应被“讲个故事”功能当作人物故事朗读。
 const storiesOf = id => STORIES.filter(t => t.node === id && visible(t) && t.kind !== 'source_comparison');
+function appendStorySources(container, story) {
+  const seen = new Set();
+  for (const source of [{url:story.url,title:story.source}, ...(Array.isArray(story.more) ? story.more : []), ...noteLinks(story.note)]) {
+    const u = safeLink(source.url); if (!u || seen.has(u)) continue;
+    seen.add(u); container.append(srcLink(u, source.title || '查看资料'));
+  }
+}
 const told = new Set();
 /* ---------- 从故事开始：首页卡片与分段阅读 ---------- */
 const storyById = id => STORIES.find(t => t.id === id && t.reviewed === true);
@@ -726,7 +733,8 @@ function splitStory(text) {
   if (cur) out.push(cur); return out;
 }
 // 资料整理说明里只保留对读者有用的句子（不同记载、未确认之处），去掉内部备注和网址
-function publicNote(note, keepPlace) { const drop = keepPlace ? /https?:|原条|无法打开|未能打开|403|回读/ : /https?:|原条|无法打开|未能打开|403|节点|归类|归入|关联|本图|回读|低年级|讲解可/; return String(note || '').split(/(?<=[。；])|(?<=https?:\/\/\S+)\s+/).map(x => x.trim()).filter(x => x.length > 6 && !drop.test(x)).join(''); }
+function publicNote(note, keepPlace) { const drop = keepPlace ? /原条|无法打开|未能打开|403|回读/ : /原条|无法打开|未能打开|403|节点|归类|归入|关联|本图|回读|低年级|讲解可/; return String(note || '').split(/(?<=[。；])/).map(x => x.trim()).filter(x => !drop.test(x)).map(x => x.replace(/https?:\/\/[^\s。；]+/g, '').replace(/(?:见|来源于)\s*([。；])/g, '$1').trim()).filter(x => x.length > 6).join(''); }
+function noteLinks(note) { return [...String(note || '').matchAll(/https?:\/\/[^\s。；]+/g)].map(m => ({url:m[0],title:'补充来源'})); }
 const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).map(g => {
   if (!g || !g.id || !g.hook) return null;
   if (Array.isArray(g.parts) && g.parts.length) return find(g.node) ? { ...g, place: { node: g.node, text: g.place || '' } } : null;
@@ -735,7 +743,7 @@ const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).map(g => {
   return { ...g, kind: 'person', title: t.title, date: t.date, node: n.id,
     parts: chunks.map(text => ({ text, sources: [t.id], terms: terms.filter(x => text.includes(x.word)) })),
     background: g.background || [{ label: '同一时期的长征', text: n.text, sources: [n.id] }],
-    note: publicNote(t.note), more: Array.isArray(t.more) ? t.more : [],
+    note: publicNote(t.note), noteSources: noteLinks(t.note), more: Array.isArray(t.more) ? t.more : [],
     place: { node: n.id, text: g.place || '路线上和这个故事时间最接近的一站是「' + n.name + '」。' },
     whys: g.whys || (n.questions || []).slice(0, 3) };
 }).filter(Boolean);
@@ -794,8 +802,8 @@ function openStory(id, push = true) {
   let shown = 0;
   const finale = () => {
     go.remove(); readTales.add(g.id); renderTales(); const box = el('div', 'story-more');
-    if (g.kind !== 'event') { const refs = guideRefs(g.parts[0].sources); for (const m of g.more || []) { const u = safeLink(m.url); if (u) refs.append(srcLink(u, m.title || '查看资料', 'ref')); } box.append(refs); }
-    if (g.note) { const nt = el('div', 'tale-note'); nt.append(el('b', '', '关于这段记载'), document.createTextNode(g.note)); box.append(nt); }
+    if (g.note) box.append(el('p', 'tale-note', '（资料说明：' + g.note + '）'));
+    if (g.kind !== 'event') { const refs = guideRefs(g.parts[0].sources); for (const m of [...(g.more || []), ...(g.noteSources || [])]) { const u = safeLink(m.url); if (u && ![...refs.querySelectorAll('a')].some(a => a.href === u)) refs.append(srcLink(u, m.title || '查看资料', 'ref')); } box.append(refs); }
     if ((g.background || []).length) { box.append(el('h3', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); box.append(item); } }
     if (g.place && find(g.place.node)) { const pl = el('div', 'story-place'); const btn = el('button', 'btn btn-ghost', '在路线上看这一站 →'); btn.type = 'button'; btn.addEventListener('click', () => choose(g.place.node)); pl.append(el('span', '', g.place.text), btn); box.append(pl); }
     if ((g.whys || []).length) { box.append(el('h3', '', '读到这里，你可能想问')); const w = el('div', 'story-whys'); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(q, { story: g.id }); }); w.append(b); } box.append(w); }
@@ -967,7 +975,7 @@ function personDetail(person) {
     const li = el('li', 'person-story'), b = el('button', 'row'), main = el('span', 'row-main'); b.type = 'button';
     main.append(el('span', 'row-title', t.title), el('span', 'row-sub', find(t.node).name + ' · ' + t.date));
     b.append(main, chev()); b.addEventListener('click', () => { closePeople(); choose(t.node); const pending = decisionOf(t.node) && !decided.has(t.node); if (pending) { addMessage('小征', '「' + t.title + '」收录在这一站。请先完成或跳过抉择，就能查看故事和出处。', [], { quiet: true }); reveal('decision-card'); } else { requestAnimationFrame(() => { const card = document.getElementById('story-' + t.id); if (card) { card.scrollIntoView({ block: 'center', behavior: motion() }); card.tabIndex = -1; card.focus({ preventScroll: true }); } }); } });
-    li.append(b, el('p', '', t.text)); if (publicNote(t.note, true)) li.append(el('p', 'plan-note', publicNote(t.note, true))); const u = safeLink(t.url); if (u) li.append(srcLink(u, t.source)); ul.append(li);
+    li.append(b, el('p', '', t.text)); if (publicNote(t.note, true)) li.append(el('p', 'plan-note', '（资料说明：' + publicNote(t.note, true) + '）')); appendStorySources(li, t); ul.append(li);
   }
   if (stories.length) detail.append(back, title, intro, el('h3', '', '长征中的相关故事'), info, ul);
   else detail.append(back, title, intro, el('p', 'plan-note', '暂未收录这位人物的关联故事；可以先读简介，或直接问小征。'));
@@ -998,8 +1006,8 @@ function openFujian(push = true) {
   for (const t of STORIES.filter(t => t.id.startsWith('story_fj_') && t.reviewed === true && find(t.node))) {
     const card = el('article', 'story-card'), heading = el('h3', '', t.title);
     heading.append(el('small', '', t.date)); card.append(heading, el('p', '', t.text));
-    if (publicNote(t.note, true)) card.append(el('p', 'plan-note', publicNote(t.note, true)));
-    const u = safeLink(t.url); if (u) card.append(srcLink(u, t.source));
+    if (publicNote(t.note, true)) card.append(el('p', 'plan-note', '（资料说明：' + publicNote(t.note, true) + '）'));
+    appendStorySources(card, t);
     if (t.kind !== 'source_comparison') {
       const go = el('button', 'btn btn-ghost', '查看关联节点：' + find(t.node).name + ' →'); go.type = 'button';
       go.addEventListener('click', () => { choose(t.node); requestAnimationFrame(() => { const story = document.getElementById('story-' + t.id); if (story) { story.scrollIntoView({block:'center',behavior:motion()}); story.tabIndex = -1; story.focus({preventScroll:true}); } }); });
@@ -1128,7 +1136,7 @@ function renderExhibit() {
   const tales = storiesOf(n.id);
   if (tales.length && !pending) {
     const box = el('section', 'stories'); box.id = 'story-list'; box.append(el('h3', '', '长征故事 · ' + tales.length + ' 个'));
-    for (const t of tales) { const c = el('article', 'story-card'); c.id = 'story-' + t.id; const h = el('h4', '', t.title); h.append(el('small', '', t.date)); const tag = draftTag(t); if (tag) h.append(tag); c.append(h); if (t.note) c.append(el('span', 'story-note', '讲解提示：' + (publicNote(t.note, true) || t.note.replace(/https?:\/\/\S+/g, '')))); c.append(el('p', '', t.text)); const u = safeLink(t.url); if (u) c.append(srcLink(u, t.source)); box.append(c); }
+    for (const t of tales) { const c = el('article', 'story-card'); c.id = 'story-' + t.id; const h = el('h4', '', t.title); h.append(el('small', '', t.date)); const tag = draftTag(t); if (tag) h.append(tag); c.append(h, el('p', '', t.text)); const note = publicNote(t.note, true); if (note) c.append(el('p', 'story-note', '（资料说明：' + note + '）')); appendStorySources(c, t); box.append(c); }
     parts.push(box);
   }
   if ((n.questions || []).length) {
