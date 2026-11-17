@@ -214,14 +214,22 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .asked-at{display:inline-block;font-size:12px;color:var(--text3);margin-bottom:2px}
 .msg.error .msg-text{color:var(--accent)}
 /* 从故事开始：首页故事卡片与分段阅读 */
-.tales{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0 0}
-.tale{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:14px 16px;border:1px solid var(--accent-line);border-radius:16px;background:color-mix(in srgb,var(--accent) 4%,var(--bg));transition:transform .15s,box-shadow .15s,border-color .15s}
+.tales{display:block;position:relative;margin:22px 0 0;min-width:0}
+.tales-wrap{position:relative}
+.tales-track{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:8px 2px 10px;margin:-8px -2px 0;cursor:grab;overscroll-behavior-x:contain}
+.tales-track::-webkit-scrollbar{display:none}
+.tales-track.dragging{scroll-snap-type:none;cursor:grabbing;user-select:none}
+.tales-arrow{position:absolute;top:50%;z-index:2;width:34px;height:34px;margin-top:-22px;border:1px solid var(--accent-line);border-radius:50%;background:var(--bg);color:var(--accent);font-size:22px;line-height:1;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;padding:0 0 3px;transition:opacity .15s,background .15s}
+.tales-arrow:hover{background:color-mix(in srgb,var(--accent) 8%,var(--bg))}
+.tales-arrow.prev{left:-17px}.tales-arrow.next{right:-17px}
+.tales-arrow[disabled]{opacity:0;pointer-events:none}
+.tale{flex:0 0 176px;height:240px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;padding:16px 15px;border:1px solid var(--accent-line);border-radius:16px;background:color-mix(in srgb,var(--accent) 4%,var(--bg));transition:transform .15s,box-shadow .15s,border-color .15s}
 .tale:hover,.tale:focus-visible{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--accent)}
 .tale small{font-size:11.5px;color:var(--accent);letter-spacing:.06em}
-.tale b{font-family:var(--serif);font-size:16px;line-height:1.45;font-weight:700}
-.tale span{font-size:12.5px;color:var(--text2)}
+.tale b{font-family:var(--serif);font-size:16.5px;line-height:1.55;font-weight:700;margin-top:6px}
+.tale span{font-size:12.5px;line-height:1.55;color:var(--text2);margin-top:auto}
 .tales + .starts{margin-top:10px}
-@media (max-width:560px){.tales{grid-template-columns:1fr}}
+@media (max-width:560px){.tale{flex-basis:158px;height:224px}}
 .story-page{width:min(760px,100%)}
 .story-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .story-back{font-size:13px;color:var(--text3);padding:4px 0}
@@ -278,7 +286,8 @@ html.story-opening::view-transition-new(root){animation:story-reveal .65s ease-o
 .story-all{display:block;margin:10px auto 0;font-size:13px;color:var(--accent)}
 .tale-note{margin:10px 0 14px;padding:10px 12px;border-radius:10px;background:#fff8ec;border:1px solid #f1dfbd;font-size:13px;line-height:1.7;color:#6b4a12}
 .tale-note b{display:block;font-size:12px;margin-bottom:2px;color:#8a5a00}
-.tales-bar{grid-column:1/-1;display:flex;justify-content:space-between;margin-top:-2px}
+.tales-bar{display:flex;justify-content:space-between;align-items:center;margin-top:2px}
+.tales-bar small{font-size:12px;color:var(--text3)}
 .tales-bar button{font-size:12.5px;color:var(--text3);padding:2px 4px}
 .tales-bar button:hover{color:var(--accent)}
 .story-next small{display:block;font-size:12px;color:var(--accent);margin-bottom:2px}
@@ -422,9 +431,10 @@ html.story-opening::view-transition-new(root){animation:story-reveal .65s ease-o
   .home-side h1{font-size:27px;margin-bottom:8px}
   .home-side .home-sub{font-size:13.5px;line-height:1.65;margin-bottom:6px}
   .home-side .home-scope{display:none}
-  .home-side .tales{margin-top:14px;gap:8px}
-  .home-side .tale{padding:11px 13px;border-radius:14px;gap:4px}
-  .home-side .tale b{font-size:14.5px}
+  .home-side .tales{margin-top:14px}
+  .home-side .tales-track{gap:10px}
+  .home-side .tale{flex-basis:168px;height:224px;padding:14px 13px;border-radius:14px;gap:6px}
+  .home-side .tale b{font-size:15.5px}
   .home-side .tale span{font-size:12px}
   .home-side .starts{gap:8px;margin:8px 0 10px}
   .home-side .start{padding:8px 10px;border-radius:999px;align-items:center}
@@ -830,13 +840,36 @@ function openStory(id, push = true) {
   if (fresh) addMessage('小征', '现在读的是《' + g.title + '》。右边一段一段往下看，读到哪里有疑问，直接在这里问我。', [], { quiet: true });
 }
 $('story-back').addEventListener('click', () => openStoryList());
-// 首页每次展示两个故事，“换两个”在排在前面的精选故事里轮换
-let taleOffset = 0;
+// 首页故事是一条横向可滑动的卡片带：所有故事都在里面，拖动、滚轮或点两侧箭头切换
+let talesAbort = null;
 function renderTales() {
-  const box = $('tales'); if (!GUIDES.length) return; const pool = GUIDES.slice(0, Math.min(6, GUIDES.length)); box.replaceChildren();
-  for (let i = 0; i < Math.min(2, pool.length); i++) box.append(taleCard(pool[(taleOffset + i) % pool.length], 'tale'));
-  const bar = el('div', 'tales-bar'); const swap = el('button', '', '换两个'); swap.type = 'button'; swap.addEventListener('click', () => { taleOffset = (taleOffset + 2) % pool.length; renderTales(); });
-  const all = el('button', '', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', () => openStoryList()); bar.append(swap, all); box.append(bar); box.hidden = false;
+  const box = $('tales'); if (!GUIDES.length) return; if (talesAbort) talesAbort.abort(); talesAbort = new AbortController();
+  const old = box.querySelector('.tales-track'), keep = old ? old.scrollLeft : 0, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  box.replaceChildren();
+  const wrap = el('div', 'tales-wrap'), track = el('div', 'tales-track');
+  for (const g of GUIDES) track.append(taleCard(g, 'tale'));
+  const step = () => { const c = track.firstElementChild; return c ? c.getBoundingClientRect().width + parseFloat(getComputedStyle(track).columnGap || 12) : 180; };
+  const go = dir => track.scrollBy({ left: dir * step(), behavior: reduce ? 'auto' : 'smooth' });
+  const mk = dir => { const b = el('button', 'tales-arrow ' + (dir < 0 ? 'prev' : 'next'), dir < 0 ? '‹' : '›'); b.type = 'button'; b.setAttribute('aria-label', dir < 0 ? '上一个故事' : '下一个故事'); b.addEventListener('click', () => go(dir)); return b; };
+  const prev = mk(-1), next = mk(1);
+  const sync = () => { const max = track.scrollWidth - track.clientWidth; prev.disabled = track.scrollLeft <= 2; next.disabled = track.scrollLeft >= max - 2; };
+  track.addEventListener('scroll', sync, { passive: true });
+  // 鼠标按住左右拖动；拖动超过几个像素就不算点击
+  let sx = 0, sl = 0, down = false, moved = false;
+  track.addEventListener('mousedown', e => { if (e.button !== 0) return; down = true; moved = false; sx = e.clientX; sl = track.scrollLeft; });
+  window.addEventListener('mousemove', e => { if (!down) return; const dx = e.clientX - sx; if (!moved && Math.abs(dx) > 5) { moved = true; track.classList.add('dragging'); } if (moved) track.scrollLeft = sl - dx; }, { signal: talesAbort.signal });
+  window.addEventListener('mouseup', () => { if (!down) return; down = false; track.classList.remove('dragging'); }, { signal: talesAbort.signal });
+  track.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+  // 滚轮：滚一下翻一张；已到两端就让页面照常滚动
+  let acc = 0, lock = false;
+  track.addEventListener('wheel', e => {
+    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY; if (!d) return;
+    const max = track.scrollWidth - track.clientWidth; if ((d > 0 && track.scrollLeft >= max - 2) || (d < 0 && track.scrollLeft <= 2)) return;
+    e.preventDefault(); if (lock) return; acc += d; if (Math.abs(acc) < 40) return; go(acc > 0 ? 1 : -1); acc = 0; lock = true; setTimeout(() => { lock = false; }, 320);
+  }, { passive: false });
+  wrap.append(track, prev, next);
+  const bar = el('div', 'tales-bar'); const hint = el('small', '', '左右滑动，或点两侧箭头'); const all = el('button', '', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', () => openStoryList()); bar.append(hint, all);
+  box.append(wrap, bar); box.hidden = false; track.scrollLeft = keep; requestAnimationFrame(sync);
 }
 renderTales();
 function tellStory(n) {
