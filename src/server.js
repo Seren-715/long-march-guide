@@ -212,11 +212,12 @@ const HISTORICAL_EVENTS=[
   ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
   ['lazikou',/腊子口/],['wuqi',/吴起镇/],['jiajin',/夹金山/],
   ['maoergai',/毛儿盖/],['huili',/会理/],['houchang',/猴场/],
-  ['bangluo',/榜罗镇/],['hadapu',/哈达铺/],['wujiang',/强渡乌江|渡过乌江|乌江渡河/]
+  ['bangluo',/榜罗镇/],['hadapu',/哈达铺/],['wujiang',/强渡(?:了)?乌江|渡过(?:了)?乌江|乌江渡河/],
+  ['tucheng',/土城/],['loushan',/娄山关/]
 ];
 const eventKeys=text=>HISTORICAL_EVENTS.filter(([,pattern])=>pattern.test(text)).map(([id])=>id);
 function clauseAt(text,start,end,minor=false){
-  const marks=minor?['，',',','、','。','！','？','；',';','\n']:['。','！','？','；',';','\n'];
+  const marks=minor?['，',',','、','：',':','。','！','？','；',';','\n']:['。','！','？','；',';','\n'];
   let left=-1,right=text.length;
   for(const mark of marks){
     left=Math.max(left,text.lastIndexOf(mark,start));
@@ -224,7 +225,7 @@ function clauseAt(text,start,end,minor=false){
   }
   return text.slice(left+1,right);
 }
-function dateFacts(text){
+function dateFacts(text,allowPreviousSentence=false){
   const source=normalizeNumerals(text),out=[];
   const add=(match,y,m,d,endM,endD)=>{
     const valid=Number.isInteger(y)&&y>=1&&Number.isInteger(m)&&m>=1&&m<=12
@@ -244,12 +245,28 @@ function dateFacts(text){
   for(const m of source.matchAll(partial)){
     if(out.some(d=>m.index>=d.start&&m.index<d.end))continue;
     const before=source.slice(0,m.index),boundary=Math.max(before.lastIndexOf('。'),before.lastIndexOf('！'),before.lastIndexOf('？'),before.lastIndexOf('\n'));
-    const prior=out.filter(d=>d.start>boundary&&d.end<=m.index).sort((a,b)=>b.start-a.start)[0];
+    let prior=out.filter(d=>d.start>boundary&&d.end<=m.index).sort((a,b)=>b.start-a.start)[0];
+    // 仅在单条资料中，允许句首的“25日”继承紧邻上一句最后一个明确年月。
+    if(!prior&&allowPreviousSentence&&!m[1]&&!source.slice(boundary+1,m.index).trim()){
+      const earlier=source.slice(0,Math.max(0,boundary));
+      const previousBoundary=Math.max(earlier.lastIndexOf('。'),earlier.lastIndexOf('！'),earlier.lastIndexOf('？'),earlier.lastIndexOf('\n'));
+      const candidates=out.filter(d=>d.start>previousBoundary&&d.end<=boundary&&!d.yearOmitted).sort((a,b)=>b.start-a.start);
+      if(candidates.length&&new Set(candidates.map(d=>`${d.y}-${d.endM||d.m}`)).size===1)prior=candidates[0];
+    }
     if(!prior&&!m[1])continue;
+    const explicitYears=[...source.slice(boundary+1,m.index).matchAll(new RegExp('('+YEAR_EXPR+')\\s*年','g'))].map(x=>toDateNumber(x[1]));
+    let inferredYear=new Set(explicitYears).size===1?explicitYears[0]:null;
+    // 同一句出现多个不明确年份时不能用省略年份绕开检查。
+    if(explicitYears.length&&!inferredYear)continue;
+    // 资料内只有一个明确年份时，可为后续句子的月日继承该年份。
+    if(!prior&&!inferredYear&&allowPreviousSentence){
+      const years=[...source.matchAll(new RegExp('('+YEAR_EXPR+')\\s*年','g'))].map(x=>toDateNumber(x[1]));
+      if(new Set(years).size===1)inferredYear=years[0];
+    }
     const month=m[1]?toDateNumber(m[1]):(prior.endM||prior.m),day=toDateNumber(m[2]||m[5]);
     const endMonth=m[3]?toDateNumber(m[3]):month,endDay=m[4]?toDateNumber(m[4]):null;
-    add(m,prior?.y||2000,month,day,endMonth,endDay);
-    if(!prior||prior.yearOmitted)out[out.length-1].yearOmitted=true;
+    add(m,prior?.y||inferredYear||2000,month,day,endMonth,endDay);
+    if((!prior||prior.yearOmitted)&&!inferredYear)out[out.length-1].yearOmitted=true;
     if(prior&&!eventKeys(out[out.length-1].context).length){
       const preceding=eventKeys(prior.context).length?eventKeys(prior.context):(prior.inheritedEvents||[]);
       if(preceding.length===1)out[out.length-1].inheritedEvents=preceding;
@@ -338,9 +355,12 @@ function dateSupported(claim,source){
     &&ordinal(claim.endM||claim.m,claim.endD||claim.d)<=ordinal(source.endM||source.m,source.endD||source.d);
 }
 function unsupportedDates(answer,ids){
-  const cited=ids.map(id=>evidence.find(e=>e.id===id).text).join('\n');
-  const sources=dateFacts(cited);
-  return dateFacts(answer).filter(d=>!sources.some(s=>dateSupported(d,s))).map(d=>d.raw);
+  const sources=ids.flatMap(id=>dateFacts(evidence.find(e=>e.id===id).text,true));
+  return dateFacts(answer).filter(d=>{
+    const matches=sources.filter(s=>dateSupported(d,s));
+    // 无年份的回答不能从多个可能年份中任意选一个。
+    return !matches.length||(d.yearOmitted&&new Set(matches.filter(s=>!s.yearOmitted).map(s=>s.y)).size>1);
+  }).map(d=>d.raw);
 }
 function unsupportedNumbers(answer,ids,question){
   const claims=withoutRefutedQuestionFacts(answer,question);
@@ -596,11 +616,15 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
           const kept=parts.filter(part=>!unsupportedNumbers(part,candidate.ids,question).length&&!unsupportedTitles(part,candidate.ids,question).length);
           const answer=kept.join('').trim();
           if(!answer||kept.length===parts.length||(answer.match(/[\u4e00-\u9fff]/g)||[]).length<6)return null;
+          const questionEvents=eventKeys(question);
+          if(questionEvents.length&&!eventKeys(answer).some(event=>questionEvents.includes(event)))return null;
+          // 否定前提的原回答被删去纠正时，不能仅保留无关补充。
+          if(/(?:不是|不对|并非|不准确|不符)/.test(candidate.answer)&&!/(?:不是|不对|并非|不准确|不符)/.test(answer))return null;
           if(unsupportedNumbers(answer,candidate.ids,question).length||unsupportedTitles(answer,candidate.ids,question).length||observedRisks(answer,candidate.ids,question).length)return null;
           return {...candidate,answer,removed:parts.length-kept.length};
         }).filter(Boolean).sort((a,b)=>b.answer.length-a.answer.length);
         if(candidates.length){result=candidates[0];step({kind:'verify',text:'删去未能核对的内容',detail:`${result.removed} 句`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
-        else{const issues=[result.badNumbers.length?'日期或数字':'',result.badTitles.length?'书名':'',result.risks.length?'相关事实表述':''].filter(Boolean);result.answer=`现有资料不足以可靠回答这个问题：${issues.join('、')||'具体事实'}未能核对。`;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
+        else{const issues=[result.badNumbers.length?'日期或数字':'',result.badTitles.length?'书名':'',result.risks.length?'相关事实表述':''].filter(Boolean);result.answer=`现有资料不足以可靠回答这个问题：${issues.join('、')||'具体事实'}未能核对，请换个问法或查阅节点资料。`;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
         result.badNumbers=[];result.badTitles=[];result.risks=[];
       }
       else if(result.type==='history'&&result.ids.length)step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});

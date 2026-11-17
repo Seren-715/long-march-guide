@@ -647,3 +647,47 @@ for(const bad of ['黎平会议于1934年12月31日召开。','强渡乌江发�
   body=await (await worker.fetch(make({question:'这件事是什么时候？',node:'houchang'}),env)).json();assert.equal(attempts,2,'事件日期错配必须被拒：'+bad);assert.doesNotMatch(body.answer,/黎平会议于1934年12月31日|强渡乌江发生于1934年12月31日/);
 }
 globalThis.fetch=original;
+
+// 回归：多事件及日期范围、跨句日内数字，均基于真实资料和模拟模型。
+for(const [answer,sources,node] of [
+ ['1935年1月1日至6日，红军强渡了乌江，随后占领遵义。',['wujiang'],'wujiang'],
+ ['1935年1月28日，中央红军在土城与川军激战，伤亡3000余人，随后西渡赤水。',['chishui_tucheng'],'chishui'],
+ ['土城战斗在1月28日发生，伤亡3000余人。',['chishui_tucheng'],'chishui'],
+ ['1935年2月18日至21日红军二渡赤水，25日红军夺取娄山关。',['zunyi_loushan'],'zunyi'],
+]){
+ attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer,sources})};
+ body=await (await worker.fetch(make({question:'请介绍这段历史',node}),env)).json();assert.equal(attempts,1,'合法日期被误拒：'+answer);assert.equal(body.answer,answer);
+}
+for(const [bad,good,sources,node] of [
+ ['1935年1月2日至7日红军强渡乌江。','1935年1月1日至6日红军强渡乌江。',['wujiang'],'wujiang'],
+ ['土城战斗在1935年1月29日发生。','土城战斗在1935年1月28日发生。',['chishui_tucheng'],'chishui'],
+ ['1935年3月18日，25日红军夺取娄山关。','1935年2月25日红军夺取娄山关。',['zunyi_loushan'],'zunyi'],
+ ['1934年，9月18日红军到达哈达铺。','1935年9月18日红军到达哈达铺。',['hadapu'],'hadapu']
+]){
+ attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:attempts===1?bad:good,sources})};
+ body=await (await worker.fetch(make({question:'这件事是什么时候？',node}),env)).json();assert.equal(attempts,2,'错误日期未被拒：'+bad);assert.equal(body.answer,good);
+}
+// 删除错误句后只剩无关内容，必须明确降级并保留引导。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'遵义会议于1900年召开。红军进行了长征。',sources:['zunyi']})};
+body=await (await worker.fetch(make({question:'遵义会议是哪年召开的？',node:'zunyi'}),env)).json();assert.match(body.answer,/资料不足/);assert.match(body.answer,/换个问法|查阅节点资料/);
+globalThis.fetch=original;
+
+// 冒号前是主题，日期应归属冒号后的具体事件，而不是主题中较早提及的事件。
+for(const [answer,sources,node] of [
+ ['再占遵义：1935年2月18日至21日，红军主力二渡赤水，进军遵义。',['zunyi_loushan'],'zunyi'],
+ ['一渡赤水是土城战斗后的结果：1935年1月28日，中央红军在贵州习水土城青杠坡与川军激战，伤亡3000余人。',['chishui_tucheng'],'chishui'],
+]){attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer,sources})};body=await (await worker.fetch(make({question:'请介绍这段历史',node}),env)).json();assert.equal(attempts,1,'冒号后的日期被误拒：'+answer);assert.equal(body.answer,answer);}
+globalThis.fetch=original;
+
+// 前面一个有据日期的月份不能借给不同月份的“25日”。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:attempts===1?'1935年3月16日红军西渡赤水；25日红军夺取娄山关。':'1935年2月25日红军夺取娄山关。',sources:['chishui_maneuver','zunyi_loushan']})};
+body=await (await worker.fetch(make({question:'红军何时夺取娄山关？',node:'zunyi'}),env)).json();assert.equal(attempts,2);assert.match(body.answer,/2月25日/);
+// 删除前提纠正后仅余其他事实时不返回残句。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'不对，遵义会议于1900年召开。遵义会议解决军事和组织问题。',sources:['zunyi']})};
+body=await (await worker.fetch(make({question:'遵义会议是1900年召开的吗？',node:'zunyi'}),env)).json();assert.match(body.answer,/资料不足/);
+globalThis.fetch=original;
+
+// 同一资料前文明确唯一年份，后续句的月日应与该年份绑定。
+attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'中央红军1935年6月翻越夹金山：6月12日先头部队翻越，6月18日所有部队全部翻越。',sources:['jiajin']})};
+body=await (await worker.fetch(make({question:'红军什么时候翻越夹金山？',node:'jiajin'}),env)).json();assert.equal(attempts,1);assert.match(body.answer,/6月12日/);
+globalThis.fetch=original;
