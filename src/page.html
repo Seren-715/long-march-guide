@@ -1258,7 +1258,8 @@ function renderTour() {
 }
 function renderHome() {
   renderChips(); $('bar-mid').replaceChildren();
-  const r = $('resume'); r.hidden = !route.length && !messages.querySelector('.msg.user') && viewed.size === 0;
+  const r = $('resume'), wasHidden = r.hidden; r.hidden = !route.length && !messages.querySelector('.msg.user') && viewed.size === 0;
+  if (wasHidden !== r.hidden) setTimeout(() => dispatchEvent(new Event('resize')), 0); // 出现或消失“继续参观”条后，重新排一次首页
   if (!r.hidden) $('resume-text').textContent = route.length ? routeName + (finished ? ' · 已完成' : ' · 当前在「' + find(selected).name + '」') : '自由浏览 · 当前在「' + find(selected).name + '」';
 }
 /* ---------- 沙盘鸟瞰图 ---------- */
@@ -1333,7 +1334,8 @@ $('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
     b.addEventListener('click', () => choose(n.node)); stage.append(b); return b;
   });
   // 排版：先按经纬度算出位置；挨得太近的标点略微挪开；再给每个地名挑一个不遮挡的方向（右、左、下、上）
-  function layout() {
+  function layout(retry = 0) {
+    if (!retry) stage.style.height = '';
     const W = stage.clientWidth, H = stage.clientHeight; if (!W || !H) return;
     const small = W < 520, big = W >= 660, pw = small ? 27 : big ? 44 : 31, ph = small ? 29 : big ? 48 : 34, pad = { l: small ? 26 : 96, r: small ? 26 : 96, t: ph + 8, b: 30 };
     const wide = matchMedia('(min-width:1080px)').matches, sideEl = document.querySelector('.home-side');
@@ -1355,6 +1357,8 @@ $('map-toggle').addEventListener('click', () => setMapOpen(!mapOpen));
     let panel = null;
     if (wide) { const L = W * .5, near = P.filter(p => p[0] > L - 30), mid = H * .45; const top = Math.max(H * .1, ...near.filter(p => p[1] < mid).map(p => p[1] + 12)), bot = Math.min(H * .8, ...near.filter(p => p[1] >= mid).map(p => p[1] - ph - 12)); panel = [L, top, W * .985, bot]; }
     if (sideEl) { if (panel) { const sw = Math.min(540, panel[2] - panel[0] - 20); sideEl.style.left = (stage.offsetLeft + (panel[0] + panel[2] - sw) / 2) + 'px'; sideEl.style.width = sw + 'px'; sideEl.style.top = (stage.offsetTop + panel[1]) + 'px'; sideEl.style.height = (panel[3] - panel[1]) + 'px'; } else sideEl.removeAttribute('style'); }
+    // 提问区里的内容（转盘、按钮、输入框、“继续参观”条）比留给它的空白高时，每次把整幅路线拉高 20px，直到放得下（最多 14 次），别让它压到起点附近的标点
+    if (wide && sideEl && panel && retry < 14) { const kids = [...sideEl.children].filter(c => !c.hidden && c.offsetParent !== null); if (kids.length) { const need = kids[kids.length - 1].getBoundingClientRect().bottom - kids[0].getBoundingClientRect().top + 10, have = panel[3] - panel[1]; if (need > have + 4) { stage.style.height = (H + 20) + 'px'; return layout(retry + 1); } } }
     const hit = (a, c) => a[0] < c[2] && c[0] < a[2] && a[1] < c[3] && c[1] < a[3];
     const body = P.map(p => [p[0] - pw / 2, p[1] - ph, p[0] + pw / 2, p[1] + 2]), placed = [];
     P.forEach((p, i) => {
