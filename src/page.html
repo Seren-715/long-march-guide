@@ -740,7 +740,9 @@ const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).map(g => {
     place: { node: n.id, text: g.place || '路线上和这个故事时间最接近的一站是「' + n.name + '」。' },
     whys: g.whys || (n.questions || []).slice(0, 3) };
 }).filter(Boolean);
-GUIDES.forEach((g, i) => { if (!g.next) g.next = [GUIDES[(i + 1) % GUIDES.length].id]; });
+// 没有手写“下一个”的故事，按路线上的远近推荐：同一站最先，其次是时间上相邻的站
+const nodePos = id => nodes.findIndex(n => n.id === id);
+GUIDES.forEach((g, i) => { if (!g.next) g.next = GUIDES.map((x, j) => ({ x, j, d: Math.abs(nodePos(x.node) - nodePos(g.node)) })).filter(o => o.x.id !== g.id).sort((p, q) => p.d - q.d || ((p.j - i + GUIDES.length) % GUIDES.length) - ((q.j - i + GUIDES.length) % GUIDES.length)).slice(0, 4).map(o => o.x.id); });
 const readTales = new Set();
 const guideSource = id => { const e = evidenceOf(id); if (e) return e; const t = STORIES.find(x => x.id === id); return t ? { title: t.source, url: t.url } : null; };
 function guideRefs(ids) { const box = el('div', 'refs'), seen = new Set(); for (const id of ids || []) { const e = guideSource(id), u = e && safeLink(e.url); if (u && !seen.has(u)) { seen.add(u); box.append(srcLink(u, e.title || '查看资料', 'ref')); } } return box; }
@@ -800,7 +802,7 @@ function openStory(id, push = true) {
     if ((g.background || []).length) { box.append(el('h3', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); box.append(item); } }
     if (g.place && find(g.place.node)) { const pl = el('div', 'story-place'); const btn = el('button', 'btn btn-ghost', '在路线上看这一站 →'); btn.type = 'button'; btn.addEventListener('click', () => choose(g.place.node)); pl.append(el('span', '', g.place.text), btn); box.append(pl); }
     if ((g.whys || []).length) { box.append(el('h3', '', '读到这里，你可能想问')); const w = el('div', 'story-whys'); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(q, { story: g.id }); }); w.append(b); } box.append(w); }
-    const nx = (g.next || []).map(n => GUIDES.find(x => x.id === n)).filter(Boolean)[0];
+    const nexts = (g.next || []).map(n => GUIDES.find(x => x.id === n)).filter(Boolean), nx = nexts.find(x => !readTales.has(x.id)) || nexts[0];
     if (nx) { box.append(el('h3', '', '再听一个')); box.append(taleCard(nx, 'story-next')); const all = el('button', 'story-all', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', () => openStoryList()); box.append(all); }
     body.append(box); box.scrollIntoView({ behavior: motion(), block: 'nearest' });
   };
