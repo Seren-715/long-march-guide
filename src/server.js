@@ -15,7 +15,7 @@ const ROUTE_KEYS=new Set(['overview','turning','journey','full']);
 const NO_DATA='现有资料不足以可靠回答这个问题，请换个问法或查阅节点资料。';
 const evidence=[...nodes.flatMap(n=>[{id:n.id,node:n.id,name:n.name,text:n.text,source:n.source,url:n.url},...(n.extra||[]).map(e=>({...e,node:n.id,name:n.name}))]),
   // 已审核的长征故事也作为资料，标明“故事”和所属节点
-  ...stories.filter(st=>st.reviewed===true).map(st=>({id:st.id,node:st.node,name:'故事·'+st.title+'（'+(nodes.find(n=>n.id===st.node)?.name||st.node)+'）',text:st.text,note:st.note||'',source:st.source,url:st.url}))];
+  ...stories.filter(st=>st.reviewed===true).map(st=>({id:st.id,node:st.node,name:(st.kind==='source_comparison'?'史料·':'故事·')+st.title+'（'+(nodes.find(n=>n.id===st.node)?.name||st.node)+'）',text:st.text,note:st.note||'',source:st.source,url:st.url}))];
 const nodeName=id=>nodes.find(n=>n.id===id)?.name||id;
 
 // 限流：每个运行实例在内存中计数，属尽力而为；可靠的费用上限仍需在模型服务账户侧设置。
@@ -171,22 +171,164 @@ function runTool(name,args,state){
 function stripLinks(text){
   return text.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/https?:\/\/[^\s）)]+/gi,'').split(/(?<=[。！？!?\n])/).filter(part=>!/(链接|网址|网页地址|URL)/i.test(part)).join('').trim();
 }
-// 汉字数字转数值，例如“十七”→17、“二十五”→25、“一万”→10000。
+// 校验数字与日期的完整表达，而非把“3万人”拆成 3 和 万、把年月日拆开匹配。
+// 仍是保守规则：只能发现部分越界表达，不能替代史实的逐句核验。
 const CN_DIGITS={零:0,〇:0,一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10,百:100,千:1000,万:10000};
-function cnToNumber(text){let total=0,section=0,digit=0;for(const ch of text){const v=CN_DIGITS[ch];if(v==null)return null;if(v===10000){total+=(section+digit)*v;section=0;digit=0;}else if(v>=10){section+=(digit||1)*v;digit=0;}else digit=v;}return total+section+digit;}
-const arabicIn=text=>(String(text).match(/\d+/g)||[]).map(x=>String(Number(x)));
-// 资料一侧：所有阿拉伯数字和汉字数字都算作“出现过”，宁可宽一些，避免误杀。
-const numbersAllowedIn=text=>[...arabicIn(text),...[...String(text).matchAll(/[零〇一二两三四五六七八九十百千万]+/g)].map(m=>cnToNumber(m[0])).filter(v=>v!=null).map(String)];
-// 回答一侧：阿拉伯数字，以及与量词连用的汉字数量（“三个月”“十七名”“两个团”），不含“第一次”这类序数和部队番号。
-// 不含“军、师、团、营、连”等：它们多出现在部队番号（红二十五军、红四团）或“两军”“三军会师”这类泛称中，不是数量。
-const CN_QUANTITY=/(?<!第)([零〇一二两三四五六七八九十百千万]+)(?=[个名人条次天年月日夜里座根艘只路批位])/g;
-// “两个故事”“三个方面”这类是在组织回答，不是史实中的数量，不核对。
+// 仅折叠一字符宽的全角数字和日期标点，保持索引不变（日期片段会按索引屏蔽）。
+const NUMERIC_MARKS={'／':'/','－':'-','．':'.'};
+function normalizeNumerals(value){
+  return String(value).replace(/[０-９／－．]/g,ch=>{
+    const point=ch.charCodeAt(0);
+    return point>=0xFF10&&point<=0xFF19?String.fromCharCode(point-0xFEE0):NUMERIC_MARKS[ch];
+  });
+}
+function cnToNumber(text){
+  let total=0,section=0,digit=0;
+  for(const ch of text){const v=CN_DIGITS[ch];if(v==null)return null;
+    if(v===10000){total+=(section+digit||1)*v;section=0;digit=0;}
+    else if(v>=10){section+=(digit||1)*v;digit=0;}
+    else digit=v;
+  }
+  return total+section+digit;
+}
+function toDateNumber(x){
+  if(/^\d+$/.test(x))return Number(x);
+  if(/^[零〇一二三四五六七八九]{4}$/.test(x))return Number([...x].map(c=>CN_DIGITS[c]).join(''));
+  return cnToNumber(x);
+}
+const YEAR_EXPR='(?:\\d{4}|[零〇一二三四五六七八九]{4}|[一二三四五六七八九十百千零〇]{5,9})';
+const PART_EXPR='(?:\\d{1,2}|[零〇一二两三四五六七八九十]{1,3})';
+const CN_DATE_RE=new RegExp('('+YEAR_EXPR+')\\s*年\\s*('+PART_EXPR+')\\s*月(?:\\s*('+PART_EXPR+')\\s*[日号](?:\\s*(?:至|到|—|－|-|～|~)\\s*(?:('+PART_EXPR+')\\s*月\\s*)?('+PART_EXPR+')\\s*[日号])?)?','g');
+const SEP_DATE_RE=/(?<!\d)(\d{4})\s*([\/\-\.．])\s*(\d{1,2})(?:\s*\2\s*(\d{1,2}))?(?!\d)/g;
+function validCalendarDay(y,m,d){
+  if(m<1||m>12||d<1||d>31)return false;
+  const date=new Date(Date.UTC(y,m-1,d));
+  return date.getUTCFullYear()===y&&date.getUTCMonth()+1===m&&date.getUTCDate()===d;
+}
+const HISTORICAL_EVENTS=[
+  ['zunyi',/遵义/],['xiangjiang',/湘江/],['luding',/泸定桥/],
+  ['chishui',/赤水/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
+  ['liping',/黎平/],['gouba',/苟坝/],['dadu',/大渡河/],
+  ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
+  ['lazikou',/腊子口/],['wuqi',/吴起镇/],['jiajin',/夹金山/],
+  ['maoergai',/毛儿盖/],['huili',/会理/],['houchang',/猴场/]
+];
+const eventKeys=text=>HISTORICAL_EVENTS.filter(([,pattern])=>pattern.test(text)).map(([id])=>id);
+function clauseAt(text,start,end,minor=false){
+  const marks=minor?['，',',','、','。','！','？','；',';','\n']:['。','！','？','；',';','\n'];
+  let left=-1,right=text.length;
+  for(const mark of marks){
+    left=Math.max(left,text.lastIndexOf(mark,start));
+    const idx=text.indexOf(mark,end);if(idx>=0&&idx<right)right=idx;
+  }
+  return text.slice(left+1,right);
+}
+function dateFacts(text){
+  const source=normalizeNumerals(text),out=[];
+  const add=(match,y,m,d,endM,endD)=>{
+    const valid=Number.isInteger(y)&&y>=1&&Number.isInteger(m)&&m>=1&&m<=12
+      &&(d==null||validCalendarDay(y,m,d))
+      &&(endD==null&&(endM==null||endM===m)
+        ||endD!=null&&validCalendarDay(y,endM,endD)&&(endM>m||endM===m&&endD>=d));
+    const start=match.index,end=start+match[0].length;
+    out.push({raw:match[0],start,end,y,m,d,endM,endD,valid,context:clauseAt(source,start,end),localContext:clauseAt(source,start,end,true)});
+  };
+  for(const m of source.matchAll(CN_DATE_RE)){
+    add(m,toDateNumber(m[1]),toDateNumber(m[2]),m[3]?toDateNumber(m[3]):null,
+      m[4]?toDateNumber(m[4]):toDateNumber(m[2]),m[5]?toDateNumber(m[5]):null);
+  }
+  for(const m of source.matchAll(SEP_DATE_RE))add(m,Number(m[1]),Number(m[3]),m[4]?Number(m[4]):null,Number(m[3]),null);
+  return out.sort((a,b)=>a.start-b.start);
+}
+function maskDates(text,facts){
+  const chars=[...String(text)];
+  for(const d of facts)for(let i=d.start;i<d.end;i++)chars[i]=' ';
+  return chars.join('');
+}
 const META_AFTER=/^个(故事|问题|方面|节点|站|原因|例子|资料|地方|阶段|角度|要点)/;
-const numbersClaimedIn=text=>[...arabicIn(text),...[...String(text).matchAll(CN_QUANTITY)].filter(m=>!META_AFTER.test(String(text).slice(m.index+m[1].length))).map(m=>cnToNumber(m[1])).filter(v=>v!=null).map(String)];
-// 回答里的数字必须出现在所引资料或用户问题中。
+const CN_QUANTITY=/(?<![第\d.．])([零〇一二两三四五六七八九十百千万]+)(?=[个名人条次天年月日夜里座根艘只路批位])/g;
+// 只解析有数量级（万、千、百）或人数单位（人、名）的数字。
+// 精度：near=近/约/将近/大约，over=余/多/超过/至少，exact=无修饰。
+const COUNT_TOKEN=/(近|约|将近|大约|左右|上下|超过|多于|至少)?\s*(\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百千万]+)\s*([万千百])?\s*(余人|余名|多人|多名|人|名)?/g;
+function countFacts(text){
+  const normalized=normalizeNumerals(text),out=[],mag={万:10000,千:1000,百:100};
+  for(const m of normalized.matchAll(COUNT_TOKEN)){
+    if(!m[3]&&!m[4]&&!/[万千百]/.test(m[2]))continue;
+    const value=(/^\d/.test(m[2])?Number(m[2]):cnToNumber(m[2]))*(m[3]?mag[m[3]]:1);
+    if(!Number.isFinite(value)||value<=0)continue;
+    const qualifier=(/^(近|约|将近|大约|左右|上下)$/.test(m[1]||''))?'near'
+      :(/^(超过|多于|至少)$/.test(m[1]||'')||/^(余|多)/.test(m[4]||''))?'over':'exact';
+    out.push({raw:m[0],value,qualifier,start:m.index,end:m.index+m[0].length});
+  }
+  return out;
+}
+function numberTokens(text,source){
+  const normalized=normalizeNumerals(text),dates=dateFacts(normalized),maskedDate=maskDates(normalized,dates),counts=countFacts(maskedDate);
+  const keys=new Set(),raw=[...maskedDate];
+  for(const d of dates)if(d.valid)keys.add('N:'+d.y);
+  for(const c of counts){
+    keys.add('A:'+String(c.value));
+    for(let k=c.start;k<c.end;k++)raw[k]=' ';
+  }
+  const remaining=raw.join('');
+  for(const m of remaining.matchAll(/(?<![\d.．])\d+(?:[.．]\d+)?/g))keys.add('N:'+String(Number(m[0].replace('．','.'))));
+  const addCn=v=>{const n=cnToNumber(v);if(n!=null)keys.add('N:'+String(n));};
+  if(source){
+    for(const m of remaining.matchAll(/[零〇一二两三四五六七八九十百千万]+/g))addCn(m[0]);
+  }else{
+    for(const m of remaining.matchAll(CN_QUANTITY)){
+      if(!META_AFTER.test(remaining.slice(m.index+m[1].length)))addCn(m[1]);
+    }
+  }
+  return keys;
+}
+function numbersAllowedIn(text){return [...numberTokens(text,true)];}
+function numbersClaimedIn(text){return [...numberTokens(text,false)];}
+const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(\d{4}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[\/\-\.．]\d{1,2}[\/\-\.．]\d{1,2}|\s*年)?|\d+(?:\.\d+)?\s*(?:万(?:人|名)?|人|名))/g;
+function withoutRefutedQuestionFacts(answer,question){
+  const compact=normalizeNumerals(question).replace(/\s+/g,'');
+  return normalizeNumerals(answer).replace(EXPLICIT_NEGATION,(match,fact)=>
+    compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的数字）':match);
+}
+function dateSupported(claim,source){
+  if(!claim.valid||!source.valid||claim.y!==source.y)return false;
+  // 优先绑定日期所在的逗号分句；若分句不含事件，才回看整个句号句。
+  // 一段有两个事件但无法分离日期归属时保守拒绝，而不是任一事件匹配即放行。
+  const boundEvents=d=>{
+    const local=eventKeys(d.localContext);
+    if(local.length)return local;
+    const whole=eventKeys(d.context);
+    return whole.length<=1?whole:null;
+  };
+  const claimedEvents=boundEvents(claim),sourceEvents=boundEvents(source);
+  if(claimedEvents===null||sourceEvents===null)return false;
+  if(claimedEvents.length&&!claimedEvents.every(event=>sourceEvents.includes(event)))return false;
+  if(claim.d===null)return claim.m>=source.m&&claim.m<=(source.endM||source.m);
+  if(source.d===null)return false;
+  const ordinal=(month,day)=>month*32+day;
+  return ordinal(claim.m,claim.d)>=ordinal(source.m,source.d)
+    &&ordinal(claim.endM||claim.m,claim.endD||claim.d)<=ordinal(source.endM||source.m,source.endD||source.d);
+}
+function unsupportedDates(answer,ids){
+  const cited=ids.map(id=>evidence.find(e=>e.id===id).text).join('\n');
+  const sources=dateFacts(cited);
+  return dateFacts(answer).filter(d=>!sources.some(s=>dateSupported(d,s))).map(d=>d.raw);
+}
 function unsupportedNumbers(answer,ids,question){
-  const allowed=new Set([...ids.flatMap(id=>numbersAllowedIn(evidence.find(e=>e.id===id).text)),...numbersAllowedIn(question)]);
-  return [...new Set(numbersClaimedIn(answer).filter(n=>!allowed.has(n)))];
+  const claims=withoutRefutedQuestionFacts(answer,question);
+  const citedTexts=ids.map(id=>evidence.find(e=>e.id===id).text);
+  const allowed=new Set(citedTexts.flatMap(numbersAllowedIn));
+  // 不能把“近2.6万”作为“精确26000人”的来源；同值换单位须保留近似性质。
+  const citedCounts=citedTexts.flatMap(countFacts),claimedCounts=countFacts(maskDates(claims,dateFacts(claims)));
+  const badPrecision=claimedCounts.filter(c=>!citedCounts.some(s=>s.value===c.value
+    &&(c.qualifier==='exact'?s.qualifier==='exact':s.qualifier===c.qualifier||s.qualifier==='exact')));
+  const describe=key=>{
+    if(key.startsWith('N:'))return key.slice(2);
+    if(key.startsWith('A:'))return String(Number(key.slice(2))/10000)+'万';
+    return key;
+  };
+  return [...new Set([...numbersClaimedIn(claims).filter(n=>!allowed.has(n)).map(describe),
+    ...badPrecision.map(c=>'数量精度：'+c.raw.trim()),...unsupportedDates(claims,ids)])];
 }
 // 回答中的书名号内容（文件、文章名）必须与所引资料或用户问题中的写法完全一致。
 const squash=text=>String(text).replace(/\s+/g,'');
@@ -202,12 +344,29 @@ function observedRisks(answer,ids,question){
   if ((/草地/.test(compact)||/草地/.test(q)) && /(?:损失|伤亡|牺牲|死亡).{0,24}(?:主要|因为|由于|导致)/.test(casualties) && (!ids.includes('caodi_losses')||/主要/.test(casualties)) && !/(?:资料|记载).{0,12}(?:未说明|没有说明|不足)/.test(compact)) issues.push('请引用直接说明伤亡原因的资料，不要推断主要原因');
   if (/1934年11月下旬至12月初/.test(compact) && /三道封锁线/.test(compact)) issues.push('三道封锁线对应的时间是1934年10月下旬至12月初，不能更改时段');
   if (/红二方面军.{0,80}(?:历时|走了|用了|持续|长征)(?:约|近|将近|大约)?两年/.test(compact)) issues.push('红二方面军长征为1935年11月至1936年10月，不能说历时两年；两年是1934年至1936年各路长征的总体时段');
-  // 宁化妇女挑粮：要纠正“参加长征”这个前提（记载的是长征前挑粮支前），但不能断言每个人后来的去向，也不能只答一句“无法判断”
-  if (/宁化/.test(q) && /妇女/.test(q) && /(?:参加|随|长征)/.test(q)) {
-    const fix='资料记载的1300名宁化妇女是1934年1月底至2月初挑粮支前，早于长征出发，不是参加长征的人数；请先这样纠正说法，再说明她们当中是否有人后来参加长征资料没有记载。不要只答“无法判断”，也不要断言她们都参加或都没有参加长征';
-    if (/(?:她们|妇女)(?:后来)?(?:都|全都|全部|均)(?:没有|没|未|不曾)(?:随|参加|参与)/.test(compact) || (/(?:都|全都|全部|均)(?:随.{0,8})?(?:参加|参与)了?长征/.test(compact) && !/(?:不是|并非|并不是|没有依据|没有记载|是否|不能|无法)/.test(compact))) issues.push(fix);
-    else if (/(?:无法|不能|难以)(?:据此)?(?:判断|确定)/.test(compact) && !/(?:不是|并非|并不是)[^。]{0,24}(?:参加长征|长征的人数|随.{0,8}长征)|没有依据/.test(compact)) issues.push(fix);
-  }
+  // 核心会师事实：1936-10-09 会宁为红一与红四方面军，红二方面军在将台堡会师。
+  // 逐分句判断肯定陈述；纠正错误前提的否定句不能被当作错误事实拦截。
+  const statements=compact.split(/[，,。！？；;\n]|而是/).filter(Boolean);
+  const unsupportedHuining=statements.some(part=>
+    /会宁/.test(part)&&/会师/.test(part)&&/红二方面军/.test(part)
+    // 正确的“会宁和将台堡地区会师”是两个地点的区域性总结，不等于说红二在会宁单独会师。
+    &&!/(?:会宁.{0,3}将台堡|将台堡.{0,3}会宁)(?:地区)?/.test(part)
+    &&!/(?:不是|并非|而非|并未|没有|未在|不曾|不包括|不能说|不能认定|无法认定|不应认为)/.test(part));
+  if(unsupportedHuining)issues.push('会宁1936年10月9日会师的是红一、红四方面军；红二方面军于10月22日在将台堡与红一方面军会师。不要把红二方面军错置为会宁会师部队');
+  // 县志只记录宁化1300名妇女在长征前挑粮，不能推断全体之后参加/未参加长征或到达陕北。
+  const ninghuaScope=ids.includes('story_fj_ninghua_grain')||(/宁化/.test(q)&&/(?:妇女|1300)/.test(q));
+  const ninghuaOutcome=/(?:参加|参与)(?:了|过)?(?:中央红军|红军)?长征(?!前)|随(?:中央红军|军)(?:参加|进行|走)?长征(?!前)|(?:走完|完成)长征|(?:抵达|到达|到了|走到)(?:了)?陕北/;
+  const unsupportedNinghua=ninghuaScope&&statements.some(part=>{
+    if(!/(?:1300|一千三百|妇女|她们|这批|这些|该批|这群)/.test(part)||!ninghuaOutcome.test(part))return false;
+    if(/(?:不能|不可|无法|不应|尚未|不确定|不知道|没有(?:证据|资料|记载|说明|提到|显示|说)|未(?:记载|说明|提及|证实)|资料不足|不等于|不代表|没有根据|是否)/.test(part))return false;
+    const all=/(?:全部|全都|都|所有|每一位|无一例外)/.test(part);
+    const categoricalNo=/(?:不是|并不是|并非|没有|并未|不曾|未曾|不可能).{0,28}(?:参加|参与|随)(?:了|过)?(?:中央红军|红军)?长征/.test(part);
+    // 纠正前提（“这是支前人数，不是参加长征的人数”）是允许的，不算对个人去向下结论
+    return all||(categoricalNo&&/后来|此后|之后|以后|最终|始终|从未|一个也/.test(part)&&!/人数|记载的是|说的是|指的是/.test(part));
+  });
+  if(unsupportedNinghua)issues.push('《宁化县志》仅记载1300名妇女在长征前挑粮支前，没有证据证明她们全部参加、全部未参加或全部到达陕北；请先纠正说法（这是长征前的支前人数，不是参加长征的人数），再说明后续去向未记载，不要只答“无法判断”');
+  // 观众的问法把这 1300 人当成参加长征的人时，要先纠正前提（记载的是长征前挑粮支前，不是参加长征的人数），再说明去向没有记载；不能只答一句“无法判断”
+  if (!unsupportedNinghua && /宁化/.test(q) && /妇女/.test(q) && /(?:参加|随|长征)/.test(q) && /(?:无法|不能|难以)(?:据此)?(?:判断|确定)/.test(compact) && !/(?:不是|并非|并不是)[^。]{0,24}(?:参加长征|长征的人数|随.{0,8}长征)|没有依据/.test(compact)) issues.push('资料记载的1300名宁化妇女是1934年1月底至2月初挑粮支前，早于长征出发，不是参加长征的人数；请先这样纠正说法，再说明她们当中是否有人后来参加长征资料没有记载。不要只答“无法判断”，也不要断言她们都参加或都没有参加长征');
   if ((/彝海|小叶丹/.test(compact)||/彝海|小叶丹/.test(q)) && /结盟(?:当晚|当日晚上)[，,]?刘伯承/.test(compact)) issues.push('彝海授旗时间有当晚和次日两种记载，不应先把当晚当作确定事实；若题目涉及具体时间，请分别说明并引用两种资料，否则可不写具体时间');
   if (/伤亡|死亡|牺牲/.test(q) && /湘江/.test(compact) && /(?:8\.6|8．6)/.test(compact) && /3万/.test(compact)) issues.push('伤亡问题中不要使用从出发到突破封锁后的兵力变化代替湘江单场战役伤亡；可说明资料没有给出战役伤亡人数');
   if (/塔山湾/.test(compact) && !/塔山湾/.test(cited)) issues.push('关于塔山湾的表述没有引用相应资料');
@@ -315,19 +474,24 @@ export default {async fetch(request, env) {
   const guideStory=guide?.story?stories.find(t=>t.id===guide.story&&t.reviewed===true):null;
   const guideTitle=guide?(guide.title||guideStory?.title||''):'';
   const guideIds=new Set(guide?[...(guideStory?[guideStory.id,guideStory.node]:[]),...[...(guide.parts||[]),...(guide.background||[])].flatMap(p=>[...p.sources,...(p.terms||[]).flatMap(t=>t.sources)])]:[]);
-  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id));
+  // 福建人数问题涉及多个来源口径。为避免模型只查一条就宣布“资料只有一种数字”，
+  // 将三份分别有明确出处的计数资料一起预载；这是系统资料准备，不伪称模型主动检索。
+  const fujianCountQuery=/(?:福建|闽籍|闽西|八闽).*(?:人数|多少人|多少|几万|数字|数量|口径|统计|差异|不同)|(?:人数|数量|数字|口径|统计|差异).*(?:福建|闽籍|闽西|八闽)|(?:近3万|近2\.6万|近万人).*(?:红军|长征|人数|福建|口径)/.test(data.question);
+  const countIds=new Set(['story_fj_overview','story_fj_count_26k','story_fj_count_10k']);
+  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||(fujianCountQuery&&countIds.has(e.id)));
   const state={loaded:new Set(preload.map(e=>e.id)),action:null,current:free?null:current.id,tour};
   const gist=e=>e.id.startsWith('story_')?e.name.replace(/（[^）]*）$/,''):e.text.replace(/\s+/g,'').slice(0,26)+'…';
   const catalogue=nodes.map(n=>`[${n.id}] ${n.date} ${n.name}：${n.title}\n`+evidence.filter(e=>e.node===n.id).map(e=>`  - ${e.id}：${gist(e)}`).join('\n')).join('\n');
   const visit=tour?`观众正在按路线参观：${tour.route.map(nodeName).join(' → ')}${tour.route.includes(current.id)?`（当前第 ${tour.route.indexOf(current.id)+1} / ${tour.route.length} 站）`:'（当前节点不在路线中）'}；已看过：${tour.visited.map(nodeName).join('、')||'暂无'}。可以据此自然地衔接前后站，但衔接中的史实同样只能来自资料。`:'观众没有选择路线，正在自由浏览。';
   const system=`你是“长征路上”的小征，给观众讲长征路上有出处的真人真事，是一个会自己查资料、核对出处、会操作页面的智能体，面向想了解长征的普通观众，语气亲切、简洁。你的职责是讲述和查证：观众想听故事、提问或给出一句说法，你查阅资料后依据原文讲述或回答。自我介绍时说明你讲长征故事、回答问题，也能查证关于长征的说法。
 资料范围：目前收录的是中央红军（红一方面军）主力的长征路线，从中央苏区到吴起镇，另有直罗镇和红军三大主力会师；红二、红四方面军和红二十五军的长征只有少量资料。观众问到你能查什么、资料范围，或问到其他各路红军而资料不足时，如实说明这一点。
+福建人数特别规则：涉及“福建籍参加长征有多少人”“不同报道的数字为什么不一致”时，要同时比较 story_fj_overview、story_fj_count_26k、story_fj_count_10k 三份正文并分别引用。福建省政府报道中央红军出发时“近3万福建子弟兵”；《福建日报》文章导语写“近2.6万福建子弟”，正文明确称在8.6万中央红军中“闽西子弟兵近2.6万人”，与全省口径在地域范围表述上不同，但尚无可核验的统一统计名册；省退役军人事务厅另有“近万福建儿女”记载，其范围及差异原因仍待核实。既不要否认正文的闽西表述，也不要凭地域区别断言三组数字已完全解释。
 ${free?'观众在首页直接提问，没有正在参观的节点；请根据问题本身，用工具选取相关资料作答。':`当前参观节点是 ${current.name}（${current.id}）。${visit}`}
 
 一、工作方式：你手里只有资料目录和下方“已取出的资料”。目录里每条资料只列出开头几个字，用来判断该取哪些，不能当作依据。回答历史问题前，先判断已取出的资料够不够；不够就调用 read_stop（按节点取全部资料）、read_materials（按资料 ID 取若干条）或 search_materials（按关键词检索），可以多次调用，直到能回答或确认资料里没有。涉及总体情况（总里程、总时间、胜利结束）、多支部队或多个节点的问题，要把目录里相关的资料都取出来再答。故事的“资料整理说明”用于提示年代、部队归属和争议边界，它不是原文引述；不要将没有证据证明的内容断言为不存在。不要凭记忆作答：sources 只能填本次已取出的资料 ID，其余一律无效。需要操作页面时调用对应工具，不要只在文字里说“带你去”。可以在同一轮里同时调用多个取资料的工具；页面操作每次回答只做一个。
 二、先确定观众实际问了什么，直接回答该问题，不自行增加需要逐项回答的额外问题或相关话题。单一事实问题优先用一两句话回答；除非用户要求展开，否则不堆砌其他人物、事件和背景。例如用户只问某条河在哪里，就只回答其地理位置，不主动讲渡河过程、时间、意义或资料缺口。只有用户实际问到的部分缺少依据，才说明该部分资料不足；不要因为你自己想到的延伸问题缺少资料而拒答。用户问题有多项时，保留有依据的答案，只指出实际被问到且无法回答的部分。
 最终回答先判断问题类型 type：
-- "history"：与长征相关的史实、原因、意义、比较、总结等问题；问候、感谢里同时提出了这类问题的，也按 history 回答其中的历史部分。只依据已取出的资料作答，逐项回答用户提出的各个问题；用户明确问到的某一项在资料中没有依据时，简短说明这一项资料里没有具体提到，不得遗漏也不得编造；用户没有问到的内容，不要主动提“资料没有记载”“其他细节资料中没有”“资料有限”之类的话，直接讲资料里有的即可，结尾也不要加这类声明。尽量沿用资料原文的说法；资料未说明的事实必须明确说不知道，不得猜测或编造，可以同时给出资料里相关的事实。如果已取出的资料对同一事实有分歧，应明确说明不同来源各自的说法，分别列出支持的资料 ID，不要先把其中一种写成确定事实、之后再补充存在分歧；问题没有要求具体争议细节时，可以不提该细节。不要自行推算时间间隔、数量或比例，不要做资料之外的评价、假设或推测。sources 必须列出回答中每一项事实所依据的资料 ID；不可用没有支持该事实的资料代替。严格保留时间、部队、事件及人数的适用范围，不把长征初期的兵力变化写成单场战役的伤亡数字。回答中的日期、数量等数字必须原样出自所引资料。
+- "history"：与长征相关的史实、原因、意义、比较、总结等问题；问候、感谢里同时提出了这类问题的，也按 history 回答其中的历史部分。只依据已取出的资料作答，逐项回答用户提出的各个问题；用户明确问到的某一项在资料中没有依据时，简短说明这一项资料里没有具体提到，不得遗漏也不得编造；用户没有问到的内容，不要主动提“资料没有记载”“其他细节资料中没有”“资料有限”之类的话，直接讲资料里有的即可，结尾也不要加这类声明。尽量沿用资料原文的说法；资料未说明的事实必须明确说不知道，不得猜测或编造，可以同时给出资料里相关的事实。如果已取出的资料对同一事实有分歧，应明确说明不同来源各自的说法，分别列出支持的资料 ID，不要先把其中一种写成确定事实、之后再补充存在分歧；问题没有要求具体争议细节时，可以不提该细节。不要自行推算时间间隔、数量或比例，不要做资料之外的评价、假设或推测。sources 必须列出回答中每一项事实所依据的资料 ID；不可用没有支持该事实的资料代替。严格保留时间、部队、事件及人数的适用范围，不把长征初期的兵力变化写成单场战役的伤亡数字。回答中的日期、数量等数字必须原样出自所引资料。用户问题中的数字即使出现过，也不算证据；纠正错误前提时优先直接写有据可查的正确数字，不要把用户提供的错误数字重复当作事实。
 - "chat"：单纯的问候、感谢、询问你是谁或本站怎么用。简短友好地回应，可介绍你能讲解的内容和操作方式；不陈述任何史实（包括时间、人物、事件和评价），sources 为空。不需要调用工具。
 - "off_topic"：与长征学习无关。礼貌说明你只讲解长征，并建议一个可以问的方向；sources 为空。不需要调用工具。
 三、查证说法：观众贴出一句关于长征的说法并问对不对、是否属实时，type 为 history；先取出相关资料，再逐项说明：哪些与资料一致，哪些与资料不符（给出资料中的说法），哪些资料里没有提到；并列出 sources。不要因为说法里有错误就整句否定，也不要替资料补充它没有的内容。若观众的说法或提问里带着与资料不符的前提（例如把资料中记载的另一件事当成了参加长征的人数），先直接指出“资料记载的不是这样”，说明资料实际记载的是什么（时间、事情），再说明资料没有涉及的部分；不要只回答一句“无法判断”。
@@ -399,11 +563,11 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         // 重答后仍有对不上出处的数字或文件名：只删掉含这些内容的句子，保留核对通过的部分；删完没有内容或涉及高风险表述时，才整体改为“资料不足”。
         const parts=result.risks.length?[]:result.answer.split(/(?<=[。！？!?；;\n])/),kept=parts.filter(s=>!unsupportedNumbers(s,result.ids,question).length&&!unsupportedTitles(s,result.ids,question).length);
         const rest=kept.join('').trim();
-        if(rest&&kept.length<parts.length&&/[\u4e00-\u9fff]{6,}/.test(rest)){result.answer=rest;step({kind:'verify',text:'删去未能核对的内容',detail:`${parts.length-kept.length} 句`,ok:false});step({kind:'verify',text:'核对出处与数字',detail:`引用 ${result.ids.length} 条资料，通过`,ok:true});}
+        if(rest&&kept.length<parts.length&&/[\u4e00-\u9fff]{6,}/.test(rest)){result.answer=rest;step({kind:'verify',text:'删去未能核对的内容',detail:`${parts.length-kept.length} 句`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
         else{result.answer=NO_DATA;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
         result.badNumbers=[];result.badTitles=[];result.risks=[];
       }
-      else if(result.type==='history'&&result.ids.length)step({kind:'verify',text:'核对出处与数字',detail:`引用 ${result.ids.length} 条资料，通过`,ok:true});
+      else if(result.type==='history'&&result.ids.length)step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});
       const {type,ids,answer,followups}=result,action=state.action||result.action;
       // 历史问题在资料库里没有查到出处：联网兜底；查到一部分但说明了资料没有涉及的内容：让页面提供“联网再查”
       const gap=/(?:资料|文献|记载|知识库)[^。]{0,24}(?:没有|未|不足|无法|尚无)|不知道/.test(answer);
