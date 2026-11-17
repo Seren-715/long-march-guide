@@ -214,14 +214,24 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .asked-at{display:inline-block;font-size:12px;color:var(--text3);margin-bottom:2px}
 .msg.error .msg-text{color:var(--accent)}
 /* 从故事开始：首页故事卡片与分段阅读 */
-.tales{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0 0}
-.tale{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:14px 16px;border:1px solid var(--accent-line);border-radius:16px;background:color-mix(in srgb,var(--accent) 4%,var(--bg));transition:transform .15s,box-shadow .15s,border-color .15s}
-.tale:hover,.tale:focus-visible{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--accent)}
+.tales{display:block;position:relative;margin:22px 0 0;min-width:0}
+.tales-wrap{position:relative}
+.tales-stage{position:relative;height:calc(var(--th,232px) + 28px);perspective:1100px;perspective-origin:50% 42%;overflow:clip;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;outline-offset:2px}
+.tales-stage.dragging{cursor:grabbing}
+.tales-drum{position:absolute;inset:0;transform-style:preserve-3d}
+.tales-stage .tale{position:absolute;left:50%;top:10px;width:var(--tw,152px);height:var(--th,232px);margin-left:calc(var(--tw,152px) / -2);backface-visibility:hidden;will-change:transform,opacity;box-shadow:0 6px 16px rgba(71,37,29,.10)}
+.tales-stage .tale.is-front{border-color:var(--accent);box-shadow:0 10px 24px rgba(71,37,29,.18)}
+.tales-arrow{position:absolute;top:50%;z-index:2;width:34px;height:34px;margin-top:-22px;border:1px solid var(--accent-line);border-radius:50%;background:var(--bg);color:var(--accent);font-size:22px;line-height:1;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;padding:0 0 3px;transition:opacity .15s,background .15s}
+.tales-arrow:hover{background:color-mix(in srgb,var(--accent) 8%,var(--bg))}
+.tales-arrow.prev{left:-17px}.tales-arrow.next{right:-17px}
+.tales-arrow[disabled]{opacity:0;pointer-events:none}
+.tale{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;padding:16px 15px;border:1px solid var(--accent-line);border-radius:16px;background:color-mix(in srgb,var(--accent) 4%,var(--bg));transition:transform .15s,box-shadow .15s,border-color .15s}
+.tale:hover,.tale:focus-visible{border-color:var(--accent)}
 .tale small{font-size:11.5px;color:var(--accent);letter-spacing:.06em}
-.tale b{font-family:var(--serif);font-size:16px;line-height:1.45;font-weight:700}
-.tale span{font-size:12.5px;color:var(--text2)}
+.tale b{font-family:var(--serif);font-size:16.5px;line-height:1.55;font-weight:700;margin-top:6px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden}
+.tale span{font-size:12.5px;line-height:1.55;color:var(--text2);margin-top:auto}
 .tales + .starts{margin-top:10px}
-@media (max-width:560px){.tales{grid-template-columns:1fr}}
+
 .story-page{width:min(760px,100%)}
 .story-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .story-back{font-size:13px;color:var(--text3);padding:4px 0}
@@ -253,6 +263,12 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-whys button:hover,.story-next:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--bg))}
 .story-next{display:block;width:100%}
 .story-page:has(.story-list){width:min(1200px,100%)}
+/* 故事分类筛选 */
+.story-cats{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.story-cats .chip{text-align:center}
+.story-cats .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.story-cats .chip small{margin-left:6px;opacity:.75;font-size:12px}
+.story-cat-note{margin:0 0 16px;font-size:13.5px;line-height:1.7;color:var(--text2)}
 .story-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
 .story-list .story-next{display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:280px;aspect-ratio:3/4;padding:20px 18px;border-radius:12px;overflow-wrap:anywhere}
 /* 书本卡片像实体按钮一样抬起、按下 */
@@ -271,7 +287,8 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .story-all{display:block;margin:10px auto 0;font-size:13px;color:var(--accent)}
 .tale-note{margin:10px 0 14px;padding:10px 12px;border-radius:10px;background:#fff8ec;border:1px solid #f1dfbd;font-size:13px;line-height:1.7;color:#6b4a12}
 .tale-note b{display:block;font-size:12px;margin-bottom:2px;color:#8a5a00}
-.tales-bar{grid-column:1/-1;display:flex;justify-content:space-between;margin-top:-2px}
+.tales-bar{display:flex;justify-content:space-between;align-items:center;margin-top:2px}
+.tales-bar small{font-size:12px;color:var(--text3)}
 .tales-bar button{font-size:12.5px;color:var(--text3);padding:2px 4px}
 .tales-bar button:hover{color:var(--accent)}
 .story-next small{display:block;font-size:12px;color:var(--accent);margin-bottom:2px}
@@ -415,9 +432,9 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
   .home-side h1{font-size:27px;margin-bottom:8px}
   .home-side .home-sub{font-size:13.5px;line-height:1.65;margin-bottom:6px}
   .home-side .home-scope{display:none}
-  .home-side .tales{margin-top:14px;gap:8px}
-  .home-side .tale{padding:11px 13px;border-radius:14px;gap:4px}
-  .home-side .tale b{font-size:14.5px}
+  .home-side .tales{margin-top:14px}
+  .home-side .tale{padding:14px 13px;border-radius:14px;gap:6px}
+  .home-side .tale b{font-size:15px}
   .home-side .tale span{font-size:12px}
   .home-side .starts{gap:8px;margin:8px 0 10px}
   .home-side .start{padding:8px 10px;border-radius:999px;align-items:center}
@@ -747,7 +764,9 @@ const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).map(g => {
     place: { node: n.id, text: g.place || '路线上和这个故事时间最接近的一站是「' + n.name + '」。' },
     whys: g.whys || (n.questions || []).slice(0, 3) };
 }).filter(Boolean);
-GUIDES.forEach((g, i) => { if (!g.next) g.next = [GUIDES[(i + 1) % GUIDES.length].id]; });
+// 没有手写“下一个”的故事，按路线上的远近推荐：同一站最先，其次是时间上相邻的站
+const nodePos = id => nodes.findIndex(n => n.id === id);
+GUIDES.forEach((g, i) => { if (!g.next) g.next = GUIDES.map((x, j) => ({ x, j, d: Math.abs(nodePos(x.node) - nodePos(g.node)) })).filter(o => o.x.id !== g.id).sort((p, q) => p.d - q.d || ((p.j - i + GUIDES.length) % GUIDES.length) - ((q.j - i + GUIDES.length) % GUIDES.length)).slice(0, 4).map(o => o.x.id); });
 const readTales = new Set();
 const guideSource = id => { const e = evidenceOf(id); if (e) return e; const t = STORIES.find(x => x.id === id); return t ? { title: t.source, url: t.url } : null; };
 function guideRefs(ids) { const box = el('div', 'refs'), seen = new Set(); for (const id of ids || []) { const e = guideSource(id), u = e && safeLink(e.url); if (u && !seen.has(u)) { seen.add(u); box.append(srcLink(u, e.title || '查看资料', 'ref')); } } return box; }
@@ -787,10 +806,16 @@ function openStoryFromCard(card, id) {
   }, 300);
 }
 function taleCard(g, cls) { const b = el('button', cls); b.type = 'button'; b.append(el('small', '', g.tag + (readTales.has(g.id) ? ' · 已读' : '')), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => { if (b.closest('.story-list')) openStoryFromCard(b, g.id); else openStory(g.id); }); return b; }
+let storyCat = '';
 function openStoryList(push = true) {
   const body = $('story-body'); $('story-page').classList.remove('event'); $('story-back').hidden = true;
   $('story-tag').textContent = '真人真事，皆有出处'; $('story-title').textContent = '长征路上的故事';
-  const list = el('div', 'story-list'); for (const g of GUIDES) list.append(taleCard(g, 'story-next')); body.replaceChildren(list);
+  const CATS = [['', '全部', '所有能读的故事，挑一个开始。'], ['人物故事', '人物故事', '从一个人的经历讲起：他（她）做了什么，后来怎样。'], ['事件故事', '事件故事', '一场战斗、一次渡河或一次会合是怎样发生的。'], ['会议与决策', '会议与决策', '关键时刻，大家争论什么、最后怎样定下方向。'], ['军民与民族', '军民与民族', '红军与沿途群众、少数民族之间发生的事。']];
+  const bar = el('div', 'story-cats'), note = el('p', 'story-cat-note'), list = el('div', 'story-list');
+  const draw = cat => { const row = CATS.find(c => c[0] === cat) || CATS[0]; note.textContent = row[2]; list.replaceChildren(...GUIDES.filter(g => !cat || g.cat === cat).map(g => taleCard(g, 'story-next'))); [...bar.children].forEach((b, i) => b.setAttribute('aria-pressed', CATS[i][0] === cat ? 'true' : 'false')); storyCat = cat; };
+  CATS.forEach(([key, label]) => { const n = key ? GUIDES.filter(g => g.cat === key).length : GUIDES.length; if (key && !n) return; const b = el('button', 'chip', label); b.type = 'button'; b.append(el('small', '', String(n))); b.addEventListener('click', () => draw(key)); b.dataset.cat = key; bar.append(b); });
+  CATS.splice(0, CATS.length, ...CATS.filter(c => !c[0] || GUIDES.some(g => g.cat === c[0])));
+  body.replaceChildren(bar, note, list); draw(storyCat);
   showStoryPage('长征路上的故事', '#stories', push); currentStory = null;
 }
 function openStory(id, push = true) {
@@ -807,7 +832,7 @@ function openStory(id, push = true) {
     if ((g.background || []).length) { box.append(el('h3', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); box.append(item); } }
     if (g.place && find(g.place.node)) { const pl = el('div', 'story-place'); const btn = el('button', 'btn btn-ghost', '在路线上看这一站 →'); btn.type = 'button'; btn.addEventListener('click', () => choose(g.place.node)); pl.append(el('span', '', g.place.text), btn); box.append(pl); }
     if ((g.whys || []).length) { box.append(el('h3', '', '读到这里，你可能想问')); const w = el('div', 'story-whys'); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(q, { story: g.id }); }); w.append(b); } box.append(w); }
-    const nx = (g.next || []).map(n => GUIDES.find(x => x.id === n)).filter(Boolean)[0];
+    const nexts = (g.next || []).map(n => GUIDES.find(x => x.id === n)).filter(Boolean), nx = nexts.find(x => !readTales.has(x.id)) || nexts[0];
     if (nx) { box.append(el('h3', '', '再听一个')); box.append(taleCard(nx, 'story-next')); const all = el('button', 'story-all', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', () => openStoryList()); box.append(all); }
     body.append(box); box.scrollIntoView({ behavior: motion(), block: 'nearest' });
   };
@@ -823,13 +848,60 @@ function openStory(id, push = true) {
   if (fresh) addMessage('小征', '现在读的是《' + g.title + '》。右边一段一段往下看，读到哪里有疑问，直接在这里问我。', [], { quiet: true });
 }
 $('story-back').addEventListener('click', () => openStoryList());
-// 首页每次展示两个故事，“换两个”在排在前面的精选故事里轮换
-let taleOffset = 0;
+// 首页故事是一条横向可滑动的卡片带：所有故事都在里面，拖动、滚轮或点两侧箭头切换
+let talesAbort = null, talesCur = 0;
+// 首页故事：卡片贴在一个竖放的圆柱面上，正对你的是当前这张，两侧向后弯；拖动、滚轮、箭头都是转动圆柱，转到最后一张会接回第一张（首尾相连）
 function renderTales() {
-  const box = $('tales'); if (!GUIDES.length) return; const pool = GUIDES.slice(0, Math.min(6, GUIDES.length)); box.replaceChildren();
-  for (let i = 0; i < Math.min(2, pool.length); i++) box.append(taleCard(pool[(taleOffset + i) % pool.length], 'tale'));
-  const bar = el('div', 'tales-bar'); const swap = el('button', '', '换两个'); swap.type = 'button'; swap.addEventListener('click', () => { taleOffset = (taleOffset + 2) % pool.length; renderTales(); });
-  const all = el('button', '', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', () => openStoryList()); bar.append(swap, all); box.append(bar); box.hidden = false;
+  const box = $('tales'); if (!GUIDES.length) return; if (talesAbort) talesAbort.abort(); talesAbort = new AbortController(); const sig = { signal: talesAbort.signal };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, N = GUIDES.length, TH = 30; // 每张卡片之间转 30°
+  box.replaceChildren();
+  const wrap = el('div', 'tales-wrap'), stage = el('div', 'tales-stage'), drum = el('div', 'tales-drum');
+  stage.tabIndex = 0; stage.setAttribute('role', 'group'); stage.setAttribute('aria-roledescription', '故事转盘'); stage.setAttribute('aria-label', '故事，左右键切换');
+  const cards = GUIDES.map(g => { const c = taleCard(g, 'tale'); drum.append(c); return c; });
+  stage.append(drum);
+  const wrapD = (i, c) => { const r = (((i - c) % N) + N) % N; return r > N / 2 ? r - N : r; }; // 卡片 i 相对当前位置 c 的最短环形距离
+  const idx = c => ((Math.round(c) % N) + N) % N;
+  let cur = talesCur, R = 300, dragging = false;
+  const hint = el('small', '');
+  const paint = (anim) => {
+    drum.style.transform = 'translateZ(' + (-R) + 'px)';
+    cards.forEach((c, i) => {
+      const d = wrapD(i, cur), ad = Math.abs(d), vis = ad <= 2.5, jump = c._d !== undefined && Math.abs(d - c._d) > N / 2; // 从背面绕到另一侧时不做动画，免得看到卡片飞过
+      c._d = d;
+      c.style.transition = anim && !reduce && !jump ? 'transform .5s cubic-bezier(.2,.7,.2,1), opacity .4s' : 'none';
+      c.style.transform = 'rotateY(' + (d * TH) + 'deg) translateZ(' + R + 'px)';
+      c.style.opacity = vis ? String(Math.max(0, 1 - ad * 0.32)) : '0';
+      c.style.visibility = vis ? 'visible' : 'hidden';
+      c.style.pointerEvents = vis ? 'auto' : 'none';
+      c.classList.toggle('is-front', idx(cur) === i);
+      c.tabIndex = vis ? 0 : -1;
+    });
+    hint.textContent = '拖动、滚轮或点箭头，首尾相连 · ' + (idx(cur) + 1) + ' / ' + N;
+  };
+  const size = () => { const w = box.clientWidth || 340, tw = w < 420 ? 148 : 150, th = Math.round(tw * (w < 420 ? 1.62 : 1.52)); stage.style.setProperty('--tw', tw + 'px'); stage.style.setProperty('--th', th + 'px'); R = Math.round((tw + 14) / (2 * Math.sin(TH / 2 * Math.PI / 180))); paint(false); };
+  const to = v => { cur = Math.round(v); talesCur = idx(cur); paint(true); };
+  const mk = dir => { const b = el('button', 'tales-arrow ' + (dir < 0 ? 'prev' : 'next'), dir < 0 ? '‹' : '›'); b.type = 'button'; b.setAttribute('aria-label', dir < 0 ? '上一个故事' : '下一个故事'); b.addEventListener('click', () => to(cur + dir)); return b; };
+  const prev = mk(-1), next = mk(1);
+  // 拖动：左右拖转动圆柱，松手吸附到最近的一张；拖过几个像素就不算点击
+  let sx = 0, sc = 0, id = null, moved = false;
+  stage.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; id = e.pointerId; sx = e.clientX; sc = cur; moved = false; });
+  stage.addEventListener('pointermove', e => { if (e.pointerId !== id) return; const dx = e.clientX - sx; if (!moved && Math.abs(dx) > 6) { moved = true; dragging = true; stage.classList.add('dragging'); try { stage.setPointerCapture(id); } catch {} } if (moved) { cur = sc - dx / 70; paint(false); } });
+  const end = e => { if (e.pointerId !== id) return; id = null; if (moved) { dragging = false; stage.classList.remove('dragging'); to(cur); } };
+  stage.addEventListener('pointerup', end); stage.addEventListener('pointercancel', end);
+  // 点到侧面的卡片先把它转到正面，点正面的卡片才打开故事
+  stage.addEventListener('click', e => { const c = e.target.closest('.tale'); if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; return; } if (!c) return; const i = cards.indexOf(c); if (i >= 0 && i !== idx(cur)) { e.stopPropagation(); e.preventDefault(); to(Math.round(cur) + wrapD(i, Math.round(cur))); } }, true);
+  stage.addEventListener('focusin', e => { if (!e.target.matches || !e.target.matches(':focus-visible')) return; const c = e.target.closest && e.target.closest('.tale'); const i = c ? cards.indexOf(c) : -1; if (i >= 0 && i !== idx(cur)) to(Math.round(cur) + wrapD(i, Math.round(cur))); });
+  stage.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') { e.preventDefault(); to(cur - 1); } else if (e.key === 'ArrowRight') { e.preventDefault(); to(cur + 1); } });
+  // 滚轮：滚一下转一张
+  let acc = 0, lock = false;
+  stage.addEventListener('wheel', e => {
+    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY; if (!d) return;
+    e.preventDefault(); if (lock) return; acc += d; if (Math.abs(acc) < 40) return; to(cur + (acc > 0 ? 1 : -1)); acc = 0; lock = true; setTimeout(() => { lock = false; }, 280);
+  }, { passive: false });
+  wrap.append(stage, prev, next);
+  const bar = el('div', 'tales-bar'); const all = el('button', '', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', () => openStoryList()); bar.append(hint, all);
+  box.append(wrap, bar); box.hidden = false; size();
+  window.addEventListener('resize', size, sig);
 }
 renderTales();
 function tellStory(n) {

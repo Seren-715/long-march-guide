@@ -409,7 +409,7 @@ log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇
   assert.ok(storyGuides.length>=10);assert.equal(new Set(storyGuides.map(g=>g.id)).size,storyGuides.length);
   const checkPart=(g,part)=>{assert.ok(part.sources.length,g.id);for(const id of part.sources)assert.ok(texts.has(id),`${g.id} 引用了不存在的资料 ${id}`);const cited=part.sources.map(id=>texts.get(id)).join('').replace(/\s/g,'');for(const d of digits(part.text))assert.ok(cited.includes(d),`${g.id}「${part.label||part.word}」里的数字 ${d} 不在所列资料中`);};
   for(const g of storyGuides){
-    assert.ok(g.hook&&g.tag,g.id);
+    assert.ok(g.hook&&g.tag,g.id);assert.ok(['人物故事','事件故事','会议与决策','军民与民族'].includes(g.cat),`${g.id} 缺少有效的故事分类 cat`);
     if(g.story){
       // 人物故事：正文取已审核故事的原文；问句里的数字必须出自原文
       const st=allStories.find(s=>s.id===g.story);assert.ok(st&&st.reviewed===true&&st.text.length>=120,`${g.id} 对应的故事不存在、未审核或太短`);assert.ok(allNodes.some(n=>n.id===st.node),g.id);assert.equal(g.parts,undefined,g.id);
