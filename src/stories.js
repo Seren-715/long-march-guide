@@ -8,10 +8,11 @@
 // 2026-11-14 审核：9 个故事逐条对照来源原文核对，按原文修正了 6 个故事的表述（见《测试记录》“长征故事并入”一节）。
 
 import { fujianStories } from './fujian-stories.js';
+import { storyLong } from './story-long.js';
 import { longMarchStoryAdditions } from './longmarch-story-additions.js';
 import { verifiedRouteStories } from './verified-route-stories.js';
 
-export const stories = [
+const baseStories = [
   {id:'story_houchang_debate',title:'猴场会议上的战略方向之争',node:'houchang',date:'1934.12—1935.01',reviewed:true,text:'据《猴场会议：伟大转折的前夜》记载，红军到达乌江南岸后，博古、李德提出暂不过江，随后向湘西与红二、红六军团会合；猴场会议上王稼祥、陈云等支持继续向川黔边地区进军，会议否定了回头东进的主张，决定强渡乌江、攻占遵义。',source:'《猴场会议：伟大转折的前夜》·人民网',url:'https://cpc.people.com.cn/n1/2025/0111/c443712-40399843.html',note:'这是一段会议中的不同主张，按所引报道整理，不代表对相关人物全部经历的概括。'},
   {id:'story_chen_yun_ferry',title:'陈云在金沙江南岸组织渡河',node:'jinsha',date:'1935.05',reviewed:true,text:'1935 年 5 月，中央红军来到金沙江边。江水湍急，渡船有限，大队人马需要有次序地过河。渡河指挥部成立后，刘伯承先渡到北岸指挥，陈云留在南岸组织部队。陈云后来以化名发表的《随军西行见闻录》记述，各部按到达先后渡江，船只编有号码，按载量安排人员依次登船，船工负责摆渡。部队和马匹陆续过江，追兵在全军渡江后才赶到。',source:'《陈云与长征》·中央党史和文献研究院',url:'https://www.dswxyjy.org.cn/n1/2019/0228/c423731-30942245.html',note:'渡河秩序细节据陈云以国民党军医口吻写作的《随军西行见闻录》，经研究文章转引；不同资料对渡船数量和渡河时间的统计存在差异，此处不列具体数字。'},
   {id:'story_nie_rongzhen_dadu',title:'聂荣臻与大渡河先遣队',node:'dadu',date:'1935.05',reviewed:true,text:'会理会议后，为抢渡大渡河，中革军委组织先遣队，由刘伯承兼任司令员、聂荣臻兼代政治委员，向安顺场渡口开路。1935 年 5 月 25 日，两人在河边观察敌情、组织强渡；突击队随后登岸并控制主要工事。',source:'《聂荣臻（5）》·人民网',url:'https://cpc.people.com.cn/GB/67481/71472/4844406.html'},
@@ -37,3 +38,9 @@ export const stories = [
   ...longMarchStoryAdditions,
   ...verifiedRouteStories,
 ];
+
+// 有扩写稿的故事：正文换成扩写稿，原正文保留在 brief；扩写稿可补充出处（more）和关于不同记载的说明。
+export const stories = baseStories.map(s => {
+  const long = storyLong[s.id]; if (!long) return s;
+  return { ...s, brief: s.text, text: long.text, source: long.source || s.source, url: long.url || s.url, more: long.more || [], note: [s.note, long.noteAdd].filter(Boolean).join(' '), expanded: '2026-11-17' };
+});

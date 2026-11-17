@@ -706,7 +706,7 @@ const told = new Set();
 const storyById = id => STORIES.find(t => t.id === id && t.reviewed === true);
 // 把一篇故事的原文按句子分成两到四段，逐段展开；不改动原文
 function splitStory(text) {
-  const sents = String(text).match(/[^。！？]+[。！？]?[”」』）]?/g) || [String(text)], total = sents.join('').length, n = Math.min(4, Math.max(2, Math.round(total / 70))), target = total / n, out = []; let cur = '';
+  const sents = String(text).match(/[^。！？]+[。！？]?[”」』）]?/g) || [String(text)], total = sents.join('').length, n = Math.min(5, Math.max(2, Math.round(total / 95))), target = total / n, out = []; let cur = '';
   for (let i = 0; i < sents.length; i++) { cur += sents[i]; const left = sents.slice(i + 1).join('').length; if (out.length < n - 1 && cur.length >= target * .8 && left >= target * .5) { out.push(cur); cur = ''; } }
   if (cur) out.push(cur); return out;
 }
@@ -720,7 +720,7 @@ const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).map(g => {
   return { ...g, kind: 'person', title: t.title, date: t.date, node: n.id,
     parts: chunks.map(text => ({ text, sources: [t.id], terms: terms.filter(x => text.includes(x.word)) })),
     background: g.background || [{ label: '同一时期的长征', text: n.text, sources: [n.id] }],
-    note: publicNote(t.note),
+    note: publicNote(t.note), more: Array.isArray(t.more) ? t.more : [],
     place: { node: n.id, text: g.place || '路线上和这个故事时间最接近的一站是「' + n.name + '」。' },
     whys: g.whys || (n.questions || []).slice(0, 3) };
 }).filter(Boolean);
@@ -758,7 +758,7 @@ function openStory(id, push = true) {
   let shown = 0;
   const finale = () => {
     go.remove(); readTales.add(g.id); renderTales(); const box = el('div', 'story-more');
-    if (g.kind !== 'event') box.append(guideRefs(g.parts[0].sources));
+    if (g.kind !== 'event') { const refs = guideRefs(g.parts[0].sources); for (const m of g.more || []) { const u = safeLink(m.url); if (u) refs.append(srcLink(u, m.title || '查看资料', 'ref')); } box.append(refs); }
     if (g.note) { const nt = el('div', 'tale-note'); nt.append(el('b', '', '关于这段记载'), document.createTextNode(g.note)); box.append(nt); }
     if ((g.background || []).length) { box.append(el('h3', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); box.append(item); } }
     if (g.place && find(g.place.node)) { const pl = el('div', 'story-place'); const btn = el('button', 'btn btn-ghost', '在路线上看这一站 →'); btn.type = 'button'; btn.addEventListener('click', () => choose(g.place.node)); pl.append(el('span', '', g.place.text), btn); box.append(pl); }
