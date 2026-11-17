@@ -85,9 +85,6 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .chip{min-height:34px;padding:5px 14px;border:1px solid var(--border);border-radius:999px;font-size:13px;line-height:1.5;color:var(--text2);text-align:left;transition:background .15s,color .15s}
 .chip:hover{background:var(--hover);color:var(--text)}
 
-.resume{display:flex;align-items:center;gap:12px;margin-top:36px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--bg2)}
-.resume-text{flex:1;min-width:0;font-size:14px}
-.resume-text small{display:block;color:var(--text3);font-size:12px}
 
 .tabs{display:flex;gap:4px;margin:44px 0 12px;border-bottom:1px solid var(--border)}
 .tab{position:relative;height:40px;padding:0 12px;font-size:14px;color:var(--text2);font-weight:500}
@@ -298,7 +295,9 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .trust.web{color:#8a5a00}.trust.web:before{background:#c77700}
 .webrefs{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:2px}
 .webref{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%}.webref small{font-size:11px;color:#8a5a00}
-.webask{margin-top:10px;font-size:13px}
+.webask{font-size:13px}
+.webask-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-top:10px}
+.webask-row small{font-size:11.5px;color:var(--text3)}
 .refs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ref{display:inline-flex;align-items:center;gap:5px;max-width:100%;height:26px;padding:0 10px;border:1px solid var(--border);border-radius:999px;background:var(--bg);font-size:12px;color:var(--text2);text-decoration:none;overflow:hidden}
 .ref svg{flex:none;width:10px;height:10px}
@@ -444,7 +443,6 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
   .home-side .composer{padding:11px 11px 8px 15px;border-radius:20px}
   .home-side .composer textarea{font-size:15px}
   .home-side .composer-bar{margin-top:0}
-  .home-side .resume{margin-top:10px}
   .about{margin-top:40px}
 }
 @keyframes pin-drop{0%{transform:translateY(-90px) scale(.9);opacity:0}18%{opacity:1}62%{transform:translateY(0) scale(1)}76%{transform:translateY(-7px) scale(1.04)}100%{transform:translateY(0) scale(1)}}
@@ -510,7 +508,15 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .art-nav{display:flex;justify-content:space-between;gap:10px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border2)}
 .art-nav .btn{max-width:48%;overflow:hidden}
 
-.starts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:24px 0 18px}
+.hist-sec{margin:0 0 18px}
+.hist-sec h3{font-size:13px;font-weight:600;color:var(--text3);margin:0 0 8px;letter-spacing:.04em}
+.hist-list{display:grid;gap:8px}
+.hist-list button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);font-size:14.5px;line-height:1.55;transition:border-color .15s,background .15s}
+.hist-list button:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--bg))}
+.hist-list small{font-size:12px;color:var(--text3)}
+.hist-empty{color:var(--text2);font-size:14px;line-height:1.7}
+.hist-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px;font-size:12.5px;color:var(--text3)}
+.starts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:24px 0 18px}
 .start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:var(--bg);transition:background .15s,border-color .15s,transform .15s}
 .start:focus-visible,.start:active{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
 @media (hover:hover){.start:hover{background:var(--primary);color:var(--on-primary);border-color:var(--primary);transform:translateY(-1px)}.start:hover span{color:inherit}}
@@ -618,6 +624,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <p class="home-scope">目前收录的是<b>中央红军主力</b>的长征路线：从中央苏区到吴起镇，共 23 处；另有直罗镇、会宁、将台堡三处。其他各路红军的资料还很少。</p>
 <div class="tales" id="tales" role="group" aria-label="从故事开始" hidden></div>
 <div class="starts" role="group" aria-label="开始方式">
+<button type="button" class="start" id="start-history" aria-haspopup="dialog"><b>历史记录</b><span>读过的故事、问过的问题</span></button>
 <button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
 <button type="button" class="start" id="start-people" aria-haspopup="dialog"><b>人物档案</b><span>从人物故事认识长征</span></button>
 <button type="button" class="start" id="start-fujian"><b>八闽儿女的长征</b><span>探寻福建与长征的故事</span></button>
@@ -628,7 +635,6 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <div class="composer-bar"><span class="ctx-pill" title="提问会围绕这个节点"><i></i><span id="ctx-text"></span></span><span class="spacer"></span><button type="submit" class="send-round" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div>
 </form>
 
-<div class="resume" id="resume" hidden><div class="resume-text"><small>继续参观</small><span id="resume-text"></span></div><button type="button" class="btn btn-primary" id="resume-go">继续 →</button></div>
 
 </div>
 <section class="home-map" id="home-map" aria-label="中央红军主力长征路线示意" hidden>
@@ -654,6 +660,10 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <dialog class="route-dialog" id="about-dialog" aria-labelledby="about-dialog-title">
 <div class="dialog-head"><div><h2 id="about-dialog-title">资料说明</h2></div><button type="button" class="dialog-close" id="about-dialog-close" aria-label="关闭">×</button></div>
 <div class="dialog-body" id="about-dialog-content"></div>
+</dialog>
+<dialog class="route-dialog" id="history-dialog" aria-labelledby="history-title">
+<div class="dialog-head"><div><h2 id="history-title">历史记录</h2><p>读过的故事、看过的站、问过的问题，点一下就能回去</p></div><button type="button" class="dialog-close" id="history-close" aria-label="关闭">×</button></div>
+<div class="dialog-body" id="history-body"></div>
 </dialog>
 <dialog class="route-dialog" id="people-dialog" aria-labelledby="people-title">
 <div class="dialog-head"><div><h2 id="people-title">人物档案</h2><p>认识长征中的人物，阅读与他们相关的故事</p></div><button type="button" class="dialog-close" id="people-close" aria-label="关闭">×</button></div>
@@ -767,7 +777,11 @@ const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).map(g => {
 // 没有手写“下一个”的故事，按路线上的远近推荐：同一站最先，其次是时间上相邻的站
 const nodePos = id => nodes.findIndex(n => n.id === id);
 GUIDES.forEach((g, i) => { if (!g.next) g.next = GUIDES.map((x, j) => ({ x, j, d: Math.abs(nodePos(x.node) - nodePos(g.node)) })).filter(o => o.x.id !== g.id).sort((p, q) => p.d - q.d || ((p.j - i + GUIDES.length) % GUIDES.length) - ((q.j - i + GUIDES.length) % GUIDES.length)).slice(0, 4).map(o => o.x.id); });
-const readTales = new Set();
+// 历史记录：只存在这台设备的浏览器里（localStorage），不上传
+const HIST_KEY = 'lmg-history', hist = { stories: [], stops: [], asks: [] };
+try { const h = JSON.parse(localStorage.getItem(HIST_KEY) || '{}'); for (const k of Object.keys(hist)) if (Array.isArray(h[k])) hist[k] = h[k].slice(0, 30); } catch {}
+function remember(kind, val) { const key = x => (kind === 'asks' ? x.q : x); hist[kind] = [val, ...hist[kind].filter(x => key(x) !== key(val))].slice(0, kind === 'asks' ? 20 : 30); try { localStorage.setItem(HIST_KEY, JSON.stringify(hist)); } catch {} }
+const readTales = new Set(hist.stories);
 const guideSource = id => { const e = evidenceOf(id); if (e) return e; const t = STORIES.find(x => x.id === id); return t ? { title: t.source, url: t.url } : null; };
 function guideRefs(ids) { const box = el('div', 'refs'), seen = new Set(); for (const id of ids || []) { const e = guideSource(id), u = e && safeLink(e.url); if (u && !seen.has(u)) { seen.add(u); box.append(srcLink(u, e.title || '查看资料', 'ref')); } } return box; }
 // 正文里带虚线的词可以点开，看两三句背景，不离开故事
@@ -819,7 +833,7 @@ function openStoryList(push = true) {
   showStoryPage('长征路上的故事', '#stories', push); currentStory = null;
 }
 function openStory(id, push = true) {
-  const g = GUIDES.find(x => x.id === id); if (!g) return;
+  const g = GUIDES.find(x => x.id === id); if (!g) return; remember('stories', g.id);
   const body = $('story-body'); $('story-page').classList.toggle('event', g.kind === 'event'); $('story-back').hidden = false;
   $('story-tag').textContent = g.tag + (g.date ? ' · ' + g.date : ''); $('story-title').textContent = g.title;
   body.replaceChildren(el('p', 'story-hook', g.hook));
@@ -1053,6 +1067,24 @@ function personDetail(person) {
   else detail.append(back, title, intro, el('p', 'plan-note', '暂未收录这位人物的关联故事；可以先读简介，或直接问小征。'));
   title.focus();
 }
+function closeDialog(id) { const d = $(id); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
+function openHistory() {
+  const body = $('history-body'), has = hist.stories.length || hist.stops.length || hist.asks.length || route.length || viewed.size || messages.querySelector('.msg.user'); body.replaceChildren();
+  const sec = (title, items) => { if (!items.length) return; const box = el('div', 'hist-sec'), list = el('div', 'hist-list'); box.append(el('h3', '', title)); for (const it of items) list.append(it); box.append(list); body.append(box); };
+  const item = (main, sub, fn) => { const b = el('button', ''); b.type = 'button'; b.append(document.createTextNode(main)); if (sub) b.append(el('small', '', sub)); b.addEventListener('click', () => { closeDialog('history-dialog'); fn(); }); return b; };
+  if (route.length || viewed.size || messages.querySelector('.msg.user')) sec('继续这次参观', [item(route.length ? routeName + (finished ? ' · 已完成' : ' · 当前在「' + (find(selected)?.name || '') + '」') : '自由浏览 · 当前在「' + (find(selected)?.name || '') + '」', '', () => choose(selected))]);
+  sec('读过的故事', hist.stories.map(id => GUIDES.find(g => g.id === id)).filter(Boolean).map(g => item(g.title, g.tag, () => openStory(g.id))));
+  sec('看过的站', hist.stops.map(find).filter(Boolean).map(n => item(n.name, n.date, () => choose(n.id))));
+  sec('问过的问题', hist.asks.map(a => item(a.q, '', () => ask(a.q, { fromHome: true }))));
+  if (!has) body.append(el('p', 'hist-empty', '还没有记录。读一个故事、看一站或问小征一个问题，这里就会记下来。'));
+  const foot = el('div', 'hist-foot'); foot.append(el('span', '', '记录只保存在这台设备的浏览器里，不会上传。'));
+  const clear = el('button', 'btn btn-ghost', '清除'); clear.type = 'button'; clear.addEventListener('click', () => { hist.stories = []; hist.stops = []; hist.asks = []; readTales.clear(); try { localStorage.removeItem(HIST_KEY); } catch {} renderTales(); openHistory(); }); foot.append(clear); body.append(foot);
+  const d = $('history-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
+  requestAnimationFrame(() => body.querySelector('button')?.focus());
+}
+$('start-history').addEventListener('click', openHistory);
+$('history-close').addEventListener('click', () => closeDialog('history-dialog'));
+$('history-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeDialog('history-dialog'); });
 function openPeople() { personList(); const d = $('people-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); } requestAnimationFrame(() => $('people-list button')?.focus()); }
 function closePeople() { const d = $('people-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
 $('start-people').addEventListener('click', openPeople);
@@ -1166,7 +1198,7 @@ $('go-home').addEventListener('click', () => goHome());
 /* ---------- 选择节点 ---------- */
 function selectNode(id) {
   if (id !== selected) { stopSpeaking(); window.getSelection()?.removeAllRanges(); const had = chatHistory.length > 0; selected = id; chatHistory = []; contextVersion++; if (!busy) status.textContent = had ? '已切换节点，本节点对话重新开始。' : ''; }
-  viewed.add(id);
+  viewed.add(id); remember('stops', id);
   if (route.length) { const was = visited.has(id); visited.add(id); if (summaryText && !was) { summaryText = makeSummary([...visited].map(find).filter(Boolean)); status.textContent = '已更新小结，包含新打开的节点。'; } }
 }
 function syncHash() { if (selected && fromHash() !== selected) { try { history.pushState(null, '', '#' + encodeURIComponent(selected)); } catch {} } }
@@ -1265,8 +1297,6 @@ function renderTour() {
 }
 function renderHome() {
   renderChips(); $('bar-mid').replaceChildren();
-  const r = $('resume'); r.hidden = !route.length && !messages.querySelector('.msg.user') && viewed.size === 0;
-  if (!r.hidden) $('resume-text').textContent = route.length ? routeName + (finished ? ' · 已完成' : ' · 当前在「' + find(selected).name + '」') : '自由浏览 · 当前在「' + find(selected).name + '」';
 }
 /* ---------- 沙盘鸟瞰图 ---------- */
 const MAP = DATA.map && DATA.map.nodes ? DATA.map : null;
@@ -1402,7 +1432,6 @@ function renderMap() {
   for (const [id, b] of mapPins) { const on = id === selected; b.classList.toggle('active', on); b.classList.toggle('seen', !on && viewed.has(id)); b.classList.toggle('in-route', !on && route.includes(id)); if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); }
 }
 function render() { renderStrip(); renderMap(); renderExhibit(); renderChips(); renderTour(); }
-$('resume-go').addEventListener('click', () => choose(selected));
 $('start-browse').addEventListener('click', () => { setMapOpen(true); choose(selected); addMessage('小征', '好的，你可以点沙盘上的地点，或用上方的节点条按时间自由浏览，也可以随时问我。现在是 ' + find(selected).date + ' 的「' + find(selected).name + '」。', [], { quiet: true, actions: stopActions(find(selected)) }); });
 if (TTS) { $('tts-toggle').hidden = false; $('tts-toggle').setAttribute('aria-pressed', String(ttsOn)); $('tts-toggle').addEventListener('click', () => setTts(!ttsOn)); }
 
@@ -1511,16 +1540,16 @@ function addMessage(who, text, sources = [], opts = {}) {
   body.append(el('div', 'msg-text', text));
   if (opts.related && opts.related.length) body.append(relatedCards(opts.related));
   if (opts.web) {
-    // 网络来源：与已核对资料分开标注，每个网页写明站点；非权威站点另加提示
-    const box = el('div', 'webrefs'); box.append(el('div', 'trust web', '网络来源 · 未经人工核对，引用前请打开原文确认'));
-    for (const w of opts.web.slice(0, 5)) { const u = safeLink(w.url); if (!u) continue; const a = srcLink(u, (w.site ? w.site + '：' : '') + (w.title || '查看网页'), 'ref'); if (!w.trusted) { const row2 = el('span', 'webref'); row2.append(a, el('small', '', '非权威来源，仅供参考')); box.append(row2); } else box.append(a); }
+    // 网络来源：与已核对资料分开标注，统一提示未经核对、可能有误；不再区分权威和非权威
+    const box = el('div', 'webrefs'); box.append(el('div', 'trust web', '网络来源 · 未经人工核对，可能有误，引用前请打开原文确认'));
+    for (const w of opts.web.slice(0, 5)) { const u = safeLink(w.url); if (!u) continue; box.append(srcLink(u, (w.site ? w.site + '：' : '') + (w.title || '查看网页'), 'ref')); }
     body.append(box);
   } else if (!mine && sources.some(s => s.excerpt)) body.append(el('div', 'trust ok', '依据：已人工核对的资料'));
   const refs = el('div', 'refs'); for (const s of sources) { const u = safeLink(s.url); if (u) refs.append(srcLink(u, s.title || '查看资料', 'ref')); } if (refs.childNodes.length) body.append(refs);
   const ex = sources.filter(s => typeof s.excerpt === 'string' && s.excerpt.trim());
   if (ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); body.append(d); }
   const follow = (opts.followups || []).filter(q => typeof q === 'string' && q.trim()).slice(0, 2);
-  if (opts.webAsk) { const b = el('button', 'btn btn-ghost webask', '资料里没有的部分，联网再查一下'); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(opts.webAsk, { webOnly: true }); }); body.append(b); }
+  if (opts.webAsk) { const row3 = el('div', 'webask-row'), b = el('button', 'btn btn-ghost webask', '想了解更多？试试联网搜索'); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(opts.webAsk, { webOnly: true }); }); row3.append(b, el('small', '', '联网内容未经人工核对，可能有误')); body.append(row3); }
   if (follow.length) { const box = el('div', 'followups'); for (const q of follow) { const c = el('button', 'chip', q); c.type = 'button'; c.addEventListener('click', () => askChip(q)); box.append(c); } body.append(box); }
   if (opts.actions && opts.actions.length) { messages.querySelectorAll('.quick button').forEach(b => { b.disabled = true; }); const box = el('div', 'quick'); for (const a of opts.actions) { const b = el('button', 'btn ' + (a.primary ? 'btn-primary' : 'btn-ghost'), a.label); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; a.run(); }); box.append(b); } body.append(box); }
   if (opts.retry) { const r = el('button', 'btn btn-ghost retry', '重试这个问题'); r.type = 'button'; r.addEventListener('click', () => { if (busy) return; const cur = input.value.trim(); if (cur && (cur !== opts.retry || selected !== opts.retryNode)) { status.textContent = '输入框已有未发送的问题，请先处理后再重试。'; input.focus(); return; } if (opts.retryNode && selected !== opts.retryNode) choose(opts.retryNode, { keepPane: true }); r.disabled = true; input.value = ''; autosize(input); ask(opts.retry); }); body.append(r); }
@@ -1560,12 +1589,21 @@ for (const t of [input, homeQ]) {
 async function fetchJSON(path, payload) { const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 30000); try { const response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal }); let data; try { data = await response.json(); } catch (err) { if (err?.name === 'AbortError') throw err; throw new Error('服务返回异常，请稍后再试。'); } if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('服务返回异常，请稍后再试。'); if (!response.ok || data.error) { const err = new Error(data?.error || '服务暂时不可用，请稍后再试。'); err.notConfigured = response.status === 503; err.code = data.code; throw err; } return data; } catch (err) { if (err?.name === 'AbortError') throw new Error('连接超时，请检查网络后重试。'); if (err instanceof TypeError) throw new Error('网络连接失败，请检查网络后重试。'); throw err; } finally { clearTimeout(timer); } }
 
 function askChip(q) { if (busy) return; if (input.value.trim()) { if (view !== 'session') setView('session'); if (mobile()) setPane('chat'); status.textContent = '输入框已有未发送的问题，请先处理后再使用建议问题。'; input.focus(); return; } ask(q); }
+let lastQuestion = '';
+// “联网搜索看看”这类只有搜索意图、没有话题的话，搜的是上一个真正的问题，而不是这句话本身
+const WEB_INTENT = /^(请|帮我|麻烦|那|再)?\s*(联网|上网|网上|在网上|网络)\s*(搜索|搜一下|搜|查找|查一下|查)?\s*(一下|看看|下|吧)?[。！!？?\s]*$/;
 async function ask(question, opts = {}) {
   if (busy || !question) return;
+  let apiQuestion = question;
+  if (!opts.webOnly && WEB_INTENT.test(question)) {
+    if (!lastQuestion) { addMessage('你', question); addMessage('小征', '请先问一个问题，我再帮你联网搜索。'); return; }
+    apiQuestion = lastQuestion; opts = { ...opts, webOnly: true };
+  }
   if (planning) { planVersion++; setPlanNote('你已开始问答，本次规划结果将不应用。'); }
   if (view !== 'session') { if (opts.fromHome) setChatOnly(true); else viewed.add(selected); setView('session'); if (!chatOnly) syncHash(); }
   if (mobile()) setPane('chat');
-  addMessage('你', question);
+  addMessage('你', opts.webOnly && apiQuestion === question ? '联网搜索：' + question : question);
+  if (!opts.webOnly && !/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { lastQuestion = question; remember('asks', { q: question, node: selected }); }
   if (/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { if (!route.length) { addMessage('小征', '请先回到首页选一条参观路线。'); return; } advance(question.startsWith('跳过')); return; }
   const jump = question.match(/^(?:带我去|前往|切换到|看看)(.{1,12}?)[。！!\s]*$/);
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id, { keepPane: true }); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
@@ -1573,7 +1611,7 @@ async function ask(question, opts = {}) {
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
   const free = chatOnly || topicMode;
-  const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
+  const build = () => JSON.stringify({ question: apiQuestion, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
   let payload = build();
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
   const typing = showTyping();
@@ -1588,7 +1626,7 @@ async function ask(question, opts = {}) {
       if (matched.length) matched.forEach(n => markQuestionAnswered(n.id, question)); else markQuestionAnswered(questionNode, question);
       for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide();
     } else markQuestionAnswered(questionNode, question);
-    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? question : null });
+    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? apiQuestion : null });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     if (ttsOn) speak(data.answer);
