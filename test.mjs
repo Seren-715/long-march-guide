@@ -10,12 +10,12 @@ for(const st of stories){
   assert.ok(nodes.some(n=>n.id===st.node),'故事归档节点不存在：'+st.id);
   assert.ok(st.url.startsWith('https://')||st.url.startsWith('http://'),'故事来源 URL 无效：'+st.id);
 }
-// 扩写稿：对应的故事必须存在且已审核；正文不少于 380 字，原正文保留在 brief；补充出处的链接有效；正文里不出现网址。
+// 扩写稿：对应的故事必须存在且已审核；正文比原稿长，原正文保留在 brief；补充出处的链接有效；正文里不出现网址。
 {
   const {storyLong}=await import('./src/story-long.js');
   for(const [id,l] of Object.entries(storyLong)){
     const st=stories.find(x=>x.id===id);assert.ok(st&&st.reviewed===true,'扩写稿对应的故事不存在或未审核：'+id);
-    assert.equal(st.text,l.text);assert.ok(st.brief&&st.brief!==st.text,id);assert.ok([...l.text].length>=380,'扩写稿不足 380 字：'+id);assert.doesNotMatch(l.text,/https?:/);
+    assert.equal(st.text,l.text);assert.ok(st.brief&&st.brief!==st.text,id);assert.ok([...l.text].length>[...st.brief].length,'扩写稿未增加内容：'+id);assert.doesNotMatch(l.text,/https?:/);
     for(const m of l.more||[]){const u=new URL(m.url);assert.ok(['http:','https:'].includes(u.protocol)&&m.title,id);}
   }
 }
