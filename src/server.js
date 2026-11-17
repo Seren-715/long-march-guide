@@ -572,7 +572,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       // 历史问题在资料库里没有查到出处：联网兜底；查到一部分但说明了资料没有涉及的内容：让页面提供“联网再查”
       const gap=/(?:资料|文献|记载|知识库)[^。]{0,24}(?:没有|未|不足|无法|尚无)|不知道/.test(answer);
       if(useWeb&&type==='history'&&!ids.length&&!action){const out=await lookup();if(out)return out;}
-      const canWeb=useWeb&&type==='history'&&ids.length>0&&gap&&!action;
+      const canWeb=useWeb&&type==='history'&&ids.length>0&&!action; // 每个有出处的历史回答后都给“想了解更多？试试联网搜索”
       const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
       const grouped=new Map();
       for(const id of ids){const e=evidence.find(x=>x.id===id),existing=grouped.get(e.url);if(existing){existing.ids.push(id);existing.excerpt+='\n'+e.text}else grouped.set(e.url,{id,ids:[id],title:e.source,url:e.url,excerpt:e.text});}

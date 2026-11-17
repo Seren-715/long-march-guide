@@ -296,7 +296,9 @@ html.story-opening::view-transition-new(root){animation:story-reveal .65s ease-o
 .trust.web{color:#8a5a00}.trust.web:before{background:#c77700}
 .webrefs{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:2px}
 .webref{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%}.webref small{font-size:11px;color:#8a5a00}
-.webask{margin-top:10px;font-size:13px}
+.webask{font-size:13px}
+.webask-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-top:10px}
+.webask-row small{font-size:11.5px;color:var(--text3)}
 .refs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ref{display:inline-flex;align-items:center;gap:5px;max-width:100%;height:26px;padding:0 10px;border:1px solid var(--border);border-radius:999px;background:var(--bg);font-size:12px;color:var(--text2);text-decoration:none;overflow:hidden}
 .ref svg{flex:none;width:10px;height:10px}
@@ -1531,16 +1533,16 @@ function addMessage(who, text, sources = [], opts = {}) {
   body.append(el('div', 'msg-text', text));
   if (opts.related && opts.related.length) body.append(relatedCards(opts.related));
   if (opts.web) {
-    // 网络来源：与已核对资料分开标注，每个网页写明站点；非权威站点另加提示
-    const box = el('div', 'webrefs'); box.append(el('div', 'trust web', '网络来源 · 未经人工核对，引用前请打开原文确认'));
-    for (const w of opts.web.slice(0, 5)) { const u = safeLink(w.url); if (!u) continue; const a = srcLink(u, (w.site ? w.site + '：' : '') + (w.title || '查看网页'), 'ref'); if (!w.trusted) { const row2 = el('span', 'webref'); row2.append(a, el('small', '', '非权威来源，仅供参考')); box.append(row2); } else box.append(a); }
+    // 网络来源：与已核对资料分开标注，统一提示未经核对、可能有误；不再区分权威和非权威
+    const box = el('div', 'webrefs'); box.append(el('div', 'trust web', '网络来源 · 未经人工核对，可能有误，引用前请打开原文确认'));
+    for (const w of opts.web.slice(0, 5)) { const u = safeLink(w.url); if (!u) continue; box.append(srcLink(u, (w.site ? w.site + '：' : '') + (w.title || '查看网页'), 'ref')); }
     body.append(box);
   } else if (!mine && sources.some(s => s.excerpt)) body.append(el('div', 'trust ok', '依据：已人工核对的资料'));
   const refs = el('div', 'refs'); for (const s of sources) { const u = safeLink(s.url); if (u) refs.append(srcLink(u, s.title || '查看资料', 'ref')); } if (refs.childNodes.length) body.append(refs);
   const ex = sources.filter(s => typeof s.excerpt === 'string' && s.excerpt.trim());
   if (ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); body.append(d); }
   const follow = (opts.followups || []).filter(q => typeof q === 'string' && q.trim()).slice(0, 2);
-  if (opts.webAsk) { const b = el('button', 'btn btn-ghost webask', '资料里没有的部分，联网再查一下'); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(opts.webAsk, { webOnly: true }); }); body.append(b); }
+  if (opts.webAsk) { const row3 = el('div', 'webask-row'), b = el('button', 'btn btn-ghost webask', '想了解更多？试试联网搜索'); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(opts.webAsk, { webOnly: true }); }); row3.append(b, el('small', '', '联网内容未经人工核对，可能有误')); body.append(row3); }
   if (follow.length) { const box = el('div', 'followups'); for (const q of follow) { const c = el('button', 'chip', q); c.type = 'button'; c.addEventListener('click', () => askChip(q)); box.append(c); } body.append(box); }
   if (opts.actions && opts.actions.length) { messages.querySelectorAll('.quick button').forEach(b => { b.disabled = true; }); const box = el('div', 'quick'); for (const a of opts.actions) { const b = el('button', 'btn ' + (a.primary ? 'btn-primary' : 'btn-ghost'), a.label); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; a.run(); }); box.append(b); } body.append(box); }
   if (opts.retry) { const r = el('button', 'btn btn-ghost retry', '重试这个问题'); r.type = 'button'; r.addEventListener('click', () => { if (busy) return; const cur = input.value.trim(); if (cur && (cur !== opts.retry || selected !== opts.retryNode)) { status.textContent = '输入框已有未发送的问题，请先处理后再重试。'; input.focus(); return; } if (opts.retryNode && selected !== opts.retryNode) choose(opts.retryNode, { keepPane: true }); r.disabled = true; input.value = ''; autosize(input); ask(opts.retry); }); body.append(r); }
@@ -1580,13 +1582,21 @@ for (const t of [input, homeQ]) {
 async function fetchJSON(path, payload) { const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 30000); try { const response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal }); let data; try { data = await response.json(); } catch (err) { if (err?.name === 'AbortError') throw err; throw new Error('服务返回异常，请稍后再试。'); } if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('服务返回异常，请稍后再试。'); if (!response.ok || data.error) { const err = new Error(data?.error || '服务暂时不可用，请稍后再试。'); err.notConfigured = response.status === 503; err.code = data.code; throw err; } return data; } catch (err) { if (err?.name === 'AbortError') throw new Error('连接超时，请检查网络后重试。'); if (err instanceof TypeError) throw new Error('网络连接失败，请检查网络后重试。'); throw err; } finally { clearTimeout(timer); } }
 
 function askChip(q) { if (busy) return; if (input.value.trim()) { if (view !== 'session') setView('session'); if (mobile()) setPane('chat'); status.textContent = '输入框已有未发送的问题，请先处理后再使用建议问题。'; input.focus(); return; } ask(q); }
+let lastQuestion = '';
+// “联网搜索看看”这类只有搜索意图、没有话题的话，搜的是上一个真正的问题，而不是这句话本身
+const WEB_INTENT = /^(请|帮我|麻烦|那|再)?\s*(联网|上网|网上|在网上|网络)\s*(搜索|搜一下|搜|查找|查一下|查)?\s*(一下|看看|下|吧)?[。！!？?\s]*$/;
 async function ask(question, opts = {}) {
   if (busy || !question) return;
+  let apiQuestion = question;
+  if (!opts.webOnly && WEB_INTENT.test(question)) {
+    if (!lastQuestion) { addMessage('你', question); addMessage('小征', '请先问一个问题，我再帮你联网搜索。'); return; }
+    apiQuestion = lastQuestion; opts = { ...opts, webOnly: true };
+  }
   if (planning) { planVersion++; setPlanNote('你已开始问答，本次规划结果将不应用。'); }
   if (view !== 'session') { if (opts.fromHome) setChatOnly(true); else viewed.add(selected); setView('session'); if (!chatOnly) syncHash(); }
   if (mobile()) setPane('chat');
-  addMessage('你', question);
-  if (!/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) remember('asks', { q: question, node: selected });
+  addMessage('你', opts.webOnly && apiQuestion === question ? '联网搜索：' + question : question);
+  if (!opts.webOnly && !/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { lastQuestion = question; remember('asks', { q: question, node: selected }); }
   if (/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { if (!route.length) { addMessage('小征', '请先回到首页选一条参观路线。'); return; } advance(question.startsWith('跳过')); return; }
   const jump = question.match(/^(?:带我去|前往|切换到|看看)(.{1,12}?)[。！!\s]*$/);
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id, { keepPane: true }); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
@@ -1594,7 +1604,7 @@ async function ask(question, opts = {}) {
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
   const free = chatOnly || topicMode;
-  const build = () => JSON.stringify({ question, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
+  const build = () => JSON.stringify({ question: apiQuestion, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
   let payload = build();
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
   const typing = showTyping();
@@ -1609,7 +1619,7 @@ async function ask(question, opts = {}) {
       if (matched.length) matched.forEach(n => markQuestionAnswered(n.id, question)); else markQuestionAnswered(questionNode, question);
       for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide();
     } else markQuestionAnswered(questionNode, question);
-    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? question : null });
+    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? apiQuestion : null });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     if (ttsOn) speak(data.answer);
