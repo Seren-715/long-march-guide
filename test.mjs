@@ -399,6 +399,25 @@ assert.equal(log.at(-1).model,'deepseek-flash');assert.equal(log.at(-1).tools[0]
 log=script([b=>b.model==='deepseek-flash'?webReply('没有出处的回答。',[]):none.clone()]);
 body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),env)).json();assert.equal(body.web,undefined);assert.match(body.answer,/资料/);
 log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true}),env)).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);assert.equal(body.web,undefined);
+// 联网结果去掉模型自己补的因果推测，保留同句事实、来源和未经人工核对标记。
+const webCase={question:'请联网查找遵义会议召开的日期和地点。',node:'zunyi',free:true,web:'only'};
+const webUrl='https://www.guizhou.gov.cn/test';
+log=script([webReply('遵义会议于1935年1月15日至17日召开，地点在贵州遵义。网页记载有两种门牌号，可能是门牌调整所致。',[webUrl])]);
+body=await (await worker.fetch(make(webCase),env)).json();
+assert.match(body.answer,/1月15日至17日.*贵州遵义/);
+assert.match(body.answer,/两种门牌号/);
+assert.doesNotMatch(body.answer,/门牌调整|可能是/);
+assert.equal(body.web.sources[0].url,webUrl);
+assert.match(body.steps.at(-1).detail,/未经人工核对/);
+assert.match(log[0].messages[0].content,/只有网页明确提出原因/);
+log=script([webReply('该网页作者明确指出：可能是门牌调整所致。两篇报道的统计方法尚不确定。',[webUrl])]);
+body=await (await worker.fetch(make(webCase),env)).json();
+assert.match(body.answer,/作者明确指出：可能是门牌调整所致/);
+assert.match(body.answer,/统计方法尚不确定/);
+log=script([webReply('可能是门牌调整所致。',[webUrl])]);
+body=await (await worker.fetch(make(webCase),env)).json();
+assert.equal(body.web,undefined);
+assert.doesNotMatch(body.answer,/门牌调整/);
 log=script([webReply('OFF_TOPIC',[])]);body=await (await worker.fetch(make({question:'今天天气',node:'start',free:true,web:'only'}),env)).json();assert.equal(log.length,1);assert.equal(body.type,'off_topic');
 log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),{...env,WEB_SEARCH:'off'})).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);
 // 故事引导：不新增史实。每段的出处必须存在，段落里的数字必须能在所列资料原文中找到；发生地和下一个故事必须有效。
@@ -530,12 +549,32 @@ body=await (await worker.fetch(make({question:'会宁与将台堡两次会师有
 assert.match(body.answer,/红四方面军/);assert.match(body.answer,/红二方面军/);
 assert.deepEqual(body.sources.flatMap(x=>x.ids).sort(),['huining','jiangtaibao'].sort());
 
-// 福建人数：三种报道各有出处，比较题必须可同时看到三条，并保留来源链接。
-log=script([reply({type:'history',answer:'福建省政府记载中央红军出发时福建籍近3万人，福建日报另记近2.6万福建子弟，福建省退役军人事务厅展陈另记近万福建儿女。这些记录的差异原因尚未厘清，不能擅自推断。',sources:['story_fj_overview','story_fj_count_26k','story_fj_count_10k']})]);
-body=await (await worker.fetch(make({question:'福建籍参加长征的红军有多少？不同资料为什么数字不同？',node:'start',free:true}),env)).json();
-assert.equal(log.length,1);
-for(const id of ['story_fj_overview','story_fj_count_26k','story_fj_count_10k'])assert.ok(log[0].messages[0].content.includes('['+id+']'),'未预载 '+id);
-assert.equal(body.sources.length,3);assert.match(body.answer,/近2\.6万/);assert.match(body.steps.at(-1).detail,/非史实核验/);
+// 对明确的福建人数比较，使用已审核的三份资料，避免模型把地域表述差异解释成原因。
+const fujianCountIds=['story_fj_overview','story_fj_count_26k','story_fj_count_10k'];
+for(const input of [
+  {question:'福建籍参加长征的红军有多少？不同资料为什么数字不同？'},
+  {story:'story_fj_count_26k',question:'这几种说法为什么不一样？是不是主要因为统计地区不同？'}
+]){
+  log=script([reply({type:'history',answer:'统计地区不同只能解释其中一部分。',sources:fujianCountIds})]);
+  body=await (await worker.fetch(make({node:'start',free:true,...input}),env)).json();
+  assert.equal(log.length,0);
+  assert.deepEqual(body.sources.flatMap(source=>source.ids),fujianCountIds);
+  assert.match(body.answer,/福建省政府.*近3万人/);
+  assert.match(body.answer,/福建日报.*闽西子弟兵近2\.6万人/);
+  assert.match(body.answer,/退役军人事务厅.*近万福建儿女/);
+  assert.match(body.answer,/无法确定数字差异的原因/);
+  assert.doesNotMatch(body.answer,/story_fj_|解释其中一部分|是其中一个原因/);
+  assert.match(body.steps.at(-1).detail,/非史实核验/);
+}
+// 其他故事里的省略主语，不触发人数比较。带有额外动作的复合请求仍交给智能体。
+for(const input of [
+  {story:'story_fj_yang_chengwu',question:'这几种说法为什么不一样？'},
+  {question:'福建人数统计为什么不同？顺便带我去遵义'}
+]){
+  log=script([reply({type:'chat',answer:'请告诉我你想比较哪几条说法。',sources:[]})]);
+  await worker.fetch(make({node:'start',free:true,...input}),env);
+  assert.equal(log.length,1);
+}
 // 即使用户提问包含 2.6，只有“近3万”的来源也不允许肯定“近2.6万”。
 log=script([
   reply({type:'history',answer:'福建籍参加长征的红军确实只有近2.6万人。',sources:['story_fj_overview']}),
