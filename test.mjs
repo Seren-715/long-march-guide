@@ -430,6 +430,22 @@ assert.match(log[0].messages[0].content,/只有网页明确提出原因/);
   body=await (await worker.fetch(make({...webCase,question:'请联网查找这项措施的历史背景。'}),env)).json();
   assert.equal(body.answer,'第二项措施主要是为了改善交通条件。');
 }
+// 比较网页记载时保留出处与差异，删除模型自行给出的采信结论。
+{
+  const compare={...webCase,question:'两个网页上的门牌号不同，哪个说法有依据？'};
+  const first='纪念馆官网写“子尹路96号”。';
+  const second='另有网页写“红旗路80号”';
+  const gap='且未说明门牌号差异的原因。';
+  const ranking='若观众看到的是“80号”说法，与权威网页记载的“96号”不符，应以纪念馆官网及主流媒体记载的96号为准。';
+  log=script([webReply(first+second+'，但多属较低权威性来源，'+gap+ranking,[webUrl])]);
+  body=await (await worker.fetch(make(compare),env)).json();
+  assert.equal(body.answer,first+second+'。未说明门牌号差异的原因。');
+  assert.equal(body.web.sources[0].url,webUrl);
+  const navigation='纪念馆公告明确指出：参观入口应以当天公告为准。';
+  log=script([webReply(navigation,[webUrl])]);
+  body=await (await worker.fetch(make(compare),env)).json();
+  assert.equal(body.answer,navigation);
+}
 // 独立出处清单由服务端链接区生成。仅与被删除清单重叠的注释不应跟进正文。
 {
   const fact='遵义会议在贵州遵义召开。';
