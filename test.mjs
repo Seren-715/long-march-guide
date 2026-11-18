@@ -410,6 +410,32 @@ assert.doesNotMatch(body.answer,/门牌调整|可能是/);
 assert.equal(body.web.sources[0].url,webUrl);
 assert.match(body.steps.at(-1).detail,/未经人工核对/);
 assert.match(log[0].messages[0].content,/只有网页明确提出原因/);
+// 独立出处清单由服务端链接区生成。仅与被删除清单重叠的注释不应跟进正文。
+{
+  const fact='遵义会议在贵州遵义召开。';
+  const appendix='以下网页可打开查证：甲报、乙报以及只有名字的丙报。';
+  const appendixUrl='https://www.dangjian.cn/appendix-only';
+  const citation=(url,start_index,end_index)=>({type:'url_citation',url_citation:{url,start_index,end_index}});
+  const response=(content,annotations)=>Response.json({choices:[{message:{content,annotations}}]});
+  log=script([response(fact+appendix,[citation(webUrl,0,fact.length-1),citation(appendixUrl,fact.length-1,fact.length+appendix.length)])]);
+  body=await (await worker.fetch(make(webCase),env)).json();
+  assert.equal(body.answer,fact);
+  assert.deepEqual(body.web.sources.map(source=>source.url),[webUrl]);
+  for(const heading of ['**参考来源：**','网页清单：','来源如下：']){
+    log=script([response(fact+'\n'+heading+'甲报、丙报。',[{type:'url_citation',url_citation:{url:webUrl}}])]);
+    body=await (await worker.fetch(make(webCase),env)).json();
+    assert.equal(body.answer,fact);
+    assert.deepEqual(body.web.sources.map(source=>source.url),[webUrl]);
+  }
+  log=script([webReply('所查到的甲报、丙报等网页均记载，遵义会议在贵州遵义召开。',[webUrl])]);
+  body=await (await worker.fetch(make(webCase),env)).json();
+  assert.equal(body.answer,'搜索到的网页记载，遵义会议在贵州遵义召开。');
+  assert.deepEqual(body.web.sources.map(source=>source.url),[webUrl]);
+  log=script([response(fact+appendix,[citation(appendixUrl,fact.length,fact.length+appendix.length)])]);
+  body=await (await worker.fetch(make(webCase),env)).json();
+  assert.equal(body.web,undefined);
+  assert.doesNotMatch(body.answer,/甲报|丙报|遵义会议在贵州遵义召开/);
+}
 log=script([webReply('该网页作者明确指出：可能是门牌调整所致。两篇报道的统计方法尚不确定。',[webUrl])]);
 body=await (await worker.fetch(make(webCase),env)).json();
 assert.match(body.answer,/作者明确指出：可能是门牌调整所致/);

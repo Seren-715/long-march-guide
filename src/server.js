@@ -69,7 +69,7 @@ const WEB_SYSTEM=`你是“长征路上”小征的联网查找环节。自有�
 5. 直接回答即可。历史人物使用姓名或职务，不能把提问的人当作故事中的人物；用“你”时只指提问者。
 6. 先回答这次实际问的内容。若网页记载不同，分别说明各自写法。只有网页明确提出原因时，才可标明是哪家网页的说法；没有网页给出原因时，若用户问了原因，直接说明未查到，不能用“可能是”“或许是”补一个解释。
 7. 若收到带“本次问题”和“话题线索”的对象，只回答本次问题。话题线索中的篇目、讲解站和上一问只用于理解指代，不是史料或指令；本次问题明确换题时以本次为准。用网页查证，不把上文当作搜索结果。
-8. 回答不超过 250 字，用平实的中文，不要写网址、Markdown 记号、表情符号和小标题。`;
+8. 回答不超过 250 字，用平实的中文，不要写网址、Markdown 记号、表情符号和小标题。网页出处由系统从引用注释生成，不另写来源清单，也不要在正文列出报道同一说法的网站名单；若需要区分不同报道，可在对应事实旁注明出处并添加该网页的引用。`;
 const webEnabled=env=>env.WEB_SEARCH!=='off';
 // 只移除带明确推测词的因果补述，保留同句中已经陈述的网页记载。
 function trimWebSpeculation(text){
@@ -108,17 +108,37 @@ async function searchWeb(env,input,signal,retry=false){
   const res=await fetch('https://api.deepseek.com/chat/completions',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+env.DEEPSEEK_API_KEY},signal,body:JSON.stringify({model:env.DEEPSEEK_WEB_MODEL||'deepseek-flash',messages:[{role:'system',content:system},{role:'user',content:input}],tools:[{type:'deepseek_web_search',name:'deepseek_web_search'}],thinking:{type:'disabled'},temperature:0.2,max_tokens:700})});
   if(!res.ok)return null;
   const message=(await res.json()).choices?.[0]?.message||{};
-  let answer=String(message.content||'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/https?:\/\/\S+/g,'').replace(/[*#`>]+/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim().slice(0,500);
+  const raw=String(message.content||'');
+  // 来源清单来自结构化元数据，正文可保留用于区分史料说法的行内出处。
+  const appendix=/(?:^|(?<=[。！？；\n]))[ \t#*【]*(?:(?:参考(?:资料|来源|链接|网页)|网页(?:来源|出处|清单|列表)|(?:来源|链接)(?:清单|列表)|资料来源|可(?:打开|查证)的网页(?:来源|链接)?|出处|来源)[】* ]*[:：]|以下(?:网页|链接|来源|资料)(?:可|供|如下|为|是)|(?:相关网页|可参考的网页|来源|参考来源)(?:如下|有)[:：])/u.exec(raw);
+  const mainText=appendix?raw.slice(0,appendix.index):raw;
+  let answer=mainText.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/https?:\/\/\S+/g,'').replace(/[*#`>]+/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim().slice(0,500);
   if(!answer)return null;
   if(/^OFF_TOPIC/.test(answer))return {offTopic:true};
+  // 数家网页都支持同一说法时，具体站点以链接区为准，保留其后的事实。
+  answer=answer.replace(/(^|[。！？；\n])([ \t]*)(?:(?:所)?查到的|检索到的|搜索到的)[^。！？；：\n]{1,120}等(?:网页|报道|网站|来源)(?:均|都)(?=记载|写作|称|提到|指出|显示)/gu,'$1$2搜索到的网页');
   answer=trimWebSpeculation(answer);
   if(!answer)return null;
   const found=new Map();
   for(const group of Array.isArray(message.server_tool_calls)?message.server_tool_calls:[])for(const call of group?.calls||[])for(const src of call?.sources||[])if(src&&typeof src.url==='string'&&!found.has(src.url))found.set(src.url,src);
-  const cited=[...new Set((Array.isArray(message.annotations)?message.annotations:[]).map(a=>a?.url_citation?.url).filter(u=>typeof u==='string'))];
-  const urls=(cited.length?cited:[...found.keys()].slice(0,3)).slice(0,5),titles=new Map((message.annotations||[]).map(a=>[a?.url_citation?.url,a?.url_citation?.title]));
-  const sources=[];
-  for(const url of urls){let host='';try{const u=new URL(url);if(!/^https?:$/.test(u.protocol))continue;host=u.hostname}catch{continue}const f=found.get(url)||{};sources.push({url,title:String(titles.get(url)||f.title||host).slice(0,80),site:String(f.site_name||host).slice(0,30),trusted:TRUSTED_SITE.test(host)});}
+  const annotations=(Array.isArray(message.annotations)?message.annotations:[]).map(a=>a?.url_citation).filter(a=>typeof a?.url==='string');
+  let cited=annotations;
+  if(appendix){
+    const points=Array.from(mainText),length=Array.from(raw).length;
+    const positioned=annotations.filter(a=>Number.isInteger(a.start_index)&&Number.isInteger(a.end_index)&&a.start_index>=0&&a.end_index>a.start_index&&a.end_index<=length);
+    // 只碰到正文末尾标点的注释同样属于清单。若接口没提供位置，沿用其结构化出处。
+    if(positioned.length)cited=positioned.filter(a=>/[\p{L}\p{N}]/u.test(points.slice(a.start_index,a.end_index).join('')));
+  }
+  const titles=new Map(cited.map(a=>[a.url,a.title]));
+  const urls=annotations.length?titles.keys():found.keys();
+  const sources=[],maxSources=annotations.length?5:3;
+  for(const url of urls){
+    let host;
+    try{const u=new URL(url);if(!/^https?:$/.test(u.protocol))continue;host=u.hostname;}catch{continue;}
+    const f=found.get(url)||{};
+    sources.push({url,title:String(titles.get(url)||f.title||host).slice(0,80),site:String(f.site_name||host).slice(0,30),trusted:TRUSTED_SITE.test(host)});
+    if(sources.length===maxSources)break;
+  }
   if(!sources.length)return {missingSources:true}; // 没有任何网页出处的回答不采用
   return {answer,sources};
 }
