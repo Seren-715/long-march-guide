@@ -640,6 +640,45 @@ log=script([
 body=await (await worker.fetch(make({question:'福建参加长征的人数是多少？',node:'start',free:true}),env)).json();
 assert.equal(log.length,2);assert.match(body.answer,/近万/);
 
+// 完整评估第 03 题的真实误答：数字存在于出处，但不能当作单场结果。重答仍错时保留有效句子。
+const battleQuery='湘江之战是什么时间，结果如何？';
+const badBattle='1934年11月27日至12月1日，红军突破湘江封锁，付出重大代价。湘江战役中红军遭受重大损失，由出发时的8.6万余人减至3万余人。';
+const goodBattle='1934年11月27日至12月1日，中央红军进行湘江之战，突破封锁但付出重大代价。';
+const battleReply=answer=>reply({type:'history',answer,sources:['xiangjiang','xiangjiang_lines']});
+for(const final of [goodBattle,badBattle]){
+  log=script([battleReply(badBattle),battleReply(final)]);
+  body=await (await worker.fetch(make({question:battleQuery,node:'xiangjiang'}),env)).json();
+  assert.equal(log.length,2);
+  assert.match(log[1].messages.at(-1).content,/单场战役伤亡/);
+  assert.match(body.answer,/11月27日.*12月1日.*突破.*代价/);
+  assert.doesNotMatch(body.answer,/8\.6|3万/);
+}
+log=script([battleReply('从长征出发时到渡过湘江后，中央红军由出发时的8.6万余人减至3万余人。')]);
+body=await (await worker.fetch(make({question:'能说明湘江之战相关的长征初期兵力变化吗？',node:'xiangjiang'}),env)).json();
+assert.equal(log.length,1);assert.match(body.answer,/8\.6万.*3万/);
+// 已明确问整段变化时，按该资料返回两个端点，避免无关注释触发删句。
+log=script([battleReply('无关补充。')]);
+body=await (await worker.fetch(make({question:'从长征出发到渡过湘江后，中央红军兵力发生了什么变化？',node:'start',free:true}),env)).json();
+assert.equal(log.length,0);
+assert.match(body.answer,/8\.6万.*3万/);
+assert.match(body.answer,/不能当作湘江单场战役的伤亡人数/);
+assert.deepEqual(body.sources.flatMap(source=>source.ids),['xiangjiang_lines']);
+
+// 时地纠错须集中，但复合核对里的常委信息是用户明确询问的一项。
+const limited='不对，遵义会议于1935年1月15日至17日在贵州遵义召开。';
+const surplus='出席者包括毛泽东、张闻天、周恩来。会上还选举了毛泽东为中央政治局常委。';
+for(const [question,shouldTrim] of [
+  ['听说遵义会议是1935年2月在贵阳开的，只告诉我日期和地点。',true],
+  ['有人说遵义会议是1935年2月在贵阳召开的，会上选举毛泽东为中央政治局常委，对吗？',false]
+]){
+  const text=limited+surplus;
+  log=script([reply({type:'history',answer:text,sources:['zunyi','zunyi_detail']})]);
+  body=await (await worker.fetch(make({question,node:'zunyi'}),env)).json();
+  assert.equal(log.length,1);assert.match(body.answer,/1月15日至17日.*贵州遵义/);
+  if(shouldTrim)assert.equal(body.answer,limited);
+  else assert.match(body.answer,/毛泽东为中央政治局常委/);
+}
+
 // “近万人”不能仅凭一个出现“2.6万”的来源通过：万位单位不能从小数后缀被单独采信。
 log=script([
   reply({type:'history',answer:'福建日报证实只有近万人参加长征。',sources:['story_fj_count_26k']}),
