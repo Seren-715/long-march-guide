@@ -674,6 +674,26 @@ for(const final of [goodBattle,badBattle]){
   assert.match(body.answer,/11月27日.*12月1日.*突破.*代价/);
   assert.doesNotMatch(body.answer,/8\.6|3万/);
 }
+// 纠错调用遇到上游故障时，仍用相同的句级核对恢复初稿。
+for(const failure of [new Response('',{status:503}),new Response('invalid JSON'),()=>{throw new Error('upstream disconnected');}]){
+  log=script([battleReply(badBattle),failure]);
+  res=await worker.fetch(make({question:battleQuery,node:'xiangjiang'}),env);
+  body=await res.json();
+  assert.equal(res.status,200);
+  assert.equal(log.length,2);
+  assert.match(body.answer,/11月27日.*12月1日.*突破.*代价/);
+  assert.doesNotMatch(body.answer,/8\.6|3万/);
+  assert.ok(body.sources.some(source=>source.ids.includes('xiangjiang')));
+  assert.ok(body.steps.some(step=>step.text==='删去未能核对的内容'));
+}
+// 初稿全部无法核对时，重答故障不能使问题表述通过。
+log=script([battleReply('湘江战役中红军遭受重大损失，由出发时的8.6万余人减至3万余人。'),new Response('',{status:503})]);
+res=await worker.fetch(make({question:battleQuery,node:'xiangjiang'}),env);
+body=await res.json();
+assert.equal(res.status,200);
+assert.match(body.answer,/资料不足/);
+assert.doesNotMatch(body.answer,/8\.6|3万/);
+assert.deepEqual(body.sources,[]);
 log=script([battleReply('从长征出发时到渡过湘江后，中央红军由出发时的8.6万余人减至3万余人。')]);
 body=await (await worker.fetch(make({question:'能说明湘江之战相关的长征初期兵力变化吗？',node:'xiangjiang'}),env)).json();
 assert.equal(log.length,1);assert.match(body.answer,/8\.6万.*3万/);

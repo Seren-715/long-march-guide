@@ -692,9 +692,19 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       }
       for(let round=0,limit=result?0:7;round<limit;round++){
         const last=round===6||toolCalls>=8;
-        const res=await callModel(env,messages,900,controller.signal,TOOLS,last?'none':'auto');
-        if(!res.ok) return {status:502,body:{error:'模型服务暂时不可用，请稍后重试。'}};
-        const output=await res.json(),choice=output.choices?.[0],message=choice?.message||{},content=message.content||'';
+        let output;
+        try {
+          const res=await callModel(env,messages,900,controller.signal,TOOLS,last?'none':'auto');
+          if(!res.ok&&!firstFailed)return {status:502,body:{error:'模型服务暂时不可用，请稍后重试。'}};
+          if(res.ok)output=await res.json();
+        } catch(e) {
+          if(!firstFailed)throw e;
+        }
+        if(output===undefined){
+          step({kind:'verify',text:'重答服务暂不可用，核对已有答句',ok:false});
+          break;
+        }
+        const choice=output?.choices?.[0],message=choice?.message||{},content=message.content||'';
         if(!last&&Array.isArray(message.tool_calls)&&message.tool_calls.length){
           messages.push({role:'assistant',content,tool_calls:message.tool_calls});
           for(const call of message.tool_calls){
@@ -724,6 +734,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         }
         break;
       }
+      result??=firstFailed;
       if(!result) return {status:502,body:{error:'助手回复格式异常，请重试。'}};
       if(result.badNumbers.length||result.badTitles.length||result.risks.length){
         // 两次回答分别按完整句子核查：保留更完整的合格内容，不拼接不同版本。
@@ -750,7 +761,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       const {type,ids,answer,followups}=result,action=state.action||result.action;
       // 历史问题在资料库里没有查到出处：联网兜底；查到一部分但说明了资料没有涉及的内容：让页面提供“联网再查”
       const gap=/(?:资料|文献|记载|知识库)[^。]{0,24}(?:没有|未|不足|无法|尚无)|不知道/.test(answer);
-      if(useWeb&&type==='history'&&!ids.length&&!action){const out=await lookup();if(out)return out;}
+      if(useWeb&&!controller.signal.aborted&&type==='history'&&!ids.length&&!action){const out=await lookup();if(out)return out;}
       const canWeb=useWeb&&type==='history'&&ids.length>0&&!action; // 每个有出处的历史回答后都给“想了解更多？试试联网搜索”
       const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
       const grouped=new Map();
