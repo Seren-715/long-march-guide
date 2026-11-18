@@ -491,6 +491,27 @@ log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇
   log=script([reply({type:'chat',answer:'你好。',sources:[]})]);
   await (await worker.fetch(make({question:'你好',node:'start',free:true,story:'no_such_story'}),env)).json();assert.doesNotMatch(log[0].messages[0].content,/刚读完故事/);
 }
+// 普通故事也按篇章隔离；同一篇继续对话时保留上文和出处。
+{
+  const firstQuestion='贺子珍为什么冲出去？';
+  const guideRequest=(story,historyTokens=[],question=firstQuestion,web)=>make({question,node:'start',free:true,story,historyTokens,web});
+  const first='guide_he_zizhen', next='guide_banjie_pidai';
+  log=script([reply({type:'history',answer:'贺子珍冲出去替伤员遮挡。',sources:['story_he_zizhen']})]);
+  const issued=await worker.fetch(guideRequest(first),env);
+  assert.equal(issued.status,200);
+  const token=(await issued.json()).historyToken;
+  assert.ok(token);
+  const followup=await worker.fetch(guideRequest(first,[token],'她当时在做什么？'),env);
+  assert.equal(followup.status,200);
+  assert.equal(log.at(-1).messages[1].content,firstQuestion);
+  const attempts=log.length;
+  for(const [story,web] of [[next,undefined],[null,undefined],[next,'only']]){
+    const rejected=await worker.fetch(guideRequest(story,[token],'那后来呢？',web),env);
+    assert.equal(rejected.status,400);
+    assert.equal((await rejected.json()).code,'HISTORY_INVALID');
+  }
+  assert.equal(log.length,attempts);
+}
 // 八闽故事正文作为已取出的史料，对话签名按故事隔离。
 {
   const question='他担任什么职务？';

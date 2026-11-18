@@ -8,7 +8,7 @@ const encode64 = bytes => btoa(Array.from(bytes, b=>String.fromCharCode(b)).join
 function decode64(value){if(!/^[A-Za-z0-9_-]+$/.test(value))throw new Error('invalid token');const binary=atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4));return Uint8Array.from(binary,c=>c.charCodeAt(0));}
 async function signingKey(secret){return crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
 async function issueToken(key,entry){const payload=encode64(new TextEncoder().encode(JSON.stringify(entry)));const signature=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(payload));return payload+'.'+encode64(new Uint8Array(signature));}
-async function readToken(key,token,sessionId,node,fujianStory){try{if(typeof token!=='string'||token.length>7000)return null;const parts=token.split('.');if(parts.length!==2)return null;const valid=await crypto.subtle.verify('HMAC',key,decode64(parts[1]),new TextEncoder().encode(parts[0]));if(!valid)return null;const entry=JSON.parse(new TextDecoder().decode(decode64(parts[0])));if(entry.v!==1||entry.sessionId!==sessionId||entry.node!==node||(entry.fujianStory??null)!==fujianStory||!Number.isSafeInteger(entry.at)||entry.at>Date.now()+60000||Date.now()-entry.at>3600000||typeof entry.question!=='string'||entry.question.length>500||typeof entry.answer!=='string'||entry.answer.length>800||!Array.isArray(entry.sources)||entry.sources.some(id=>typeof id!=='string'||!evidence.some(e=>e.id===id)))return null;return entry;}catch{return null;}}
+async function readToken(key,token,sessionId,node,storyId){try{if(typeof token!=='string'||token.length>7000)return null;const parts=token.split('.');if(parts.length!==2)return null;const valid=await crypto.subtle.verify('HMAC',key,decode64(parts[1]),new TextEncoder().encode(parts[0]));if(!valid)return null;const entry=JSON.parse(new TextDecoder().decode(decode64(parts[0])));if(entry.v!==1||entry.sessionId!==sessionId||entry.node!==node||(entry.story??entry.fujianStory??null)!==storyId||!Number.isSafeInteger(entry.at)||entry.at>Date.now()+60000||Date.now()-entry.at>3600000||typeof entry.question!=='string'||entry.question.length>500||typeof entry.answer!=='string'||entry.answer.length>800||!Array.isArray(entry.sources)||entry.sources.some(id=>typeof id!=='string'||!evidence.some(e=>e.id===id)))return null;return entry;}catch{return null;}}
 
 const TYPES=new Set(['history','chat','off_topic']);
 const ROUTE_KEYS=new Set(['overview','turning','journey','full']);
@@ -607,14 +607,14 @@ export default {async fetch(request, env) {
   // story 仍接受已有导览 ID；八闽专题只接受服务器登记且已审核的故事 ID。
   const fujianStory=typeof data.story==='string'&&data.story.startsWith('story_fj_')
     ?stories.find(t=>t.id===data.story&&t.reviewed===true&&NODE_IDS.includes(t.node))||null:null;
-  const historyStory=fujianStory?.id??null;
+  const guide=typeof data.story==='string'?storyGuides.find(g=>g.id===data.story):null;
+  const historyStory=fujianStory?.id??guide?.id??null;
   const key=await signingKey(env.HISTORY_SIGNING_KEY),history=[],recalled=new Set();
   for(const token of data.historyTokens||[]){const entry=await readToken(key,token,data.sessionId,data.node,historyStory);if(!entry)return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);entry.sources.forEach(id=>recalled.add(id));history.push({role:'user',content:entry.question},{role:'assistant',content:JSON.stringify({answer:entry.answer,sources:entry.sources})});}
   const limited=rateLimit(request,env,'chat');if(limited)return tooMany(limited);
   const question=data.question.trim(),current=nodes.find(n=>n.id===data.node),tour=cleanTour(data.tour),free=data.free===true;
   // 预先取出：当前节点的资料（首页直接提问时没有当前节点），以及上文回答引用过的资料。其余资料由模型调用工具取。
-  // 观众正在读某个故事时提问：只认已登记的故事 ID，把这个故事用到的资料预先取出
-  const guide=typeof data.story==='string'?storyGuides.find(g=>g.id===data.story):null;
+  // 观众正在读某个故事时，把这个已登记故事用到的资料预先取出。
   const guideStory=guide?.story?stories.find(t=>t.id===guide.story&&t.reviewed===true):null;
   const guideTitle=guide?(guide.title||guideStory?.title||''):'';
   const guideIds=new Set(guide?[...(guideStory?[guideStory.id,guideStory.node]:[]),...[...(guide.parts||[]),...(guide.background||[])].flatMap(p=>[...p.sources,...(p.terms||[]).flatMap(t=>t.sources)])]:[]);
@@ -625,7 +625,7 @@ export default {async fetch(request, env) {
   // 福建人数问题涉及多个来源口径。为避免模型只查一条就宣布“资料只有一种数字”，
   // 将三份分别有明确出处的计数资料一起预载；这是系统资料准备，不伪称模型主动检索。
   const fujianCountQuery=/(?:福建|闽籍|闽西|八闽).*(?:人数|多少人|多少|几万|数字|数量|口径|统计|差异|不同)|(?:人数|数量|数字|口径|统计|差异).*(?:福建|闽籍|闽西|八闽)|(?:近3万|近2\.6万|近万人).*(?:红军|长征|人数|福建|口径)/.test(data.question);
-  const compareFujianCounts=asksAboutFujianCountDifference(question,historyStory);
+  const compareFujianCounts=asksAboutFujianCountDifference(question,fujianStory?.id);
   const xiangjiangStrengthQuery=asksForXiangjiangStrengthInterval(question);
   const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines'));
   const state={loaded:new Set(preload.map(e=>e.id)),action:null,current:free?null:current.id,tour};
@@ -671,7 +671,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         if(!found){step({kind:'verify',text:'联网没有查到可用的网页出处',ok:false});return null;}
         if(found.offTopic)return {status:200,body:{answer:'这个问题和长征关系不大，我只查证长征相关的内容。',sources:[],type:'off_topic',followups:[],steps}};
         step({kind:'verify',text:'整理网络来源',detail:`${found.sources.length} 个网页，未经人工核对`,ok:false});
-        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{fujianStory:historyStory}:{}),question,answer:found.answer.slice(0,800),sources:[],at:Date.now()});
+        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),question,answer:found.answer.slice(0,800),sources:[],at:Date.now()});
         return {status:200,body:{answer:found.answer,sources:[],web:{sources:found.sources},historyToken,type:'history',followups:[],steps}};
       }catch{step({kind:'verify',text:'联网查找失败',ok:false});return null}finally{clearTimeout(t)}
     };
@@ -752,7 +752,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       const gap=/(?:资料|文献|记载|知识库)[^。]{0,24}(?:没有|未|不足|无法|尚无)|不知道/.test(answer);
       if(useWeb&&type==='history'&&!ids.length&&!action){const out=await lookup();if(out)return out;}
       const canWeb=useWeb&&type==='history'&&ids.length>0&&!action; // 每个有出处的历史回答后都给“想了解更多？试试联网搜索”
-      const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{fujianStory:historyStory}:{}),question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
+      const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
       const grouped=new Map();
       for(const id of ids){const e=evidence.find(x=>x.id===id),existing=grouped.get(e.url);if(existing){existing.ids.push(id);existing.excerpt+='\n'+e.text}else grouped.set(e.url,{id,ids:[id],title:e.source,url:e.url,excerpt:e.text});}
       return {status:200,body:{answer,sources:[...grouped.values()],historyToken,type,action,followups,steps,...(canWeb?{canWeb:true}:{})}};
