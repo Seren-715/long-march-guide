@@ -398,6 +398,7 @@ body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node
 assert.equal(log.at(-1).model,'deepseek-flash');assert.equal(log.at(-1).tools[0].type,'deepseek_web_search');assert.deepEqual(body.sources,[]);assert.equal(body.web.sources.length,2);assert.equal(body.web.sources[0].trusted,true);assert.equal(body.web.sources[1].trusted,false);assert.doesNotMatch(body.answer,/https?:|\]\(/);assert.ok(body.steps.some(x=>x.kind==='web'));
 log=script([b=>b.model==='deepseek-flash'?webReply('没有出处的回答。',[]):none.clone()]);
 body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),env)).json();assert.equal(body.web,undefined);assert.match(body.answer,/资料/);
+assert.equal(log.filter(x=>x.model==='deepseek-flash').length,1);
 log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true}),env)).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);assert.equal(body.web,undefined);
 // 联网结果去掉模型自己补的因果推测，保留同句事实、来源和未经人工核对标记。
 const webCase={question:'请联网查找遵义会议召开的日期和地点。',node:'zunyi',free:true,web:'only'};
@@ -410,6 +411,23 @@ assert.doesNotMatch(body.answer,/门牌调整|可能是/);
 assert.equal(body.web.sources[0].url,webUrl);
 assert.match(body.steps.at(-1).detail,/未经人工核对/);
 assert.match(log[0].messages[0].content,/只有网页明确提出原因/);
+// 用户主动联网时，直接问题也有一次补查机会；两次均没有出处则不展示正文。
+for(const urls of [[webUrl],[]]){
+  log=script([webReply('第一轮无出处。',[]),webReply('第二轮搜索结果。',urls)]);
+  body=await (await worker.fetch(make(webCase),env)).json();
+  assert.equal(log.length,2);
+  assert.equal(log[1].messages.at(-1).content,webCase.question);
+  assert.match(log[1].messages[0].content,/实际检索并返回能打开的网页出处/);
+  assert.ok(body.steps.some(step=>step.text==='首次联网结果缺少出处，再查一次'));
+  assert.doesNotMatch(body.answer,/第一轮无出处/);
+  if(urls.length){
+    assert.equal(body.answer,'第二轮搜索结果。');
+    assert.equal(body.web.sources[0].url,webUrl);
+  }else{
+    assert.match(body.answer,/没有查到可靠的网页出处/);
+    assert.equal(body.web,undefined);
+  }
+}
 // 并列网页写法不能推断成差异的成因，且必须留下后面的资料边界。
 {
   const compare={...webCase,question:'请联网核查遵义会议会址门牌号为什么有不同写法，并附出处。'};

@@ -112,7 +112,8 @@ async function webLookup(env,question,context,signal){
   const input=webQuestion(question,context);
   const first=await searchWeb(env,input,question,signal);
   if(!first?.missingSources)return first;
-  if(input===question||signal.aborted)return null;
+  if(signal.aborted||(!context.retryDirect&&input===question))return null;
+  context.onRetry();
   const retry=await searchWeb(env,input,question,signal,true);
   return retry?.missingSources?null:retry;
 }
@@ -705,7 +706,9 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         const found=await webLookup(env,question,{
           storyTitle:fujianStory?.title||guideTitle,
           nodeName:free?null:current.name,
-          history
+          history,
+          retryDirect:data.web==='only',
+          onRetry:()=>step({kind:'web',text:'首次联网结果缺少出处，再查一次'})
         },controller.signal);
         if(!found){step({kind:'verify',text:'联网没有查到可用的网页出处',ok:false});return null;}
         if(found.offTopic)return {status:200,body:{answer:'这个问题和长征关系不大，我只查证长征相关的内容。',sources:[],type:'off_topic',followups:[],steps}};
