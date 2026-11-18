@@ -403,7 +403,8 @@ log=script([webReply('OFF_TOPIC',[])]);body=await (await worker.fetch(make({ques
 log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),{...env,WEB_SEARCH:'off'})).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);
 // 故事引导：不新增史实。每段的出处必须存在，段落里的数字必须能在所列资料原文中找到；发生地和下一个故事必须有效。
 {
-  const {storyGuides}=await import('./src/story-guides.js');const {stories:allStories}=await import('./src/stories.js');const {nodes:allNodes}=await import('./src/data.js');
+  const {storyGuides}=await import('./src/story-guides.js');
+  {const {starterQuestions,claimCards}=await import('./src/starter-prompts.js');assert.ok(starterQuestions.length>=6&&claimCards.length>=6);for(const t of starterQuestions){assert.ok(t.label&&[...t.label].length<=11,'示例标签过长：'+t.label);assert.ok(t.q&&t.q.endsWith('？'),t.q)}for(const c of claimCards){assert.ok(c.claim&&c.tag);assert.ok(!/\d\s+[年月日名人万]|[年月]\s+\d/.test(c.claim),'核对卡里数字和单位之间不要有空格：'+c.claim)}}const {stories:allStories}=await import('./src/stories.js');const {nodes:allNodes}=await import('./src/data.js');
   const texts=new Map();for(const n of allNodes){texts.set(n.id,n.text);for(const e of n.extra||[])texts.set(e.id,e.text);}for(const s of allStories)if(s.reviewed===true)texts.set(s.id,s.text);
   const digits=s=>(String(s).replace(/\s/g,'').match(/\d+(?:\.\d+)?/g)||[]);
   assert.ok(storyGuides.length>=10);assert.equal(new Set(storyGuides.map(g=>g.id)).size,storyGuides.length);
