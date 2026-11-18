@@ -418,6 +418,22 @@ log=script([webReply('可能是门牌调整所致。',[webUrl])]);
 body=await (await worker.fetch(make(webCase),env)).json();
 assert.equal(body.web,undefined);
 assert.doesNotMatch(body.answer,/门牌调整/);
+// 联网结果展示给观众，但后续馆内问答只沿用问题作为线索。
+{
+  const firstQuestion='遵义会议召开的地点在哪里？';
+  const unverified='模拟网页中的待核对表述';
+  log=script([webReply(unverified,[webUrl])]);
+  const first=await (await worker.fetch(make({...webCase,question:firstQuestion}),env)).json();
+  assert.equal(first.answer,unverified);
+  assert.ok(first.historyToken);
+  assert.equal(first.web.sources[0].url,webUrl);
+  log=script([reply({type:'history',answer:'遵义会议在贵州遵义召开。',sources:['zunyi']})]);
+  const second=await (await worker.fetch(make({question:'那它具体在哪里召开的？',node:'zunyi',historyTokens:[first.historyToken]}),env)).json();
+  assert.equal(log[0].messages[1].content,firstQuestion);
+  assert.doesNotMatch(JSON.stringify(log[0].messages),new RegExp(unverified));
+  assert.doesNotMatch(JSON.stringify(log[0].messages),/www\.guizhou\.gov\.cn\/test/);
+  assert.deepEqual(second.sources.flatMap(source=>source.ids),['zunyi']);
+}
 // 同一问题的馆内来源上下文只用于联网消歧，上轮回答不会被当成网上依据。
 {
   const story='story_fj_yang_chengwu', firstQuestion='杨成武和谁一起指挥？';

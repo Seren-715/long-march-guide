@@ -610,7 +610,13 @@ export default {async fetch(request, env) {
   const guide=typeof data.story==='string'?storyGuides.find(g=>g.id===data.story):null;
   const historyStory=fujianStory?.id??guide?.id??null;
   const key=await signingKey(env.HISTORY_SIGNING_KEY),history=[],recalled=new Set();
-  for(const token of data.historyTokens||[]){const entry=await readToken(key,token,data.sessionId,data.node,historyStory);if(!entry)return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);entry.sources.forEach(id=>recalled.add(id));history.push({role:'user',content:entry.question},{role:'assistant',content:JSON.stringify({answer:entry.answer,sources:entry.sources})});}
+  for(const token of data.historyTokens||[]){
+    const entry=await readToken(key,token,data.sessionId,data.node,historyStory);
+    if(!entry)return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);
+    entry.sources.forEach(id=>recalled.add(id));
+    // 旧签名也可能包含网络答复。无馆内出处时只沿用观众自己的提问。
+    history.push({role:'user',content:entry.question},{role:'assistant',content:JSON.stringify({answer:entry.sources.length?entry.answer:'',sources:entry.sources})});
+  }
   const limited=rateLimit(request,env,'chat');if(limited)return tooMany(limited);
   const question=data.question.trim(),current=nodes.find(n=>n.id===data.node),tour=cleanTour(data.tour),free=data.free===true;
   // 预先取出：当前节点的资料（首页直接提问时没有当前节点），以及上文回答引用过的资料。其余资料由模型调用工具取。
@@ -671,7 +677,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         if(!found){step({kind:'verify',text:'联网没有查到可用的网页出处',ok:false});return null;}
         if(found.offTopic)return {status:200,body:{answer:'这个问题和长征关系不大，我只查证长征相关的内容。',sources:[],type:'off_topic',followups:[],steps}};
         step({kind:'verify',text:'整理网络来源',detail:`${found.sources.length} 个网页，未经人工核对`,ok:false});
-        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),question,answer:found.answer.slice(0,800),sources:[],at:Date.now()});
+        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),question,answer:'',sources:[],at:Date.now()});
         return {status:200,body:{answer:found.answer,sources:[],web:{sources:found.sources},historyToken,type:'history',followups:[],steps}};
       }catch{step({kind:'verify',text:'联网查找失败',ok:false});return null}finally{clearTimeout(t)}
     };
