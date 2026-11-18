@@ -52,6 +52,35 @@ async page => {
   await nav('stories').click();
   await nav('fujian').click();
   if (await hash() !== '#fujian') throw Error('手机板块切换失败');
+  const requests = [];
+  await page.route('**/api/chat', async route => {
+    requests.push(route.request().postDataJSON());
+    await route.fulfill({json:{
+      answer:'测试回答', type:'history', historyToken:'story-context-token',
+      sources:[{id:'story_fj_yang_chengwu', title:'测试出处', url:'https://example.com/source', excerpt:'测试依据'}]
+    }});
+  });
+  const askStory = async question => {
+    await detail.getByRole('button',{name:'向小征提问'}).click();
+    await page.locator('#question').fill(question);
+    await page.locator('#chat-form button[type=submit]').click();
+    await page.waitForFunction(() => !document.getElementById('send').disabled);
+  };
+  await cards.filter({hasText:'杨成武'}).first().click();
+  await askStory('他和谁一起指挥？');
+  if (requests[0]?.story !== 'story_fj_yang_chengwu') throw Error('问答未收到当前故事');
+  const mapCard = page.getByRole('button',{name:'打开讲解：泸定桥'}).last();
+  await mapCard.click();
+  if (await hash() !== '#luding' || !(await page.locator('#map3d').isVisible())) throw Error('回答中的卡片未打开关联沙盘');
+  await page.goBack();
+  await detail.waitFor();
+  await page.locator('#fujian-back').click();
+  await cards.filter({hasText:'傅连暲'}).first().click();
+  await askStory('他负责什么工作？');
+  if (requests[1]?.story !== 'story_fj_fu_lianzhang' || requests[1]?.historyTokens?.length !== 0) throw Error('切换故事后沿用了旧的问答上下文');
+  await page.locator('#sw-read').click();
+  await askStory('他的职务是什么？');
+  if (requests[2]?.historyTokens?.[0] !== 'story-context-token') throw Error('同一故事内无法继续追问');
   if (errors.length) throw Error(errors.join('; '));
   return {navigation:true, cards:12, details:true, history:true, mobile:true, relatedStop:true};
 }

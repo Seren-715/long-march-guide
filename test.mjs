@@ -430,6 +430,41 @@ log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇
   log=script([reply({type:'chat',answer:'你好。',sources:[]})]);
   await (await worker.fetch(make({question:'你好',node:'start',free:true,story:'no_such_story'}),env)).json();assert.doesNotMatch(log[0].messages[0].content,/刚读完故事/);
 }
+// 八闽故事正文作为已取出的史料，对话签名按故事隔离。
+{
+  const question='他担任什么职务？';
+  const fujian=(story,historyTokens=[],node='start',q=question)=>make({question:q,node,free:true,story,historyTokens});
+  const doctor='story_fj_fu_lianzhang', radio='story_fj_cai_wei';
+  log=script([reply({type:'history',answer:'傅连暲担任中央红色医院院长。',sources:[doctor]})]);
+  body=await (await worker.fetch(fujian(doctor),env)).json();
+  assert.equal(log.length,1);
+  assert.match(log[0].messages[0].content,/当前正在阅读《长征医疗线上的傅连暲》/);
+  assert.match(log[0].messages[0].content.split('已取出的资料：').at(-1),/\[story_fj_fu_lianzhang\].*中央红色医院的?院长/);
+  assert.deepEqual(body.sources.flatMap(s=>s.ids),[doctor]);
+  const token=body.historyToken;
+  assert.ok(token);
+  assert.equal((await worker.fetch(fujian(doctor,[token]),env)).status,200);
+  assert.equal(log.at(-1).messages[1].content,question);
+  const wrongStory=await worker.fetch(fujian(radio,[token]),env);
+  assert.equal(wrongStory.status,400);
+  assert.equal((await wrongStory.json()).code,'HISTORY_INVALID');
+  const attempts=log.length;
+  assert.equal((await worker.fetch(fujian(null,[token]),env)).status,400);
+  assert.equal(log.length,attempts);
+  log=script([reply({type:'history',answer:'蔡威从事无线电通信工作。',sources:[radio]})]);
+  body=await (await worker.fetch(fujian(radio),env)).json();
+  assert.match(log[0].messages[0].content,/当前正在阅读《[^》]*蔡威/);
+  assert.doesNotMatch(log[0].messages[0].content.split('已取出的资料：').at(-1),/\[story_fj_fu_lianzhang\]/);
+  assert.deepEqual(body.sources.flatMap(s=>s.ids),[radio]);
+  log=script([reply({type:'chat',answer:'你好。',sources:[]})]);
+  await worker.fetch(fujian('story_fj_unknown'),env);
+  assert.doesNotMatch(log[0].messages[0].content,/当前正在阅读/);
+  const grain='story_fj_ninghua_grain';
+  log=script([reply({type:'history',answer:'资料记载的是长征前挑粮支前，她们后来是否都到了陕北，资料没有记载。',sources:[grain]})]);
+  body=await (await worker.fetch(fujian(grain,[],'start','她们后来是否都到了陕北？'),env)).json();
+  assert.match(body.answer,/陕北.*没有记载/);
+  assert.deepEqual(body.sources.flatMap(s=>s.ids),[grain]);
+}
 // 会师关系：数字与地点正确仍不能把10月9日在会宁会师的红四方面军错写成红二。
 for(const wrong of [
   '1936年10月9日红二方面军在会宁与红一方面军会师。',

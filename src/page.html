@@ -835,7 +835,7 @@ function openStoryList(push = true) {
   CATS.forEach(([key, label]) => { const n = key ? GUIDES.filter(g => g.cat === key).length : GUIDES.length; if (key && !n) return; const b = el('button', 'chip', label); b.type = 'button'; b.append(el('small', '', String(n))); b.addEventListener('click', () => draw(key)); b.dataset.cat = key; bar.append(b); });
   CATS.splice(0, CATS.length, ...CATS.filter(c => !c[0] || GUIDES.some(g => g.cat === c[0])));
   body.replaceChildren(bar, note, list); draw(storyCat);
-  showStoryPage('长征路上的故事', '#stories', push); currentStory = null;
+  showStoryPage('长征路上的故事', '#stories', push); setReadingStory(null);
 }
 function openStory(id, push = true) {
   const g = GUIDES.find(x => x.id === id); if (!g) return; remember('stories', g.id);
@@ -863,7 +863,7 @@ function openStory(id, push = true) {
     if (shown >= g.parts.length) finale(); else { more.textContent = shown === g.parts.length - 1 && g.kind !== 'event' ? '后来呢？' : '接着往下看'; count.textContent = shown + ' / ' + g.parts.length; }
   };
   more.addEventListener('click', reveal); reveal();
-  const fresh = currentStory !== g.id; showStoryPage(g.title, '#story-' + g.id, push); currentStory = g.id;
+  const fresh = currentStory !== g.id; showStoryPage(g.title, '#story-' + g.id, push); setReadingStory(g.id);
   if (fresh) addMessage('小征', '现在读的是《' + g.title + '》。右边一段一段往下看，读到哪里有疑问，直接在这里问我。', [], { quiet: true });
 }
 $('story-back').addEventListener('click', () => openStoryList());
@@ -1099,9 +1099,17 @@ $('people-dialog').addEventListener('click', e => { if (e.target === e.currentTa
 
 /* ---------- 八闽儿女的长征 ---------- */
 let topicKind = '', currentStory = null;
+function setReadingStory(id) {
+  if (currentStory === id) return;
+  currentStory = id;
+  chatHistory = [];
+  lastQuestion = '';
+  contextVersion++;
+}
 function setTopicMode(on, kind = 'fujian') {
   if (topicMode !== on || (on && topicKind !== kind)) { chatHistory = []; contextVersion++; }
-  topicMode = on; topicKind = on ? kind : ''; if (!on) currentStory = null;
+  if (!on || topicKind !== kind) setReadingStory(null);
+  topicMode = on; topicKind = on ? kind : '';
   $('session').classList.toggle('topic-mode', on);
   const activeSection = !on ? 'browse' : kind === 'story' ? 'stories' : 'fujian';
   for (const section of ['browse', 'stories', 'fujian']) {
@@ -1144,6 +1152,7 @@ function openFujian(push = true) {
   $('fujian-list').replaceChildren(...cards);
   if (!cards.length) $('fujian-list').append(el('p', 'plan-note', '专题资料暂未收录。'));
   showFujian('八闽儿女的长征', '#fujian', push);
+  setReadingStory(null);
 }
 function openFujianStory(hash, push = true) {
   const story = fujianByHash.get(hash);
@@ -1158,10 +1167,15 @@ function openFujianStory(hash, push = true) {
   const note = publicNote(story.note, true);
   if (note) detail.append(el('p', 'plan-note', '（资料说明：' + note + '）'));
   appendStorySources(detail, story);
+  const askStory = el('button', 'btn btn-primary', '向小征提问');
+  askStory.type = 'button';
+  askStory.addEventListener('click', () => { setPane('chat'); input.focus(); });
+  detail.append(askStory);
   if (story.kind !== 'source_comparison') {
     const go = el('button', 'btn btn-ghost', '查看关联节点：' + find(story.node).name + ' →');
     go.type = 'button';
     go.addEventListener('click', () => {
+      setMapOpen(true);
       choose(story.node);
       requestAnimationFrame(() => {
         const entry = document.getElementById('story-' + story.id);
@@ -1176,6 +1190,7 @@ function openFujianStory(hash, push = true) {
   }
   detail.hidden = false;
   showFujian(story.title, '#' + hash, push);
+  setReadingStory(story.id);
 }
 $('start-fujian').addEventListener('click', () => openFujian());
 $('fujian-back').addEventListener('click', () => openFujian());
@@ -1587,14 +1602,14 @@ $('download-summary').addEventListener('click', e => { if (!summaryText) return;
 /* ---------- 对话 ---------- */
 function scrollToMsg(row) { if (!messages.clientHeight) return; messages.scrollTo({ top: messages.scrollTop + row.getBoundingClientRect().top - messages.getBoundingClientRect().top - 12, behavior: motion() }); }
 // 回答涉及的讲解节点：卡片带沙盘缩略图，第一张最醒目
-function relatedCards(ids) {
-  const box = el('div', 'related'); box.append(el('div', 'related-label', ids.length > 1 ? '这段历史发生在这些地方，可以去看看' : '这段历史发生在这里，去看看现场讲解'));
+function relatedCards(ids, readingFujian) {
+  const box = el('div', 'related'); box.append(el('div', 'related-label', readingFujian ? '在地图上查看关联讲解节点' : ids.length > 1 ? '这段历史发生在这些地方，可以去看看' : '这段历史发生在这里，去看看现场讲解'));
   ids.forEach((id, i) => {
     const n = find(id); const c = el('button', 'stop-card' + (i ? ' minor' : '')); c.type = 'button'; c.setAttribute('aria-label', '打开讲解：' + n.name);
     const at = MAP && MAP.nodes[id];
     if (at) { const th = el('span', 'stop-thumb'); const w = i ? 64 : 88, h = i ? 46 : 64; const img = document.createElement('img'); img.src = '/assets/longmarch-map.webp'; img.alt = ''; img.loading = 'lazy'; img.style.left = Math.min(0, Math.max(w - 320, w / 2 - at[0] / 100 * 320)) + 'px'; img.style.top = Math.min(0, Math.max(h - 200, h / 2 - at[1] / 100 * 200)) + 'px'; th.append(img); const dot = el('i'); dot.style.left = (Math.min(0, Math.max(w - 320, w / 2 - at[0] / 100 * 320)) + at[0] / 100 * 320) + 'px'; dot.style.top = (Math.min(0, Math.max(h - 200, h / 2 - at[1] / 100 * 200)) + at[1] / 100 * 200) + 'px'; th.append(dot); c.append(th); }
     const info = el('span', 'stop-info'); info.append(el('b', '', n.name), el('small', '', n.date), el('span', '', n.title || '')); c.append(info, el('span', 'stop-go', i ? '查看 →' : '去看讲解 →'));
-    c.addEventListener('click', () => choose(id)); box.append(c);
+    c.addEventListener('click', () => { if (readingFujian) setMapOpen(true); choose(id); }); box.append(c);
   });
   return box;
 }
@@ -1606,7 +1621,7 @@ function addMessage(who, text, sources = [], opts = {}) {
   if (opts.node) body.append(el('span', 'asked-at', '提问时的节点：' + opts.node));
   if (opts.steps && opts.steps.length) body.append(stepList(opts.steps));
   body.append(el('div', 'msg-text', text));
-  if (opts.related && opts.related.length) body.append(relatedCards(opts.related));
+  if (opts.related && opts.related.length) body.append(relatedCards(opts.related, opts.readingFujian));
   if (opts.web) {
     // 网络来源：与已核对资料分开标注，统一提示未经核对、可能有误；不再区分权威和非权威
     const box = el('div', 'webrefs'); box.append(el('div', 'trust web', '网络来源 · 未经人工核对，可能有误，引用前请打开原文确认'));
@@ -1679,6 +1694,7 @@ async function ask(question, opts = {}) {
   const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
   const free = chatOnly || topicMode;
+  const readingFujian = topicKind === 'fujian' && currentStory !== null;
   const build = () => JSON.stringify({ question: apiQuestion, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
   let payload = build();
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
@@ -1687,14 +1703,14 @@ async function ask(question, opts = {}) {
     const liveSteps = []; const data = await askStream(JSON.parse(payload), s => { liveSteps.push(s); typing.addStep(s); }); typing.remove();
     if (typeof data.answer !== 'string' || !data.answer.trim()) throw new Error('暂未获得回答，请换个问法试试。');
     const srcIds = (Array.isArray(data.sources) ? data.sources : []).flatMap(x => x.ids || [x.id]);
-    const related = free ? [...new Set(srcIds.map(nodeOfSource).filter(Boolean))].slice(0, 3) : [];
+    const related = free ? [...new Set(srcIds.filter(id => !readingFujian || !STORIES.some(s => s.id === id && s.kind === 'source_comparison')).map(nodeOfSource).filter(Boolean))].slice(0, 3) : [];
     if (related.length) lastRelated = related[0];
     if (free) {
       const matched = nodes.filter(n => (n.questions || []).some(q => normalizeQuestion(q) === normalizeQuestion(question)));
       if (matched.length) matched.forEach(n => markQuestionAnswered(n.id, question)); else markQuestionAnswered(questionNode, question);
       for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide();
     } else markQuestionAnswered(questionNode, question);
-    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? apiQuestion : null });
+    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, readingFujian, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? apiQuestion : null });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     if (ttsOn) speak(data.answer);
