@@ -56,7 +56,7 @@ async page => {
   await page.route('**/api/chat', async route => {
     requests.push(route.request().postDataJSON());
     await route.fulfill({json:{
-      answer:'测试回答', type:'history', historyToken:'story-context-token',
+      answer:'测试回答', type:'history', historyToken:'story-context-token-'+requests.length, canWeb:true,
       sources:[{id:'story_fj_yang_chengwu', title:'测试出处', url:'https://example.com/source', excerpt:'测试依据'}]
     }});
   });
@@ -80,7 +80,24 @@ async page => {
   if (requests[1]?.story !== 'story_fj_fu_lianzhang' || requests[1]?.historyTokens?.length !== 0) throw Error('切换故事后沿用了旧的问答上下文');
   await page.locator('#sw-read').click();
   await askStory('他的职务是什么？');
-  if (requests[2]?.historyTokens?.[0] !== 'story-context-token') throw Error('同一故事内无法继续追问');
+  if (requests[2]?.historyTokens?.[0] !== 'story-context-token-2') throw Error('同一故事内无法继续追问');
+  const webButtons = page.locator('.msg.bot .webask');
+  const oldAnswer = webButtons.nth(1);
+  await oldAnswer.click();
+  await page.waitForFunction(() => !document.getElementById('send').disabled);
+  if (requests[3]?.question !== requests[1]?.question || requests[3]?.story !== 'story_fj_fu_lianzhang' ||
+      requests[3]?.web !== 'only' || requests[3]?.historyTokens?.length) throw Error('重搜旧问题时用了较新的对话');
+  await page.locator('#question').fill('联网搜索看看');
+  await page.locator('#chat-form button[type=submit]').click();
+  await page.waitForFunction(() => !document.getElementById('send').disabled);
+  if (requests[4]?.question !== requests[2]?.question || requests[4]?.historyTokens?.[0] !== 'story-context-token-2' ||
+      requests[4]?.web !== 'only') throw Error('文字触发联网没有复用最近一问的上下文');
+  await page.locator('#sw-read').click();
+  await page.locator('#fujian-back').click();
+  await cards.filter({hasText:'杨成武'}).first().click();
+  await page.locator('#sw-chat').click();
+  await oldAnswer.click();
+  if (!(await page.locator('#status').innerText()).includes('已切换') || requests.length !== 5) throw Error('旧篇联网按钮错误使用了新篇语境');
   if (errors.length) throw Error(errors.join('; '));
-  return {navigation:true, cards:12, details:true, history:true, mobile:true, relatedStop:true};
+  return {navigation:true, cards:12, details:true, history:true, mobile:true, relatedStop:true,webContext:true};
 }

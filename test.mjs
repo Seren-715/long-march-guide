@@ -418,6 +418,46 @@ log=script([webReply('可能是门牌调整所致。',[webUrl])]);
 body=await (await worker.fetch(make(webCase),env)).json();
 assert.equal(body.web,undefined);
 assert.doesNotMatch(body.answer,/门牌调整/);
+// 同一问题的馆内来源上下文只用于联网消歧，上轮回答不会被当成网上依据。
+{
+  const story='story_fj_yang_chengwu', firstQuestion='杨成武和谁一起指挥？';
+  const first=await (async()=>{
+    log=script([reply({type:'history',answer:'杨成武和黄开湘一起指挥。',sources:[story]})]);
+    return (await worker.fetch(make({question:firstQuestion,node:'start',free:true,story}),env)).json();
+  })();
+  assert.ok(first.historyToken);
+  const followup={question:'他后来担任什么职务？',node:'start',free:true,story,historyTokens:[first.historyToken]};
+  for(const mode of ['only','auto']){
+    log=script([b=>b.model==='deepseek-flash'?webReply('网上资料记载了相关经历。',[webUrl]):none.clone()]);
+    body=await (await worker.fetch(make({...followup,web:mode}),env)).json();
+    const outbound=log.at(-1);
+    assert.equal(outbound.model,'deepseek-flash');
+    const {本次问题,话题线索}=JSON.parse(outbound.messages.at(-1).content);
+    assert.equal(本次问题,followup.question);
+    assert.match(话题线索.当前篇目,/杨成武/);
+    assert.equal(话题线索.上一条相关提问,firstQuestion);
+    assert.doesNotMatch(JSON.stringify(outbound.messages),/黄开湘|historyToken|story_fj_yang_chengwu/);
+    assert.deepEqual(body.sources,[]);
+    assert.equal(body.web.sources[0].url,webUrl);
+  }
+  log=script([webReply('缺出处的答复。',[]),webReply('找到的网页载有职务。',[webUrl])]);
+  body=await (await worker.fetch(make({...followup,web:'only'}),env)).json();
+  assert.equal(log.length,2);
+  assert.equal(log[0].messages.at(-1).content,log[1].messages.at(-1).content);
+  assert.match(log[1].messages[0].content,/实际检索并返回能打开的网页出处/);
+  assert.equal(body.web.sources[0].url,webUrl);
+  log=script([webReply('缺出处的答复。',[])]);
+  body=await (await worker.fetch(make({...followup,web:'only'}),env)).json();
+  assert.equal(log.length,2);assert.equal(body.web,undefined);assert.doesNotMatch(body.answer,/缺出处的答复/);
+  log=script([webReply('网页资料。',[webUrl])]);
+  await worker.fetch(make({...followup,question:'遵义会议什么时候召开？',web:'only'}),env);
+  assert.equal(log.at(-1).messages.at(-1).content,'遵义会议什么时候召开？');
+  await worker.fetch(make({...followup,story:'story_fj_unknown',historyTokens:[],web:'only'}),env);
+  assert.equal(log.at(-1).messages.at(-1).content,followup.question);
+  const calls=log.length;
+  const rejected=await worker.fetch(make({...followup,story:'story_fj_fu_lianzhang',web:'only'}),env);
+  assert.equal(rejected.status,400);assert.equal((await rejected.json()).code,'HISTORY_INVALID');assert.equal(log.length,calls);
+}
 log=script([webReply('OFF_TOPIC',[])]);body=await (await worker.fetch(make({question:'今天天气',node:'start',free:true,web:'only'}),env)).json();assert.equal(log.length,1);assert.equal(body.type,'off_topic');
 log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),{...env,WEB_SEARCH:'off'})).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);
 // 故事引导：不新增史实。每段的出处必须存在，段落里的数字必须能在所列资料原文中找到；发生地和下一个故事必须有效。

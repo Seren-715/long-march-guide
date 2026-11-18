@@ -1175,7 +1175,7 @@ function setReadingStory(id) {
   if (currentStory === id) return;
   currentStory = id;
   chatHistory = [];
-  lastQuestion = '';
+  lastSearch = null;
   contextVersion++;
 }
 function setTopicMode(on, kind = 'fujian') {
@@ -1338,7 +1338,7 @@ function setPane(p) {
 }
 $('sw-read').addEventListener('click', () => setPane('read'));
 $('sw-chat').addEventListener('click', () => setPane('chat'));
-function goHome(push = true) { setTopicMode(false); if (chatOnly) { freeChatSnapshot = { node: selected, history: chatHistory.slice() }; contextVersion++; } stopSpeaking(); spokenFor = null; setView('home'); if (push && location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} } }
+function goHome(push = true) { if (view !== 'home') contextVersion++; setTopicMode(false); if (chatOnly) { freeChatSnapshot = { node: selected, history: chatHistory.slice() }; } stopSpeaking(); spokenFor = null; setView('home'); if (push && location.hash) { try { history.pushState(null, '', location.pathname + location.search); } catch {} } }
 $('go-home').addEventListener('click', () => goHome());
 
 /* ---------- 选择节点 ---------- */
@@ -1704,7 +1704,20 @@ function addMessage(who, text, sources = [], opts = {}) {
   const ex = sources.filter(s => typeof s.excerpt === 'string' && s.excerpt.trim());
   if (ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); body.append(d); }
   const follow = (opts.followups || []).filter(q => typeof q === 'string' && q.trim()).slice(0, 2);
-  if (opts.webAsk) { const row3 = el('div', 'webask-row'), b = el('button', 'btn btn-ghost webask', '想了解更多？试试联网搜索'); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(opts.webAsk, { webOnly: true }); }); row3.append(b, el('small', '', '联网内容未经人工核对，可能有误')); body.append(row3); }
+  if (opts.webAsk) {
+    const row3 = el('div', 'webask-row'), b = el('button', 'btn btn-ghost webask', '想了解更多？试试联网搜索');
+    b.type = 'button';
+    b.addEventListener('click', () => {
+      if (busy) return;
+      if (opts.webAsk.version !== contextVersion) {
+        status.textContent = '当前篇目或节点已切换，请在要搜索的内容下重新提问。';
+        return;
+      }
+      ask(opts.webAsk.question, { webOnly: true, webHistory: opts.webAsk.history });
+    });
+    row3.append(b, el('small', '', '联网内容未经人工核对，可能有误'));
+    body.append(row3);
+  }
   if (follow.length) { const box = el('div', 'followups'); for (const q of follow) { const c = el('button', 'chip', q); c.type = 'button'; c.addEventListener('click', () => askChip(q)); box.append(c); } body.append(box); }
   if (opts.actions && opts.actions.length) { messages.querySelectorAll('.quick button').forEach(b => { b.disabled = true; }); const box = el('div', 'quick'); for (const a of opts.actions) { const b = el('button', 'btn ' + (a.primary ? 'btn-primary' : 'btn-ghost'), a.label); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; a.run(); }); box.append(b); } body.append(box); }
   if (opts.retry) { const r = el('button', 'btn btn-ghost retry', '重试这个问题'); r.type = 'button'; r.addEventListener('click', () => { if (busy) return; const cur = input.value.trim(); if (cur && (cur !== opts.retry || selected !== opts.retryNode)) { status.textContent = '输入框已有未发送的问题，请先处理后再重试。'; input.focus(); return; } if (opts.retryNode && selected !== opts.retryNode) choose(opts.retryNode, { keepPane: true }); r.disabled = true; input.value = ''; autosize(input); ask(opts.retry); }); body.append(r); }
@@ -1744,32 +1757,35 @@ for (const t of [input, homeQ]) {
 async function fetchJSON(path, payload) { const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 30000); try { const response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal }); let data; try { data = await response.json(); } catch (err) { if (err?.name === 'AbortError') throw err; throw new Error('服务返回异常，请稍后再试。'); } if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('服务返回异常，请稍后再试。'); if (!response.ok || data.error) { const err = new Error(data?.error || '服务暂时不可用，请稍后再试。'); err.notConfigured = response.status === 503; err.code = data.code; throw err; } return data; } catch (err) { if (err?.name === 'AbortError') throw new Error('连接超时，请检查网络后重试。'); if (err instanceof TypeError) throw new Error('网络连接失败，请检查网络后重试。'); throw err; } finally { clearTimeout(timer); } }
 
 function askChip(q) { if (busy) return; if (input.value.trim()) { if (view !== 'session') setView('session'); if (mobile()) setPane('chat'); status.textContent = '输入框已有未发送的问题，请先处理后再使用建议问题。'; input.focus(); return; } ask(q); }
-let lastQuestion = '';
+let lastSearch = null;
 // “联网搜索看看”这类只有搜索意图、没有话题的话，搜的是上一个真正的问题，而不是这句话本身
 const WEB_INTENT = /^(请|帮我|麻烦|那|再)?\s*(联网|上网|网上|在网上|网络)\s*(搜索|搜一下|搜|查找|查一下|查)?\s*(一下|看看|下|吧)?[。！!？?\s]*$/;
 async function ask(question, opts = {}) {
   if (busy || !question) return;
   let apiQuestion = question;
   if (!opts.webOnly && WEB_INTENT.test(question)) {
-    if (!lastQuestion) { addMessage('你', question); addMessage('小征', '请先问一个问题，我再帮你联网搜索。'); return; }
-    apiQuestion = lastQuestion; opts = { ...opts, webOnly: true };
+    if (lastSearch?.version !== contextVersion) { addMessage('你', question); addMessage('小征', '请先在当前页面问一个问题，我再帮你联网搜索。'); return; }
+    apiQuestion = lastSearch.question;
+    opts = { ...opts, webOnly: true, webHistory: lastSearch.history };
   }
   if (planning) { planVersion++; setPlanNote('你已开始问答，本次规划结果将不应用。'); }
   if (view !== 'session') { if (opts.fromHome) setChatOnly(true); else viewed.add(selected); setView('session'); if (!chatOnly) syncHash(); }
   if (mobile()) setPane('chat');
   addMessage('你', opts.webOnly && apiQuestion === question ? '联网搜索：' + question : question);
-  if (!opts.webOnly && !/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { lastQuestion = question; remember('asks', { q: question, node: selected }); }
+  if (!opts.webOnly && !/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { remember('asks', { q: question, node: selected }); }
   if (/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { if (!route.length) { addMessage('小征', '请先回到首页选一条参观路线。'); return; } advance(question.startsWith('跳过')); return; }
   const jump = question.match(/^(?:带我去|前往|切换到|看看)(.{1,12}?)[。！!\s]*$/);
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id, { keepPane: true }); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
   busy = true; shownKey = null; renderExhibit(); renderChips(); document.querySelectorAll('.side-q').forEach(x => { x.disabled = true; }); $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); status.textContent = '小征正在查阅资料并思考…';
-  const questionNode = selected, requestVersion = contextVersion, prior = chatHistory.slice(-3);
+  const questionNode = selected, requestVersion = contextVersion, prior = (opts.webHistory || chatHistory).slice(-3);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
   const free = chatOnly || topicMode;
   const readingFujian = topicKind === 'fujian' && currentStory !== null;
   const build = () => JSON.stringify({ question: apiQuestion, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
   let payload = build();
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
+  const searchContext = { question: apiQuestion, version: requestVersion, history: prior.slice() };
+  if (!opts.webOnly) lastSearch = searchContext;
   const typing = showTyping();
   try {
     const liveSteps = []; const data = await askStream(JSON.parse(payload), s => { liveSteps.push(s); typing.addStep(s); }); typing.remove();
@@ -1782,15 +1798,15 @@ async function ask(question, opts = {}) {
       if (matched.length) matched.forEach(n => markQuestionAnswered(n.id, question)); else markQuestionAnswered(questionNode, question);
       for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide();
     } else markQuestionAnswered(questionNode, question);
-    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, readingFujian, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? apiQuestion : null });
+    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, readingFujian, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? searchContext : null });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     if (ttsOn) speak(data.answer);
     if (requestVersion === contextVersion) runAction(data.action);
   } catch (err) {
-    typing.remove(); const sameContext = requestVersion === contextVersion; if (sameContext && err.code === 'HISTORY_INVALID') chatHistory = []; if (sameContext && !input.value) { input.value = question; autosize(input); } updateCount();
+    typing.remove(); const sameContext = requestVersion === contextVersion; if (sameContext && err.code === 'HISTORY_INVALID' && !opts.webHistory) chatHistory = []; if (sameContext && !input.value) { input.value = question; autosize(input); } updateCount();
     addMessage('小征', err.message || '连接失败，请稍后再试。', [], { node: find(questionNode)?.name || '未知', error: true, retry: err.notConfigured || err.code === 'SESSION_INVALID' ? null : question, retryNode: questionNode });
-    status.textContent = err.notConfigured ? '模型尚未配置，当前可浏览节点和资料。' : err.code === 'SESSION_INVALID' ? '对话会话无效，请刷新页面后重试。' : !sameContext ? '节点已切换；可在原问题下方返回原节点重试。' : err.code === 'HISTORY_INVALID' ? '上次对话已失效并清空，可重新提问。' : input.value === question ? '本次问题未加入上下文，已保留，可重试。' : '本次问题未加入上下文，可重新输入后重试。';
+    status.textContent = err.notConfigured ? '模型尚未配置，当前可浏览节点和资料。' : err.code === 'SESSION_INVALID' ? '对话会话无效，请刷新页面后重试。' : !sameContext ? '节点已切换；可在原问题下方返回原节点重试。' : err.code === 'HISTORY_INVALID' ? (opts.webHistory ? '这条回答的联网话题已过期，请重新提问。' : '上次对话已失效并清空，可重新提问。') : input.value === question ? '本次问题未加入上下文，已保留，可重试。' : '本次问题未加入上下文，可重新输入后重试。';
   } finally { busy = false; shownKey = null; renderExhibit(); renderChips(); document.querySelectorAll('.side-q').forEach(x => { x.disabled = false; }); $('send').disabled = false; $('send').removeAttribute('aria-busy'); if (document.activeElement === document.body && view === 'session') input.focus({ preventScroll: true }); }
 }
 $('chat-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = input.value.trim(); if (!q) return; input.value = ''; autosize(input); updateCount(); ask(q); });
