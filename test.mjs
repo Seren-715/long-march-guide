@@ -410,6 +410,26 @@ assert.doesNotMatch(body.answer,/门牌调整|可能是/);
 assert.equal(body.web.sources[0].url,webUrl);
 assert.match(body.steps.at(-1).detail,/未经人工核对/);
 assert.match(log[0].messages[0].content,/只有网页明确提出原因/);
+// 并列网页写法不能推断成差异的成因，且必须留下后面的资料边界。
+{
+  const compare={...webCase,question:'请联网核查遵义会议会址门牌号为什么有不同写法，并附出处。'};
+  const prefix='遵义会议会址门牌号存在不同写法';
+  const gap='网页未解释门牌号数字差异的具体原因。';
+  for(const claim of ['主要是历史路名混用所致','原因在于行政区划调整','源于编号方式变更']){
+    log=script([webReply(prefix+'，'+claim+'，'+gap,[webUrl])]);
+    body=await (await worker.fetch(make(compare),env)).json();
+    assert.equal(body.answer,prefix+'。'+gap);
+    assert.equal(body.web.sources[0].url,webUrl);
+  }
+  for(const answer of ['纪念馆文章明确指出，主要是门牌调整所致。','网页没有说明门牌差异是否源于编号调整。']){
+    log=script([webReply(answer,[webUrl])]);
+    body=await (await worker.fetch(make(compare),env)).json();
+    assert.equal(body.answer,answer);
+  }
+  log=script([webReply('第二项措施主要是为了改善交通条件。',[webUrl])]);
+  body=await (await worker.fetch(make({...webCase,question:'请联网查找这项措施的历史背景。'}),env)).json();
+  assert.equal(body.answer,'第二项措施主要是为了改善交通条件。');
+}
 // 独立出处清单由服务端链接区生成。仅与被删除清单重叠的注释不应跟进正文。
 {
   const fact='遵义会议在贵州遵义召开。';
