@@ -695,7 +695,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <p class="home-scope">目前收录的是<b>中央红军主力</b>的长征路线：从中央苏区到吴起镇，共 23 处；另有直罗镇、会宁、将台堡三处。其他各路红军的资料还很少。</p>
 <div class="tales" id="tales" role="group" aria-label="从故事开始" hidden></div>
 <div class="starts" role="group" aria-label="开始方式">
-<button type="button" class="start" id="start-history" aria-haspopup="dialog"><b>档案</b><span>专题、分类和你的足迹</span></button>
+<button type="button" class="start" id="start-history" aria-haspopup="dialog"><b>目录</b><span>专题、分类和你的足迹</span></button>
 <button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
 <button type="button" class="start" id="start-people" aria-haspopup="dialog"><b>人物档案</b><span>从人物故事认识长征</span></button>
 <button type="button" class="start" id="start-fujian"><b>八闽儿女的长征</b><span>探寻福建与长征的故事</span></button>
@@ -737,7 +737,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <div class="dialog-body"><div class="hist-list" id="claims-list"></div><p class="plan-note">核对结果以回答里附的出处为准；资料没有记载的，小征会如实说明。</p></div>
 </dialog>
 <dialog class="route-dialog" id="history-dialog" aria-labelledby="history-title">
-<div class="dialog-head"><div><h2 id="history-title">档案</h2><p>按专题或分类找故事；你读过的故事、看过的站、问过的问题也在这里</p></div><button type="button" class="dialog-close" id="history-close" aria-label="关闭">×</button></div>
+<div class="dialog-head"><div><h2 id="history-title">目录</h2><p>按专题或分类找故事；你读过的故事、看过的站、问过的问题也在这里</p></div><button type="button" class="dialog-close" id="history-close" aria-label="关闭">×</button></div>
 <div class="dialog-body" id="history-body"></div>
 </dialog>
 <dialog class="route-dialog" id="people-dialog" aria-labelledby="people-title">
@@ -906,7 +906,7 @@ function openStoryFromCard(card, id) {
 }
 function taleCard(g, cls) { const b = el('button', cls); b.type = 'button'; b.append(el('small', '', g.tag + (readTales.has(g.id) ? ' · 已读' : '')), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => { if (b.closest('.story-list')) openStoryFromCard(b, g.id); else openStory(g.id); }); return b; }
 let storyCat = '';
-// 故事分类：首个是“全部”；分类和专题的切换都放在“档案”里，列表页只留一行当前看法
+// 故事分类：首个是“全部”；分类和专题的切换都放在“目录”里，列表页只留一行当前看法
 const STORY_CATS = [['', '全部', '所有能读的故事，挑一个开始。'], ['人物故事', '人物故事', '从一个人的经历讲起：他（她）做了什么，后来怎样。'], ['事件故事', '事件故事', '一场战斗、一次渡河或一次会合是怎样发生的。'], ['会议与决策', '会议与决策', '关键时刻，大家争论什么、最后怎样定下方向。'], ['军民与民族', '军民与民族', '红军与沿途群众、少数民族之间发生的事。']].filter(c => !c[0] || GUIDES.some(g => g.cat === c[0]));
 function openStoryList(push = true) {
   const body = $('story-body'); $('story-page').classList.remove('event'); $('story-back').hidden = true;
