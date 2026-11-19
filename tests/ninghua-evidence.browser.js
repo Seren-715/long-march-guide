@@ -1,0 +1,47 @@
+async page => {
+  page.setDefaultTimeout(8000);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const question = '这 1300 名妇女后来都参加长征了吗？';
+  const ask = () => page.getByRole('button', {name:question, exact:true}).click();
+  const first = () => page.getByRole('button', {name:'查看依据 1：资料摘要'}).last();
+  const second = () => page.getByRole('button', {name:'查看依据 2：资料边界'}).last();
+  const hash = () => page.evaluate(() => location.hash);
+  const check = (condition, description) => { if (!condition) throw Error(description); };
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('http://127.0.0.1:4189/#fujian-ninghua_grain');
+  await page.reload();
+  await ask();
+  await first().waitFor();
+  await first().press('Enter');
+  const desktop = page.locator('#fujian-detail .evidence-card');
+  await desktop.waitFor();
+  check(await desktop.locator('mark').count() === 3, '摘要没有高亮时间、人数和事件');
+  check(await first().getAttribute('aria-expanded') === 'true', '第一个角标未标为已展开');
+  await second().click();
+  check((await desktop.locator('.active').innerText()).includes('没有交代'), '未显示资料边界');
+  check((await desktop.getByRole('link', {name:'打开县志来源'}).getAttribute('href')).startsWith('https://data.fjdsfzw.org.cn/'), '来源链接错误');
+  check(await hash() === '#fujian-ninghua_grain', '打开依据时跳离了故事');
+  await desktop.getByRole('button', {name:'收起'}).click();
+  check(await second().evaluate(el => el === document.activeElement), '收起后焦点没有返回角标');
+  await first().click();
+  await page.locator('#fujian-back').click();
+  check(await page.locator('.evidence-card').count() === 0, '切换篇章后仍显示旧依据卡');
+
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('http://127.0.0.1:4189/#story-guide_fj_ninghua');
+  const entry = page.getByRole('button', {name:question,exact:true});
+  for(let i=0;i<12&&!(await entry.isVisible());i++)await page.getByRole('button', {name:/^(接着往下看|后来呢？)$/}).click();
+  await ask();
+  await first().click();
+  const inline = page.locator('#chat-pane .evidence-card');
+  await inline.waitFor();
+  check(await page.locator('#read-pane .evidence-card').count() === 0, '手机依据被放到隐藏的阅读栏');
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), '手机出现横向溢出');
+  await second().click();
+  check((await inline.locator('.active').innerText()).includes('没有交代'), '手机切换角标无效');
+  await inline.getByRole('button', {name:'继续读故事'}).click();
+  check(await page.locator('#story-title').isVisible() && await hash() === '#story-guide_fj_ninghua', '手机未回到原故事');
+  check(errors.length === 0, errors.join('; '));
+  return {desktop:true,mobile:true,keyboard:true,sourceLink:true,storyContext:true};
+}

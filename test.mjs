@@ -608,6 +608,26 @@ log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇
   }
   assert.equal(log.length,attempts);
 }
+// 宁化故事核对入口只给已经核对通过的两句返回明确的资料映射。
+{
+  const sourceId='story_fj_ninghua_grain', question='这 1300 名妇女后来都参加长征了吗？';
+  log=script([reply({type:'chat',answer:'测试答复。',sources:[]})]);
+  for(const story of [sourceId,'guide_fj_ninghua']){
+    res=await worker.fetch(make({question,node:'start',free:true,story}),env);
+    body=await res.json();
+    assert.equal(res.status,200);
+    assert.deepEqual(body.sources.flatMap(source=>source.ids),[sourceId]);
+    assert.equal(body.evidenceFocus.sourceId,sourceId);
+    assert.equal(body.answer,[body.evidenceFocus.summary,body.evidenceFocus.scope].join('\n'));
+    assert.match(body.evidenceFocus.summary,/1300名妇女挑粮支前/);
+    assert.match(body.evidenceFocus.scope,/没有交代/);
+    assert.ok(body.historyToken);
+  }
+  assert.equal(log.length,0);
+  body=await (await worker.fetch(make({question:'她们后来去了哪里？',node:'start',free:true,story:sourceId}),env)).json();
+  assert.equal(body.evidenceFocus,undefined);
+  assert.equal(log.length,1);
+}
 // 八闽故事正文作为已取出的史料，对话签名按故事隔离。
 {
   const question='他担任什么职务？';

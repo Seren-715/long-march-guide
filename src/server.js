@@ -18,6 +18,12 @@ const evidence=[...nodes.flatMap(n=>[{id:n.id,node:n.id,name:n.name,text:n.text,
   ...stories.filter(st=>st.reviewed===true).map(st=>({id:st.id,node:st.node,name:(st.kind==='source_comparison'?'史料·':'故事·')+st.title+'（'+(nodes.find(n=>n.id===st.node)?.name||st.node)+'）',text:st.text,note:st.note||'',source:st.source,url:st.url}))];
 const nodeName=id=>nodes.find(n=>n.id===id)?.name||id;
 
+const NINGHUA_CHECK_QUESTION='这1300名妇女后来都参加长征了吗';
+const NINGHUA_EVIDENCE={
+  sourceId:'story_fj_ninghua_grain',
+  summary:'县志记载的是长征出发前1300名妇女挑粮支前，不是参加长征的人数。',
+  scope:'她们后来是否参加长征，这条县志记载没有交代。'
+};
 const FUJIAN_COUNT_IDS=new Set(['story_fj_overview','story_fj_count_26k','story_fj_count_10k']);
 // 仅用于明确的人数比较，三段分别对应 FUJIAN_COUNT_IDS 中已整理的三条资料。
 const FUJIAN_COUNT_COMPARISON=[
@@ -744,7 +750,11 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
     try {
       if(useWeb&&data.web==='only'){const out=await lookup();return out||{status:200,body:{answer:'联网没有查到可靠的网页出处，暂时无法回答这个问题。',sources:[],type:'history',followups:[],steps}};}
       let result=null,firstFailed=null,corrected=false,nudged=false,toolCalls=0;
-      const documentedAnswer=compareFujianCounts
+      const ninghuaCheck=(historyStory===NINGHUA_EVIDENCE.sourceId||guideStory?.id===NINGHUA_EVIDENCE.sourceId)
+        &&squash(question).replace(/[？?。]+$/u,'')===NINGHUA_CHECK_QUESTION;
+      const documentedAnswer=ninghuaCheck
+        ?{answer:NINGHUA_EVIDENCE.summary+'\n'+NINGHUA_EVIDENCE.scope,ids:[NINGHUA_EVIDENCE.sourceId],read:'查阅《宁化县志》整理资料',detail:'对照支前记载和资料边界'}
+        :compareFujianCounts
         ?{answer:FUJIAN_COUNT_COMPARISON,ids:[...FUJIAN_COUNT_IDS],read:'并列查阅三份福建人数资料',detail:'按原报道分别说明统计范围'}
         :xiangjiangStrengthQuery
           ?{answer:XIANGJIANG_INTERVAL_ANSWER,ids:['xiangjiang_lines'],read:'查阅中央红军兵力变化资料',detail:'从长征出发到渡过湘江后'}
@@ -832,7 +842,8 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
       const grouped=new Map();
       for(const id of ids){const e=evidence.find(x=>x.id===id),existing=grouped.get(e.url);if(existing){existing.ids.push(id);existing.excerpt+='\n'+e.text}else grouped.set(e.url,{id,ids:[id],title:e.source,url:e.url,excerpt:e.text});}
-      return {status:200,body:{answer,sources:[...grouped.values()],historyToken,type,action,followups,steps,...(canWeb?{canWeb:true}:{})}};
+      const evidenceFocus=ninghuaCheck&&ids.includes(NINGHUA_EVIDENCE.sourceId)&&answer===documentedAnswer.answer?NINGHUA_EVIDENCE:null;
+      return {status:200,body:{answer,sources:[...grouped.values()],historyToken,type,action,followups,steps,...(canWeb?{canWeb:true}:{}),...(evidenceFocus?{evidenceFocus}:{})}};
     } catch(e) {return {status:502,body:{error:e?.name==='AbortError'?'助手响应超时，请稍后重试。':'连接模型服务失败，请稍后重试。'}}} finally {clearTimeout(timer)}
   };
   // 页面请求 stream:true 时逐行返回（NDJSON）：先是处理步骤 {"step":…}，最后一行 {"done":…} 或 {"error":…}。
