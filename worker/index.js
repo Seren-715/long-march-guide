@@ -324,7 +324,7 @@ function validCalendarDay(y,m,d){
 const HISTORICAL_EVENTS=[
   ['zunyi',/遵义/],['xiangjiang',/湘江/],['luding',/泸定桥/],
   ['chishui',/赤水/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
-  ['liping',/黎平/],['gouba',/苟坝/],['dadu',/大渡河/],
+  ['liping',/黎平/],['gouba',/苟坝/],['dadu',/大渡河|安顺场/],
   ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
   ['lazikou',/腊子口/],['wuqi',/吴起镇/],['jiajin',/夹金山/],
   ['maoergai',/毛儿盖/],['huili',/会理/],['houchang',/猴场/],
@@ -434,10 +434,14 @@ function numberTokens(text,source){
 }
 function numbersAllowedIn(text){return [...numberTokens(text,true)];}
 function numbersClaimedIn(text){return [...numberTokens(text,false)];}
-const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(?:在|于)?\s*(\d{4}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[\/\-\.．]\d{1,2}[\/\-\.．]\d{1,2}|\s*年)?|\d{1,2}\s*月(?:\s*\d{1,2}\s*[日号])?|\d+(?:\.\d+)?\s*(?:万(?:人|名)?|人|名))/g;
+const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(?:在|于)?\s*[“"「『‘]?\s*(?:(?:只剩|仅剩|就剩)(?:下)?|只有|仅有|才有?|总共|一共|共|大约|约|将近|近|多达)?\s*(\d{4}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[\/\-\.．]\d{1,2}[\/\-\.．]\d{1,2}|\s*年)?|\d{1,2}\s*月(?:\s*\d{1,2}\s*[日号])?|\d+(?:\.\d+)?\s*(?:万(?:人|名)?|人|名))/g;
 function withoutRefutedQuestionFacts(answer,question){
   const compact=normalizeNumerals(question).replace(/\s+/g,'');
-  return normalizeNumerals(answer).replace(EXPLICIT_NEGATION,(match,fact)=>
+  // 带数字的引号只在句中明确否定该说法、且与提问一致时才可略过。
+  const quotedRefutation=/[“"「『‘]([^”"」』’。！？]{1,40})[”"」』’]\s*(?=(?:这(?:一|种|个)说法\s*)?(?:与(?:现有|所引)?资料不符|不符合(?:现有|所引)?资料|不准确|不正确|并不属实|不属实)(?:[，。！？；、,.!?;\n]|$))/g;
+  const normalized=normalizeNumerals(answer).replace(quotedRefutation,(match,fact)=>
+    /\d/.test(fact)&&compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的说法）':match);
+  return normalized.replace(EXPLICIT_NEGATION,(match,fact)=>
     compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的数字）':match);
 }
 function dateSupported(claim,source){
@@ -463,6 +467,15 @@ function dateSupported(claim,source){
     const actions=text=>[/(?:到达|抵达|来到)/.test(text)?'arrival':'',/(?:干部会议|团以上会议)/.test(text)?'meeting':''].filter(Boolean);
     const claimActions=actions(claim.localContext),sourceActions=actions(source.localContext).length?actions(source.localContext):actions(source.context);
     if(claimActions.length&&(!sourceActions.length||!claimActions.every(action=>sourceActions.includes(action))))return false;
+  }
+  if(claimedEvents.includes('dadu')&&sourceEvents.includes('dadu')){
+    const stage=({context})=>{
+      if(/(?:袭占|攻占|抢占)[^。；]{0,14}安顺场/.test(context))return 'landing';
+      if(/强渡(?:了)?大渡河|渡过(?:了)?大渡河/.test(context))return 'crossing';
+      return null;
+    };
+    const claimStage=stage(claim),sourceStage=stage(source);
+    if(claimStage&&sourceStage&&claimStage!==sourceStage)return false;
   }
   if(claim.d===null)return claim.m>=source.m&&claim.m<=(source.endM||source.m);
   if(source.d===null)return false;
@@ -817,9 +830,28 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         const candidates=[result,firstFailed].filter(Boolean).map(candidate=>{
           if(candidate.risks.some(risk=>risk!==XIANGJIANG_SCOPE_ISSUE))return null; // 前提纠正等跨句约束不可拆开。
           const parts=candidate.answer.split(/(?<=[。！？!?\n])/).filter(Boolean);
-          const kept=parts.filter(part=>!unsupportedNumbers(part,candidate.ids,question).length&&!unsupportedTitles(part,candidate.ids,question).length
-            &&!mixesXiangjiangStrengthWithBattle(squash(part),squash(question),candidate.ids));
-          const answer=kept.join('').trim();
+          const kept=[];
+          let gap=false, disconnected=0;
+          for(const part of parts){
+            if(unsupportedNumbers(part,candidate.ids,question).length||unsupportedTitles(part,candidate.ids,question).length
+              ||mixesXiangjiangStrengthWithBattle(squash(part),squash(question),candidate.ids)){
+              gap=true;
+              continue;
+            }
+            if(!part.trim()){
+              if(!gap)kept.push(part);
+              continue;
+            }
+            if(gap&&/^\s*(?:(?:要注意|需要注意(?:的是)?|值得注意(?:的是)?)[，,：:\s]*)?(?:也就是说|换句话说|这(?:是|些|个|一|就|说明|意味着)|上述|前者|后者|由此|据此|因此|所以)/.test(part)){
+              disconnected++;
+              continue;
+            }
+            // 「但安顺场……」仍可独立陈述；接续已删句的对比连词则去掉。
+            const standAlone=gap?part.replace(/^\s*(?:但是|不过|然而|另外|此外|同时|但)[，、,：:\s]*/,''):part;
+            kept.push(standAlone);
+            gap=false;
+          }
+          let answer=kept.join('').trim();
           if(!answer||kept.length===parts.length||(answer.match(/[\u4e00-\u9fff]/g)||[]).length<6)return null;
           if(candidate.risks.includes(XIANGJIANG_SCOPE_ISSUE)&&(!/湘江/.test(question)||!/湘江/.test(answer)))return null;
           const questionEvents=eventKeys(question);
@@ -827,9 +859,21 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
           // 否定前提的原回答被删去纠正时，不能仅保留无关补充。
           if(/(?:不是|不对|并非|不准确|不符)/.test(candidate.answer)&&!/(?:不是|不对|并非|不准确|不符)/.test(answer))return null;
           if(unsupportedNumbers(answer,candidate.ids,question).length||unsupportedTitles(answer,candidate.ids,question).length||observedRisks(answer,candidate.ids,question).length)return null;
-          return {...candidate,answer,removed:parts.length-kept.length};
-        }).filter(Boolean).sort((a,b)=>b.answer.length-a.answer.length);
-        if(candidates.length){result=candidates[0];step({kind:'verify',text:'删去未能核对的内容',detail:`${result.removed} 句`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
+          const retainedLength=answer.length;
+          if(questionEvents.length>1&&/(?:区别|异同|对比|比较|分别|是不是同一)/.test(question)){
+            const covered=new Set(eventKeys(answer));
+            // 「大渡河」也可能只是泸定桥所在的河流；比对两次行动要辨认安顺场或渡河动作。
+            if(questionEvents.includes('luding')&&questionEvents.includes('dadu')){
+              if(/强渡(?:了)?大渡河|渡过(?:了)?大渡河|安顺场[^。；]{0,24}17名|17名[^。；]{0,24}安顺场/.test(answer))covered.add('dadu');
+              else covered.delete('dadu');
+            }
+            const missing=questionEvents.filter(id=>!covered.has(id)).map(id=>nodes.find(n=>n.id===id)?.title||nodeName(id));
+            if(missing.length===questionEvents.length)return null;
+            if(missing.length)answer+=`\n关于${missing.join('、')}的细节未能核对，以上只能回答部分问题。`;
+          }
+          return {...candidate,answer,removed:parts.length-kept.length,disconnected,retainedLength};
+        }).filter(Boolean).sort((a,b)=>b.retainedLength-a.retainedLength);
+        if(candidates.length){result=candidates[0];step({kind:'verify',text:'删去未能核对的内容',detail:`${result.removed} 句${result.disconnected?`（含 ${result.disconnected} 句上下文不完整）`:''}`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
         else{const issues=[result.badNumbers.length?'日期或数字':'',result.badTitles.length?'书名':'',result.risks.length?'相关事实表述':''].filter(Boolean);result.answer=`现有资料不足以可靠回答这个问题：${issues.join('、')||'具体事实'}未能核对，请换个问法或查阅节点资料。`;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
         result.badNumbers=[];result.badTitles=[];result.risks=[];
       }

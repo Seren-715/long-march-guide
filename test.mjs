@@ -778,6 +778,25 @@ body=await (await worker.fetch(make({question:'福建参加长征的人数是多
 assert.equal(log.length,2);assert.match(body.answer,/近万/);
 
 // 完整评估第 03 题的真实误答：数字存在于出处，但不能当作单场结果。重答仍错时保留有效句子。
+// Claude 实测发现，用户的错误数字被明确否定时，不能删掉纠正句。
+{
+  const question='湘江战役红军损失了多少人？是不是只剩2万人？';
+  const rest='渡过湘江后，中央红军兵力减至3万余人。';
+  const makeReply=answer=>reply({type:'history',answer,sources:['xiangjiang_lines']});
+  for(const correction of ['资料记载的不是“只剩2万人”。','“只剩2万人”与资料不符。','资料记载的并非仅剩下2万人。']){
+    log=script([makeReply(correction+rest)]);
+    body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+    assert.equal(log.length,1);
+    assert.equal(body.answer,correction+rest);
+  }
+  for(const claim of ['资料显示湘江战役结束后“只剩2万人”。','湘江战役结束后只剩2万人。']){
+    const correction='“只剩2万人”这一说法与资料不符。';
+    log=script([makeReply(claim),makeReply(correction+rest)]);
+    body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+    assert.equal(log.length,2);
+    assert.equal(body.answer,correction+rest);
+  }
+}
 const battleQuery='湘江之战是什么时间，结果如何？';
 const badBattle='1934年11月27日至12月1日，红军突破湘江封锁，付出重大代价。湘江战役中红军遭受重大损失，由出发时的8.6万余人减至3万余人。';
 const goodBattle='1934年11月27日至12月1日，中央红军进行湘江之战，突破封锁但付出重大代价。';
@@ -801,6 +820,34 @@ for(const failure of [new Response('',{status:503}),new Response('invalid JSON')
   assert.doesNotMatch(body.answer,/8\.6|3万/);
   assert.ok(body.sources.some(source=>source.ids.includes('xiangjiang')));
   assert.ok(body.steps.some(step=>step.text==='删去未能核对的内容'));
+}
+// 删掉一个对比项后，不把残余回答伪装成完整对比。
+{
+  const question='强渡大渡河和飞夺泸定桥有什么区别？';
+  const bad='强渡大渡河时有180名勇士先行渡河。';
+  const other='1935年5月29日，中央红军夺取泸定桥。';
+  const draft=bad+'\n\n要注意，这是出发以后发生的事。也就是说，他们随即完成了这一步。'+'但'+other;
+  log=script([toolReply([toolCall('read_materials',{ids:['luding']})]),reply({type:'history',answer:draft,sources:['dadu','luding']})]);
+  const request=()=>make({question,node:'dadu'});
+  body=await (await worker.fetch(request(),env)).json();
+  assert.match(body.answer,new RegExp('^'+other));
+  assert.match(body.answer,/强渡大渡河的细节未能核对/);
+  assert.doesNotMatch(body.answer,/180|要注意|也就是说|但1935/);
+  assert.match(body.steps.find(step=>step.text==='删去未能核对的内容').detail,/上下文不完整/);
+  const full='强渡大渡河：1935年5月24日夜，中央红军先头部队袭占安顺场渡口；5月25日晨，红军乘船强渡大渡河。'+other;
+  log=script([toolReply([toolCall('read_materials',{ids:['luding']})]),reply({type:'history',answer:full,sources:['dadu','luding']})]);
+  body=await (await worker.fetch(request(),env)).json();
+  assert.equal(log.length,2);
+  assert.equal(body.answer,full);
+  const misdated='1935年5月24日，红军乘船强渡大渡河。';
+  log=script([reply({type:'history',answer:misdated,sources:['dadu']}),reply({type:'history',answer:'1935年5月25日晨，红军乘船强渡大渡河。',sources:['dadu']})]);
+  body=await (await worker.fetch(make({question:'强渡大渡河发生在什么时候？',node:'dadu'}),env)).json();
+  assert.equal(log.length,2);
+  assert.match(body.answer,/5月25日/);
+  const covered='1935年5月25日晨，红军在安顺场强渡大渡河。';
+  log=script([toolReply([toolCall('read_materials',{ids:['luding']})]),reply({type:'history',answer:covered+bad+'但'+other,sources:['dadu','luding']})]);
+  body=await (await worker.fetch(request(),env)).json();
+  assert.equal(body.answer,covered+other);
 }
 // 初稿全部无法核对时，重答故障不能使问题表述通过。
 log=script([battleReply('湘江战役中红军遭受重大损失，由出发时的8.6万余人减至3万余人。'),new Response('',{status:503})]);
