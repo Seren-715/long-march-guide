@@ -56,6 +56,9 @@ export const CASES = [
   ['长征精神', ['jiangtaibao_spirit']],
   ['周总理过草地生病', ['story_zhou_enlai']],
   ['女红军', ['start_women_work', 'wuqi_women_nurses', 'jiangtaibao_women_work']],
+  ['湘', ['xiangjiang']],
+  ['遵', ['zunyi']],
+  ['湘 江', ['xiangjiang']],
 ];
 
 const env = { DEEPSEEK_API_KEY: 'offline', HISTORY_SIGNING_KEY: 'retrieval-eval' };

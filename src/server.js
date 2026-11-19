@@ -194,14 +194,38 @@ BM25.avg=BM25.docs.reduce((a,d)=>a+d.len,0)/Math.max(1,BM25.docs.length);
 function searchEvidence(query){
   const q=String(query).replace(/\s+/g,' ').trim();if(!q)return [];
   // 查询词及权重：原词 1，同义说法 0.6；每个词单独切二元组，避免把两个词的首尾拼成不存在的片段
-  const terms=new Map(q.split(' ').filter(Boolean).map(x=>[x,1]));
+  const queryTerms=q.split(' ');
+  const singleChars=[...new Set(queryTerms.filter(term=>/^[\p{L}\p{N}]$/u.test(term)))];
   const flat=q.replace(/\s/g,'');
+  // 全部由空格分隔的单字组成时，优先按原顺序查连续词，如「湘 江」。
+  const terms=new Map(queryTerms.map(term=>[term,1]));
+  if(queryTerms.length>1&&queryTerms.every(term=>/^[\p{L}\p{N}]$/u.test(term)))terms.set(flat,1);
   for(const group of SYNONYMS)if(group.some(w=>flat.includes(w.replace(/\s/g,''))))for(const w of group)if(!flat.includes(w))terms.set(w,Math.max(terms.get(w)||0,0.6));
-  const weights=new Map();for(const [term,w] of terms)for(const g of (term.length===1?[term]:gramList(term)))weights.set(g,Math.max(weights.get(g)||0,w));
-  if(!weights.size)return [];
+  const weights=new Map();for(const [term,w] of terms)for(const g of gramList(term))weights.set(g,Math.max(weights.get(g)||0,w));
   const N=BM25.docs.length;
-  return BM25.docs.map(d=>{let score=0;for(const [g,w] of weights){const tf=d.tf.get(g);if(!tf)continue;const df=BM25.df.get(g)||0,idf=Math.log(1+(N-df+0.5)/(df+0.5));score+=w*idf*(tf*(BM25.k1+1))/(tf+BM25.k1*(1-BM25.b+BM25.b*d.len/BM25.avg))*(d.name.has(g)?1.5:1);}return {e:d.e,score};})
-    .filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.e);
+  const matches=[];
+  if(weights.size){
+    for(const doc of BM25.docs){
+      let score=0;
+      for(const [gram,weight] of weights){
+        const frequency=doc.tf.get(gram);
+        if(!frequency)continue;
+        const df=BM25.df.get(gram)||0;
+        const idf=Math.log(1+(N-df+0.5)/(df+0.5));
+        const norm=BM25.k1*(1-BM25.b+BM25.b*doc.len/BM25.avg);
+        score+=weight*idf*(frequency*(BM25.k1+1))/(frequency+norm)*(doc.name.has(gram)?1.5:1);
+      }
+      if(score>0)matches.push({e:doc.e,score});
+    }
+  }
+  if(!matches.length&&singleChars.length){
+    // 单字包含匹配只用于没有双字结果时，避免高频字干扰正常的 BM25 排序。
+    for(const e of evidence){
+      const score=singleChars.reduce((sum,char)=>sum+(e.name.includes(char)?2:e.text.includes(char)?1:0),0);
+      if(score)matches.push({e,score});
+    }
+  }
+  return matches.sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.e);
 }
 function runTool(name,args,state){
   const validNode=id=>typeof id==='string'&&NODE_IDS.includes(id);
