@@ -1685,6 +1685,13 @@ async function fetchJSON(path, payload) { const controller = new AbortController
 
 function askChip(q) { if (busy) return; if (input.value.trim()) { if (view !== 'session') setView('session'); if (mobile()) setPane('chat'); status.textContent = '输入框已有未发送的问题，请先处理后再使用建议问题。'; input.focus(); return; } ask(q); }
 let lastQuestion = '';
+// 道谢、告别、问“你会不会答错”这类不是史实的话，模型偶尔会当成史实题而回“资料不足”；这里直接答，不走模型
+const LOCAL_REPLIES = [
+  [/^(谢谢|多谢|感谢|谢啦|谢了|太感谢了)(你|您|小征)?[。！!~\s]*$/, '不客气！想接着听故事、问问题，或者去下一站看看，都可以直接说。'],
+  [/^(再见|拜拜|下次见|bye)[。！!~\s]*$/i, '再见！下次想听长征故事，随时来找我。'],
+  [/^(好的?|嗯|嗯嗯|明白了?|知道了|好吧|行|ok|okay|懂了)[。！!~\s]*$/i, '好的。想接着看哪一段，随时说。'],
+  [/^(你|小征)(的)?(回答|说的|讲的)?(会不会|是不是会|会)(出错|答错|错)(吗)?[？?。\s]*$|^(你|小征)(的)?(回答|说的|讲的)?(靠谱|可靠|可信|准确)(吗|不|么)[？?。\s]*$/, '有可能出错。我只依据本站收录的资料作答，每条回答都附出处，并做引用和数字的规则检查；但那不等于人工史实核验，重要的说法请点开出处对照原文。联网搜索来的内容没有经过核对，更要留意。']
+];
 // “联网搜索看看”这类只有搜索意图、没有话题的话，搜的是上一个真正的问题，而不是这句话本身
 const WEB_INTENT = /^(请|帮我|麻烦|那|再)?\s*(联网|上网|网上|在网上|网络)\s*(搜索|搜一下|搜|查找|查一下|查)?\s*(一下|看看|下|吧)?[。！!？?\s]*$/;
 // “具体点呢”“然后呢”这类没有话题的追问，交给模型时容易被对话里别的内容带偏；发出去前把上一个问题带上，让它答的还是同一件事
@@ -1692,6 +1699,7 @@ const VAGUE = /^(那|请|能不能|可以|能)?(再|多)?(具体|详细|细致|�
 async function ask(question, opts = {}) {
   if (busy || !question) return;
   let apiQuestion = question, vague = false;
+  const localHit = !opts.webOnly && question.length <= 16 ? LOCAL_REPLIES.find(([re]) => re.test(question)) : null;
   if (!opts.webOnly && lastQuestion && question.length <= 12 && VAGUE.test(question)) { vague = true; apiQuestion = '接着上一个问题「' + lastQuestion.slice(0, 60) + '」，我追问：' + question; }
   if (!opts.webOnly && WEB_INTENT.test(question)) {
     if (!lastQuestion) { addMessage('你', question); addMessage('小征', '请先问一个问题，我再帮你联网搜索。'); return; }
@@ -1701,8 +1709,9 @@ async function ask(question, opts = {}) {
   if (view !== 'session') { if (opts.fromHome) setChatOnly(true); else viewed.add(selected); setView('session'); if (!chatOnly) syncHash(); }
   if (mobile()) setPane('chat');
   addMessage('你', opts.webOnly && apiQuestion === question ? '联网搜索：' + question : question);
-  if (!opts.webOnly && !vague && !/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { lastQuestion = question; remember('asks', { q: question, node: selected }); }
+  if (!opts.webOnly && !vague && !localHit && !/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { lastQuestion = question; remember('asks', { q: question, node: selected }); }
   if (/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { if (!route.length) { addMessage('小征', '请先回到首页选一条参观路线。'); return; } advance(question.startsWith('跳过')); return; }
+  if (localHit) { addMessage('小征', localHit[1]); return; }
   const jump = question.match(/^(?:带我去|前往|切换到|看看)(.{1,12}?)[。！!\s]*$/);
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id, { keepPane: true }); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
   busy = true; shownKey = null; renderExhibit(); renderChips(); document.querySelectorAll('.side-q').forEach(x => { x.disabled = true; }); $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); status.textContent = '小征正在查阅资料并思考…';
