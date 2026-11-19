@@ -510,7 +510,12 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .fujian-intro{max-width:660px;color:var(--text2);line-height:1.9;margin:0 0 12px}
 .fujian-note{border-left:3px solid var(--accent-line);padding:4px 0 4px 14px;color:var(--text3);font-size:13px;line-height:1.8;margin:22px 0 32px}
 .fujian-section-title{font-size:14px;margin:0 0 18px;color:var(--text2)}
-#fujian-detail .btn{margin-top:16px}
+.fujian-story-footer{display:grid;gap:14px;margin-top:18px}
+.fujian-story-sources{display:grid;justify-items:start;gap:7px}
+.fujian-story-sources .src{align-items:baseline;min-width:0}
+.fujian-story-sources .src span{white-space:normal;overflow-wrap:anywhere;line-height:1.55}
+.fujian-story-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.fujian-story-actions .btn{height:auto;min-height:36px;max-width:100%;margin:0;padding:7px 14px;white-space:normal;line-height:1.4;text-align:center}
 .session.topic-mode .read-head,.session.topic-mode #map3d,.session.topic-mode #exhibit,.session.topic-mode #chat-chips,.session.topic-mode #chat-form .ctx-pill{display:none}
 .story-card p{margin:0 0 8px;font-size:15px;line-height:1.85}
 .story-note{display:block;margin:0 0 8px;font-size:12px;color:var(--accent);overflow-wrap:anywhere}
@@ -1252,12 +1257,17 @@ function openFujianStory(hash, push = true) {
   detail.replaceChildren(text);
   const note = publicNote(story.note, true);
   if (note) detail.append(el('p', 'plan-note', '（资料说明：' + note + '）'));
-  appendStorySources(detail, story);
+  const footer = el('footer', 'fujian-story-footer');
+  const sources = el('div', 'fujian-story-sources');
+  appendStorySources(sources, story);
+  if (sources.childElementCount) footer.append(sources);
+  const actions = el('div', 'fujian-story-actions');
+  footer.append(actions);
   const askStory = el('button', 'btn btn-primary', '向小征提问');
   askStory.type = 'button';
   askStory.addEventListener('click', () => { setPane('chat'); input.focus(); });
-  detail.append(askStory);
-  if (story.id === NINGHUA_SOURCE) detail.append(ninghuaCheckEntry());
+  actions.append(askStory);
+  if (story.id === NINGHUA_SOURCE) actions.append(ninghuaCheckEntry());
   if (story.kind !== 'source_comparison') {
     const go = el('button', 'btn btn-ghost', '查看关联节点：' + find(story.node).name + ' →');
     go.type = 'button';
@@ -1273,8 +1283,9 @@ function openFujianStory(hash, push = true) {
         }
       });
     });
-    detail.append(go);
+    actions.append(go);
   }
+  detail.append(footer);
   detail.hidden = false;
   showFujian(story.title, '#' + hash, push);
   setReadingStory(story.id);

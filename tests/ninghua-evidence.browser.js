@@ -8,6 +8,20 @@ async page => {
   const second = () => page.getByRole('button', {name:'查看依据 2：资料边界'}).last();
   const hash = () => page.evaluate(() => location.hash);
   const check = (condition, description) => { if (!condition) throw Error(description); };
+  for (const width of [1440, 920, 390, 320]) {
+    await page.setViewportSize({width,height:900});
+    await page.goto('http://127.0.0.1:4189/#fujian-overview');
+    const layout = await page.locator('#fujian-detail .fujian-story-footer').evaluate(footer => {
+      const source = footer.querySelector('.fujian-story-sources').getBoundingClientRect();
+      const actions = footer.querySelector('.fujian-story-actions').getBoundingClientRect();
+      const bounds = footer.getBoundingClientRect();
+      return {gap:actions.top-source.bottom, fits:[...footer.querySelectorAll('a, button')].every(item => {
+        const rect = item.getBoundingClientRect();
+        return rect.left >= bounds.left-1 && rect.right <= bounds.right+1;
+      }), noOverflow:document.documentElement.scrollWidth <= innerWidth};
+    });
+    check(layout.gap >= 12 && layout.fits && layout.noOverflow, '专题出处和按钮排版错误：' + width);
+  }
   await page.setViewportSize({width:1440,height:900});
   await page.goto('http://127.0.0.1:4189/#fujian-ninghua_grain');
   await page.reload();
