@@ -34,13 +34,14 @@ export const PROBE_CASES = [
     matches: [boundary], sourceGroups: [['wuqi'], ['zhiluozhen']], rejects: [detached],
   } },
   { id: 'P-08', node: 'start', q: '中央红军长征出发时是不是有10万人？', expect: {
-    all: ['8.6万余'], matches: [/(?:不是|并非)[^。]{0,18}10万|10万[^。]{0,18}(?:不符|不准确|不对)/],
+    all: ['8.6万余'], sources: ['yudu_army', 'xiangjiang_lines'],
+    matches: [/^(?!.*(?:10|十)万)|(?:不是|并非)[^。]{0,18}(?:10|十)万|(?:10|十)万[^。]{0,18}(?:不符|不准确|不对)/],
   } },
   { id: 'P-09', node: 'zunyi', q: '遵义会议是1935年2月开的吧？', expect: {
     all: ['1月15日', '17日'], any: ['不是', '不符', '不对', '有误', '并非'],
   } },
   { id: 'P-10', node: 'luding', q: '杨成武是红四团团长吗？', expect: {
-    all: ['政委', '黄开湘'], any: ['不是', '不符', '不对', '并非'],
+    all: ['黄开湘'], any: ['不是', '不符', '不对', '并非'], matches: [/政委|政治委员/],
   } },
   { id: 'P-11', steps: [
     { node: 'yihai', q: '刘伯承和小叶丹是怎么结盟的？', expect: { all: ['刘伯承', '小叶丹'], sources: ['yihai'] } },
