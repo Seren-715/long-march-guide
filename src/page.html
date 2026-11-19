@@ -1687,9 +1687,12 @@ function askChip(q) { if (busy) return; if (input.value.trim()) { if (view !== '
 let lastQuestion = '';
 // “联网搜索看看”这类只有搜索意图、没有话题的话，搜的是上一个真正的问题，而不是这句话本身
 const WEB_INTENT = /^(请|帮我|麻烦|那|再)?\s*(联网|上网|网上|在网上|网络)\s*(搜索|搜一下|搜|查找|查一下|查)?\s*(一下|看看|下|吧)?[。！!？?\s]*$/;
+// “具体点呢”“然后呢”这类没有话题的追问，交给模型时容易被对话里别的内容带偏；发出去前把上一个问题带上，让它答的还是同一件事
+const VAGUE = /^(那|请|能不能|可以|能)?(再|多)?(具体|详细|细致|展开)(一?点|些|说说|讲讲|说一下|讲一下|说说看)?(呢|吧|嘛|啊)?[。！!？?\s]*$|^(再|多)(说|讲)(一?点|一些|说|讲)?(呢|吧)?[。！!？?\s]*$|^(然后|后来|接着|之后)呢?[。！!？?\s]*$|^(为什么|为啥|怎么会这样|怎么回事)呢?[。！!？?\s]*$/;
 async function ask(question, opts = {}) {
   if (busy || !question) return;
-  let apiQuestion = question;
+  let apiQuestion = question, vague = false;
+  if (!opts.webOnly && lastQuestion && question.length <= 12 && VAGUE.test(question)) { vague = true; apiQuestion = '接着上一个问题「' + lastQuestion.slice(0, 60) + '」，我追问：' + question; }
   if (!opts.webOnly && WEB_INTENT.test(question)) {
     if (!lastQuestion) { addMessage('你', question); addMessage('小征', '请先问一个问题，我再帮你联网搜索。'); return; }
     apiQuestion = lastQuestion; opts = { ...opts, webOnly: true };
@@ -1698,7 +1701,7 @@ async function ask(question, opts = {}) {
   if (view !== 'session') { if (opts.fromHome) setChatOnly(true); else viewed.add(selected); setView('session'); if (!chatOnly) syncHash(); }
   if (mobile()) setPane('chat');
   addMessage('你', opts.webOnly && apiQuestion === question ? '联网搜索：' + question : question);
-  if (!opts.webOnly && !/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { lastQuestion = question; remember('asks', { q: question, node: selected }); }
+  if (!opts.webOnly && !vague && !/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { lastQuestion = question; remember('asks', { q: question, node: selected }); }
   if (/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { if (!route.length) { addMessage('小征', '请先回到首页选一条参观路线。'); return; } advance(question.startsWith('跳过')); return; }
   const jump = question.match(/^(?:带我去|前往|切换到|看看)(.{1,12}?)[。！!\s]*$/);
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id, { keepPane: true }); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
