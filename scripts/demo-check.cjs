@@ -21,7 +21,7 @@ async function run(browser, n) {
   });
   const call = async (label, trigger) => {
     const got = new Promise(res => { pending = res; }); await trigger();
-    const g = await Promise.race([got, new Promise(res => setTimeout(() => res(null), 130000))]); pending = null;
+    let timer; const g = await Promise.race([got, new Promise(res => { timer = setTimeout(() => res(null), 130000); })]); clearTimeout(timer); pending = null;
     if (!g) { log.push({ label, error: '超时' }); return; }
     let done = null;
     for (const line of g.txt.split('\n')) { try { const o = JSON.parse(line); if (o.done) done = o.done; else if (o.answer) done = o; if (o.error) done = { error: o.error }; } catch {} }

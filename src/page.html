@@ -1922,13 +1922,14 @@ const LOCAL_REPLIES = [
 ];
 // “联网搜索看看”这类只有搜索意图、没有话题的话，搜的是上一个真正的问题，而不是这句话本身
 const WEB_INTENT = /^(请|帮我|麻烦|那|再)?\s*(联网|上网|网上|在网上|网络)\s*(搜索|搜一下|搜|查找|查一下|查)?\s*(一下|看看|下|吧)?[。！!？?\s]*$/;
-// “具体点呢”“然后呢”这类没有话题的追问，交给模型时容易被对话里别的内容带偏；发出去前把上一个问题带上，让它答的还是同一件事
+// “具体点呢”“然后呢”这类没有话题的追问：原话照发，由服务端按已签名的上文接上主题（见 server.js 的 followUpAnchor）。
+// 页面只做一件事：这类追问不覆盖“上一个问题”，所以接着点“联网搜索”，搜的仍是真正的主题。
 const VAGUE = /^(那|请|能不能|可以|能)?(再|多)?(具体|详细|细致|展开)(一?点|些|说说|讲讲|说一下|讲一下|说说看)?(呢|吧|嘛|啊)?[。！!？?\s]*$|^(再|多)(说|讲)(一?点|一些|说|讲)?(呢|吧)?[。！!？?\s]*$|^(然后|后来|接着|之后)呢?[。！!？?\s]*$|^(为什么|为啥|怎么会这样|怎么回事)呢?[。！!？?\s]*$/;
 async function ask(question, opts = {}) {
   if (busy || !question) return;
   let apiQuestion = question, vague = false;
   const localHit = !opts.webOnly && question.length <= 16 ? LOCAL_REPLIES.find(([re]) => re.test(question)) : null;
-  if (!opts.webOnly && lastSearch?.version === contextVersion && question.length <= 12 && VAGUE.test(question)) { vague = true; apiQuestion = '接着上一个问题「' + lastSearch.question.slice(0, 60) + '」，我追问：' + question; }
+  if (!opts.webOnly && question.length <= 12 && VAGUE.test(question)) vague = true;
   if (!opts.webOnly && WEB_INTENT.test(question)) {
     if (lastSearch?.version !== contextVersion) { addMessage('你', question); addMessage('小征', '请先在当前页面问一个问题，我再帮你联网搜索。'); return; }
     apiQuestion = lastSearch.question;
@@ -1951,7 +1952,7 @@ async function ask(question, opts = {}) {
   const build = () => JSON.stringify({ question: apiQuestion, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
   let payload = build();
   while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
-  const searchContext = { question: apiQuestion, version: requestVersion, history: prior.slice() };
+  const searchContext = vague && lastSearch?.version === requestVersion ? lastSearch : { question: apiQuestion, version: requestVersion, history: prior.slice() };
   if (!opts.webOnly && !vague) lastSearch = searchContext;
   const typing = showTyping();
   try {

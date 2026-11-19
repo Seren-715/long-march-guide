@@ -1097,6 +1097,97 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
   const r=await evaluate();
   assert.ok(r.hit8>=0.95,'检索前 8 条命中率下降到 '+r.hit8);assert.ok(r.hit3>=0.9,'检索前 3 条命中率下降到 '+r.hit3);
 }
+// —— 无话题追问（“具体点呢”“然后呢”）：服务端只接最近一次实质提问（P-03、P-17 的服务端版本）——
+{
+  const tokenOf=t=>JSON.parse(Buffer.from(t.split('.')[0],'base64url').toString());
+  const askOk=async b=>{const r=await worker.fetch(make(b),env);assert.equal(r.status,200);return r.json();};
+  let outbound=[];
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);outbound.push(b);const q=b.messages.at(-1).content;
+    if(/追问|正在读/.test(q))return reply({type:'history',answer:'红三十四师担任全军总后卫，掩护中央机关和主力抢渡湘江。',sources:['story_chen_shuxiang']});
+    if(/半条被子/.test(q))return reply({type:'history',answer:'三位女红军把被子剪成两半，把一半留给徐解秀。',sources:['story_banbei_beizi']});
+    if(/红三十四师/.test(q))return reply({type:'history',answer:'红三十四师担任全军总后卫。',sources:['story_chen_shuxiang']});
+    return reply({type:'history',answer:'湘江之战发生在1934年11月27日至12月1日。',sources:['xiangjiang']});};
+  const base={node:'xiangjiang',free:true};
+  const a1=await askOk({...base,question:'湘江战役是怎么打的？'});
+  const a2=await askOk({...base,question:'“半条被子”是什么故事？',historyTokens:[a1.historyToken]});
+  const a3=await askOk({...base,question:'红三十四师后卫是怎么被截断的？',historyTokens:[a1.historyToken,a2.historyToken]});
+  outbound=[];
+  const f1=await askOk({...base,question:'具体点呢',historyTokens:[a1.historyToken,a2.historyToken,a3.historyToken]});
+  let sent=outbound[0].messages;
+  assert.match(sent.at(-1).content,/^具体点呢\n（这是接着上一个问题「红三十四师后卫是怎么被截断的？」的追问/,'追问要带上最近一次实质提问');
+  assert.doesNotMatch(JSON.stringify(sent.slice(1,-1)),/半条被子|湘江战役是怎么打的/,'更早的其他话题不再带给模型');
+  assert.doesNotMatch(sent[0].content.split('已取出的资料：')[1],/\[story_banbei_beizi\]/,'更早话题的资料不再预先取出');
+  assert.equal(tokenOf(f1.historyToken).question,'具体点呢','签名保留原话');
+  assert.equal(tokenOf(f1.historyToken).topic,'红三十四师后卫是怎么被截断的？','签名记下所接的主题');
+  // 连续三次追问，最初的问题被挤出三条窗口后，仍能从追问记录里接上主题
+  const f2=await askOk({...base,question:'再具体点',historyTokens:[a2.historyToken,a3.historyToken,f1.historyToken]});
+  const f3=await askOk({...base,question:'然后呢',historyTokens:[a3.historyToken,f1.historyToken,f2.historyToken]});
+  outbound=[];
+  await askOk({...base,question:'后来呢？',historyTokens:[f1.historyToken,f2.historyToken,f3.historyToken]});
+  assert.match(outbound[0].messages.at(-1).content,/「红三十四师后卫是怎么被截断的？」的追问/,'窗口里只剩追问时沿用记下的主题');
+  // 问候不算主题
+  globalThis.fetch=async(url,options)=>{outbound.push(JSON.parse(options.body));return reply({type:'chat',answer:'你好！',sources:[]})};
+  const hi=await askOk({...base,question:'你好'});
+  outbound=[];
+  const noTopic=await askOk({...base,question:'具体点呢',historyTokens:[hi.historyToken]});
+  assert.equal(outbound.length,0,'接不上主题时不调用模型去猜');assert.equal(noTopic.type,'chat');assert.match(noTopic.answer,/说完整/);assert.ok(noTopic.historyToken);
+  // 没有任何上文、也不在读故事
+  outbound=[];
+  const bare=await askOk({...base,question:'然后呢'});assert.equal(outbound.length,0);assert.match(bare.answer,/说完整/);
+  // 在读故事时没有上文：按这篇故事理解
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);outbound.push(b);return reply({type:'history',answer:'哈达铺的报纸带来了陕北红军的消息。',sources:['story_hadapu_newspapers']})};
+  outbound=[];
+  const inStory=await askOk({question:'后来呢',node:'hadapu',story:'guide_hadapu'});
+  assert.match(outbound[0].messages.at(-1).content,/^后来呢\n（观众正在读《[^》]+》，这是对这篇故事的追问。）/);assert.equal(inStory.type,'history');
+  // 同一故事内：上一问是“这个故事是真的吗？”，追问接它（P-17）
+  outbound=[];
+  const p17=await askOk({question:'具体点呢',node:'hadapu',story:'guide_hadapu',historyTokens:[inStory.historyToken]});
+  assert.match(outbound[0].messages.at(-1).content,/「后来呢」的追问|正在读/);assert.equal(p17.sources[0].id,'story_hadapu_newspapers');
+  // 换故事后带旧记录：沿用原有的“记录失效”处理
+  let r=await worker.fetch(make({question:'具体点呢',node:'hadapu',story:'guide_mao_lamp',historyTokens:[inStory.historyToken]}),env);
+  assert.equal(r.status,400);assert.equal((await r.json()).code,'HISTORY_INVALID');
+  // 上一问里的数字只用于理解，不能让本轮肯定它：上一问“是不是只剩2万人”，追问的回答若写“只剩2万人”仍要拦下
+  globalThis.fetch=async(url,options)=>{outbound.push(JSON.parse(options.body));return reply({type:'history',answer:'湘江战役后红军只剩2万人。',sources:['xiangjiang']})};
+  const n1=await askOk({...base,question:'湘江战役红军损失了多少人？是不是只剩2万人？'});
+  const n2=await askOk({...base,question:'具体点呢',historyTokens:[n1.historyToken]});
+  assert.doesNotMatch(n2.answer,/只剩2万人/,'追问不能借上一问的数字过关');
+  // 带了伪造主题的记录：按记录失效处理
+  const forged=(()=>{const [p,sig]=f1.historyToken.split('.');const obj=tokenOf(f1.historyToken);obj.topic='伪造的主题';return Buffer.from(JSON.stringify(obj)).toString('base64url')+'.'+sig;})();
+  r=await worker.fetch(make({...base,question:'具体点呢',historyTokens:[forged]}),env);assert.equal(r.status,400);
+  // 不是无话题追问的问题照常处理，不加提示
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);outbound.push(b);return reply({type:'history',answer:'湘江之战发生在1934年11月27日至12月1日。',sources:['xiangjiang']})};
+  outbound=[];
+  await askOk({...base,question:'湘江战役是哪一年？',historyTokens:[a3.historyToken]});
+  assert.equal(outbound[0].messages.at(-1).content,'湘江战役是哪一年？');
+  assert.match(JSON.stringify(outbound[0].messages),/红三十四师后卫是怎么被截断的/,'普通问题仍带完整上文');
+}
+// —— 重答提示：被拦下的日期如果原样出现在别的资料里，提示去哪条取；普通数字不提示 ——
+{
+  const calls=[];
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);calls.push(b);
+    return reply(calls.length===1?{type:'history',answer:'1935年3月10日，林彪、聂荣臻致电中央，建议进攻打鼓新场。',sources:['chishui_gouba']}
+      :{type:'history',answer:'1935年3月，中共中央在苟坝召开会议，决定放弃攻打打鼓新场。',sources:['chishui_gouba']});};
+  const r=await worker.fetch(make({question:'苟坝会议为什么决定不打打鼓新场？',node:'chishui',free:true}),env);assert.equal(r.status,200);
+  assert.equal(calls.length,2);
+  const fix=calls[1].messages.at(-1).content;
+  assert.match(fix,/“1935年3月10日”见于资料 [^；）]*story_mao_lamp/,'重答提示要指出日期出自哪条资料');
+  // 普通数字（非日期）不提示来源
+  calls.length=0;
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);calls.push(b);return reply({type:'history',answer:'湘江战役后红军只剩2万人。',sources:['xiangjiang']});};
+  await worker.fetch(make({question:'湘江战役后还剩多少人？',node:'xiangjiang',free:true}),env);
+  assert.ok(calls.length>=2);assert.doesNotMatch(calls[1].messages.at(-1).content,/见于资料/,'普通数字不提示来源');
+}
+// —— 日期与事件：模型把“3月10日致电建议进攻打鼓新场”和“在苟坝开会讨论”并成一句时，日期仍归打鼓新场的提议 ——
+{
+  const ok=(answer,sources)=>{const calls=[];globalThis.fetch=async(url,options)=>{calls.push(1);return reply({type:'history',answer,sources})};return calls;};
+  let calls=ok('1935年3月10日，林彪、聂荣臻致电中央建议进攻打鼓新场，张闻天在苟坝召集会议讨论。',['chishui_gouba','story_mao_lamp']);
+  let body=await (await worker.fetch(make({question:'苟坝会议为什么决定不打打鼓新场？',node:'chishui',free:true}),env)).json();
+  assert.equal(calls.length,1,'合并句里的日期有据，不应重答');assert.match(body.answer,/3月10日/);
+  // 反例：把同一日期说成苟坝会议召开的日期，资料没有这样写，仍要拦下
+  calls=ok('1935年3月10日召开苟坝会议。',['story_mao_lamp']);
+  body=await (await worker.fetch(make({question:'苟坝会议是哪天开的？',node:'chishui',free:true}),env)).json();
+  assert.equal(calls.length,2,'日期挪到另一事件仍须重答');assert.doesNotMatch(body.answer,/3月10日召开苟坝会议/);
+}
 globalThis.fetch=original;console.log('API and evidence tests passed');
 
 // 首答的可靠句子应在重答失败时保留，并重新校验完整剩余内容。

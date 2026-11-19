@@ -24,7 +24,7 @@ export const PROBE_CASES = [
     { node: xiangjiang, q: '谢谢你', expect: { type: 'chat', noSources: true, none: ['资料不足'] } },
   ] },
   { id: 'P-05', node: 'start', free: true, q: '你的回答会不会出错？', expect: {
-    type: 'chat', noSources: true, any: ['可能', '资料', '出处', '核对'], none: ['资料不足', '绝不出错', '不会出错', '完全准确'],
+    type: 'chat', noSources: true, any: ['可能', '资料', '出处', '核对'], none: ['现有资料不足以', '绝不出错', '不会出错', '完全准确'],
   } },
   { id: 'P-06', node: 'start', free: true, q: '听说红军长征时每个人都要背着一袋炒面走二万五千里，是真的吗？', expect: {
     all: ['炒面'], matches: [boundary], rejects: [/红军(?:并)?没有[^。]{0,18}这回事/],

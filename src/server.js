@@ -8,8 +8,35 @@ const encode64 = bytes => btoa(Array.from(bytes, b=>String.fromCharCode(b)).join
 function decode64(value){if(!/^[A-Za-z0-9_-]+$/.test(value))throw new Error('invalid token');const binary=atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4));return Uint8Array.from(binary,c=>c.charCodeAt(0));}
 async function signingKey(secret){return crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
 async function issueToken(key,entry){const payload=encode64(new TextEncoder().encode(JSON.stringify(entry)));const signature=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(payload));return payload+'.'+encode64(new Uint8Array(signature));}
-async function readToken(key,token,sessionId,node,storyId){try{if(typeof token!=='string'||token.length>7000)return null;const parts=token.split('.');if(parts.length!==2)return null;const valid=await crypto.subtle.verify('HMAC',key,decode64(parts[1]),new TextEncoder().encode(parts[0]));if(!valid)return null;const entry=JSON.parse(new TextDecoder().decode(decode64(parts[0])));if(entry.v!==1||entry.sessionId!==sessionId||entry.node!==node||(entry.story??entry.fujianStory??null)!==storyId||!Number.isSafeInteger(entry.at)||entry.at>Date.now()+60000||Date.now()-entry.at>3600000||typeof entry.question!=='string'||entry.question.length>500||typeof entry.answer!=='string'||entry.answer.length>800||!Array.isArray(entry.sources)||entry.sources.some(id=>typeof id!=='string'||!evidence.some(e=>e.id===id)))return null;return entry;}catch{return null;}}
+async function readToken(key,token,sessionId,node,storyId){try{if(typeof token!=='string'||token.length>7000)return null;const parts=token.split('.');if(parts.length!==2)return null;const valid=await crypto.subtle.verify('HMAC',key,decode64(parts[1]),new TextEncoder().encode(parts[0]));if(!valid)return null;const entry=JSON.parse(new TextDecoder().decode(decode64(parts[0])));if(entry.v!==1||entry.sessionId!==sessionId||entry.node!==node||(entry.story??entry.fujianStory??null)!==storyId||!Number.isSafeInteger(entry.at)||entry.at>Date.now()+60000||Date.now()-entry.at>3600000||typeof entry.question!=='string'||entry.question.length>500||typeof entry.answer!=='string'||entry.answer.length>800||(entry.topic!==undefined&&(typeof entry.topic!=='string'||!entry.topic||entry.topic.length>200))||!Array.isArray(entry.sources)||entry.sources.some(id=>typeof id!=='string'||!evidence.some(e=>e.id===id)))return null;return entry;}catch{return null;}}
 
+// 无话题的追问（“具体点呢”“然后呢”）：只接最近一次实质提问，避免被对话里更早的其他话题带偏。
+// 原话照样用于界面、签名和事实核对；接上的主题只作理解和检索线索，不是新的出处。
+const BARE_FOLLOW_UP=/^(?:那|请|能不能|可以|能)?(?:再|多)?(?:具体|详细|细致|展开)(?:一?点|些|说说|讲讲|说一下|讲一下|说说看)?(?:呢|吧|嘛|啊)?[。！!？?\s]*$|^(?:那|再|多)?(?:说|讲)(?:一?点|一些|说|讲)?(?:呢|吧)?[。！!？?\s]*$|^(?:那)?(?:然后|后来|接着|之后)呢?[。！!？?\s]*$|^(?:为什么|为啥|怎么会这样|怎么回事)呢?[。！!？?\s]*$/;
+const SMALL_TALK=/^(?:你好|您好|嗨|哈喽|hi|hello|早上好|晚上好|谢谢|多谢|感谢|好的|嗯|明白了?|知道了|再见|拜拜|你是谁|你能做什么|你会什么)[呀啊！!。~，,\s]*(?:你|您|小征)?[呀啊！!。~\s]*$/i;
+const isBareFollowUp=q=>typeof q==='string'&&q.trim().length<=12&&BARE_FOLLOW_UP.test(q.trim());
+// 从新到旧找：遇到实质提问就以它为主题；遇到带主题的追问记录（主题已被挤出三条窗口）就沿用它记下的主题。
+function followUpAnchor(entries){
+  for(let i=entries.length-1;i>=0;i--){
+    const e=entries[i];
+    if(isBareFollowUp(e.question)){if(e.topic)return {index:i,topic:e.topic};continue;}
+    if(SMALL_TALK.test(e.question.trim()))continue;
+    return {index:i,topic:e.question};
+  }
+  return null;
+}
+// 重答提示：被拦下的日期如果原样出现在别的资料里，告诉模型去哪条取，而不是放宽核对。
+// 只提示日期（日期还要过“日期须对应事件”的检查）；普通数字不提示，免得引一条不相干、恰好含同一数字的资料蒙混过关。
+function whereDatesAppear(bad,cited){
+  const hints=[];
+  for(const raw of bad){
+    if(!/\d\s*[年月日]/.test(raw)||raw.startsWith('数量精度'))continue;
+    const key=squash(raw);
+    const ids=evidence.filter(e=>!cited.includes(e.id)&&squash(e.text).includes(key)).slice(0,3).map(e=>e.id);
+    if(ids.length)hints.push(`“${raw}”见于资料 ${ids.join('、')}`);
+  }
+  return hints;
+}
 const TYPES=new Set(['history','chat','off_topic']);
 const ROUTE_KEYS=new Set(['overview','turning','journey','full']);
 const NO_DATA='现有资料不足以可靠回答这个问题，请换个问法或查阅节点资料。';
@@ -324,7 +351,7 @@ function validCalendarDay(y,m,d){
 const HISTORICAL_EVENTS=[
   ['zunyi',/遵义/],['xiangjiang',/湘江/],['three-blockade-lines',/(?:前)?[三3]道封锁线/],['luding',/泸定桥/],
   ['chishui',/赤水/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
-  ['liping',/黎平/],['gouba',/苟坝/],['dadu',/大渡河|安顺场/],
+  ['liping',/黎平/],['gouba',/苟坝/],['dagu',/打鼓新场/],['dadu',/大渡河|安顺场/],
   ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
   ['lazikou',/腊子口/],['wuqi',/吴起镇/],['zhiluozhen',/直罗镇/],['jiajin',/夹金山/],
   ['maoergai',/毛儿盖/],['huili',/会理/],['houchang',/猴场/],
@@ -332,6 +359,8 @@ const HISTORICAL_EVENTS=[
   ['tucheng',/土城/],['loushan',/娄山关/]
 ];
 const eventKeys=text=>HISTORICAL_EVENTS.filter(([,pattern])=>pattern.test(text)).map(([id])=>id);
+// 没有对应节点的事件，提示漏项时用的中文名
+const EVENT_LABELS={dagu:'进攻打鼓新场的提议','three-blockade-lines':'突破前三道封锁线'};
 function clauseAt(text,start,end,minor=false){
   const marks=minor?['，',',','、','：',':','。','！','？','；',';','\n']:['。','！','？','；',';','\n'];
   let left=-1,right=text.length;
@@ -741,10 +770,15 @@ export default {async fetch(request, env) {
     ?stories.find(t=>t.id===data.story&&t.reviewed===true&&NODE_IDS.includes(t.node))||null:null;
   const guide=typeof data.story==='string'?storyGuides.find(g=>g.id===data.story):null;
   const historyStory=fujianStory?.id??guide?.id??null;
-  const key=await signingKey(env.HISTORY_SIGNING_KEY),history=[],recalled=new Set();
+  const key=await signingKey(env.HISTORY_SIGNING_KEY),history=[],recalled=new Set(),entries=[];
   for(const token of data.historyTokens||[]){
     const entry=await readToken(key,token,data.sessionId,data.node,historyStory);
     if(!entry)return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);
+    entries.push(entry);
+  }
+  // 无话题追问只带“主题那一轮”及其后的追问，其余更早的对话和它们的资料不再预先放进来。
+  const bareFollowUp=isBareFollowUp(data.question),anchor=bareFollowUp?followUpAnchor(entries):null;
+  for(const entry of anchor?entries.slice(anchor.index):entries){
     entry.sources.forEach(id=>recalled.add(id));
     // 旧签名也可能包含网络答复。无馆内出处时只沿用观众自己的提问。
     history.push({role:'user',content:entry.question},{role:'assistant',content:JSON.stringify({answer:entry.sources.length?entry.answer:'',sources:entry.sources})});
@@ -755,6 +789,10 @@ export default {async fetch(request, env) {
   // 观众正在读某个故事时，把这个已登记故事用到的资料预先取出。
   const guideStory=guide?.story?stories.find(t=>t.id===guide.story&&t.reviewed===true):null;
   const guideTitle=guide?(guide.title||guideStory?.title||''):'';
+  const readingTitle=fujianStory?.title||guideTitle;
+  const followUpHint=!bareFollowUp?'':anchor
+    ?`\n（这是接着上一个问题「${anchor.topic.slice(0,80)}」的追问。请继续围绕这个问题回答，不要转到对话里更早的其他话题，也不要转去讲另一个人物或故事${recalled.size?`；优先依据上一轮回答已经引用的资料（${[...recalled].join('、')}）展开，确有需要再查`:''}；上一个问题里的说法和数字只用于理解，不是依据。）`
+    :readingTitle?`\n（观众正在读《${readingTitle}》，这是对这篇故事的追问。）`:'';
   const guideIds=new Set(guide?[...(guideStory?[guideStory.id,guideStory.node]:[]),...[...(guide.parts||[]),...(guide.background||[])].flatMap(p=>[...p.sources,...(p.terms||[]).flatMap(t=>t.sources)])]:[]);
   if(fujianStory){
     guideIds.add(fujianStory.id);
@@ -796,7 +834,7 @@ ${catalogue}
 ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
   const run=async emit=>{
     const scopeHint=wuqiZhiluoCheck?'\n这条核对只回答吴起镇抵达、直罗镇战役和当时兵力三项。前两项分别给出日期和部队。兵力没有依据时，直接写所引资料未给出当时的兵力，无须复述用户的估算或提及其他阶段的人数。':'';
-    const messages=[{role:'system',content:system+scopeHint},...history,{role:'user',content:question}];
+    const messages=[{role:'system',content:system+scopeHint},...history,{role:'user',content:question+followUpHint}];
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
     const steps=[],step=s=>{steps.push(s);emit({step:s});};
     const useWeb=webEnabled(env)&&(data.web==='auto'||data.web==='only');
@@ -805,7 +843,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       step({kind:'web',text:data.web==='only'?'联网查找':'资料库里没有查到，联网查找'});
       clearTimeout(timer);const t=setTimeout(()=>controller.abort(),40000);
       try{
-        const found=await webLookup(env,question,{
+        const found=await webLookup(env,anchor?anchor.topic+'（追问：'+question+'）':question,{
           storyTitle:fujianStory?.title||guideTitle,
           nodeName:free?null:current.name,
           history,
@@ -815,11 +853,16 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         if(!found){step({kind:'verify',text:'联网没有查到可用的网页出处',ok:false});return null;}
         if(found.offTopic)return {status:200,body:{answer:'这个问题和长征关系不大，我只查证长征相关的内容。',sources:[],type:'off_topic',followups:[],steps}};
         step({kind:'verify',text:'整理网络来源',detail:`${found.sources.length} 个网页，未经人工核对`,ok:false});
-        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),question,answer:'',sources:[],at:Date.now()});
+        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),...(anchor?{topic:anchor.topic.slice(0,200)}:{}),question,answer:'',sources:[],at:Date.now()});
         return {status:200,body:{answer:found.answer,sources:[],web:{sources:found.sources},historyToken,type:'history',followups:[],steps}};
       }catch{step({kind:'verify',text:'联网查找失败',ok:false});return null}finally{clearTimeout(t)}
     };
     try {
+      // 无话题的追问既接不上已签名的上文，也不在读某篇故事：请观众把问题说完整，不替他猜。
+      if(bareFollowUp&&!anchor&&!readingTitle){
+        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,question,answer:'',sources:[],at:Date.now()});
+        return {status:200,body:{answer:'你想让我接着讲哪一件事？把问题说完整一点就好，比如“苟坝会议为什么决定不打打鼓新场？”。',sources:[],type:'chat',followups:free?[]:(current.questions||[]).slice(0,2),historyToken,steps}};
+      }
       if(useWeb&&data.web==='only'){const out=await lookup();return out||{status:200,body:{answer:'联网没有查到可靠的网页出处，暂时无法回答这个问题。',sources:[],type:'history',followups:[],steps}};}
       let result=null,firstFailed=null,corrected=false,nudged=false,toolCalls=0;
       const ninghuaCheck=(historyStory===NINGHUA_EVIDENCE.sourceId||guideStory?.id===NINGHUA_EVIDENCE.sourceId)
@@ -876,7 +919,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         if(failed&&!firstFailed)firstFailed=result;
         if((unread&&!nudged)||(failed&&!corrected)){
           if(unread)nudged=true;else corrected=true;
-          const issues=unread?'你引用的资料还没有取出或尚未列出，请列出已查阅且支持回答的资料 ID；必要时调用 read_stop、read_materials 或 search_materials 取资料':[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:'',...result.risks].filter(Boolean).join('；');
+          const issues=unread?'你引用的资料还没有取出或尚未列出，请列出已查阅且支持回答的资料 ID；必要时调用 read_stop、read_materials 或 search_materials 取资料':[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中${(h=>h.length?`（其中${h.join('；')}；确实要用就先用 read_materials 取出这条资料并列入 sources，否则删去）`:'')(whereDatesAppear(result.badNumbers,result.ids))}`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:'',...result.risks].filter(Boolean).join('；');
           step({kind:'verify',text:unread?'核对出处：引用的资料尚未查阅，先去查资料':'核对未通过，重新作答',detail:unread?'':[result.badNumbers.length?'数字 '+result.badNumbers.join('、')+' 不在资料中':'',result.badTitles.length?'文件名与资料不一致':'',result.risks.length?'表述超出资料':''].filter(Boolean).join('；'),ok:false});
           messages.push({role:'assistant',content},{role:'user',content:`系统校验：${issues}。请重新回答用户实际提出的问题，删除无关的延伸内容；只使用所引资料中原样出现的数字和名称，不要自行推算。如果用户问到的内容出自别的资料，先用工具取出并列入 sources；只有用户实际问到的内容确实缺少依据时才说明不知道。仍输出同样格式的 JSON。`});
           result=unread?null:result;
@@ -937,7 +980,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
               if(/强渡(?:了)?大渡河|渡过(?:了)?大渡河|安顺场[^。；]{0,24}17名|17名[^。；]{0,24}安顺场/.test(answer))covered.add('dadu');
               else covered.delete('dadu');
             }
-            const missing=questionEvents.filter(id=>!covered.has(id)).map(id=>nodes.find(n=>n.id===id)?.title||nodeName(id));
+            const missing=questionEvents.filter(id=>!covered.has(id)).map(id=>nodes.find(n=>n.id===id)?.title||EVENT_LABELS[id]||nodeName(id));
             if(missing.length===questionEvents.length)return null;
             if(missing.length)answer+=`\n关于${missing.join('、')}的细节未能核对，以上只能回答部分问题。`;
           }
@@ -960,7 +1003,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       const gap=/(?:资料|文献|记载|知识库)[^。]{0,24}(?:没有|未|不足|无法|尚无)|不知道/.test(answer);
       if(useWeb&&!controller.signal.aborted&&type==='history'&&!ids.length&&!action){const out=await lookup();if(out)return out;}
       const canWeb=useWeb&&type==='history'&&ids.length>0&&!action; // 每个有出处的历史回答后都给“想了解更多？试试联网搜索”
-      const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
+      const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),...(anchor?{topic:anchor.topic.slice(0,200)}:{}),question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
       const grouped=new Map();
       for(const id of ids){const e=evidence.find(x=>x.id===id),existing=grouped.get(e.url);if(existing){existing.ids.push(id);existing.excerpt+='\n'+e.text}else grouped.set(e.url,{id,ids:[id],title:e.source,url:e.url,excerpt:e.text});}
       const evidenceFocus=ninghuaCheck&&ids.includes(NINGHUA_EVIDENCE.sourceId)&&answer===documentedAnswer.answer?NINGHUA_EVIDENCE:null;
