@@ -10,6 +10,7 @@
 //   HISTORY_SIGNING_KEY  本机模式的对话签名密钥；不填则每次运行随机生成。
 //   DEEPSEEK_MODEL       本机模式使用的模型，默认 deepseek-chat。
 //   EVAL_ONLY=01,11,27   只运行指定编号。
+//   EVAL_SUITE=probes   运行协作探测题。可结合 EVAL_ONLY=P-01,P-07。
 //   EVAL_OUT=路径         结果文档路径，默认 docs/问答评估结果-<日期>.md。
 //
 // 自动判定只检查关键词、来源 ID、类型和操作，属于参考；最终结论必须由人对照原文判定，
@@ -18,10 +19,12 @@
 import { writeFile, access } from 'node:fs/promises';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { execSync } from 'node:child_process';
+import { PROBE_CASES } from './eval-qa-probes.mjs';
 
 const BASE = (process.env.EVAL_BASE_URL || '').replace(/\/+$/, '');
 const EXTRA_HEADERS = process.env.EVAL_HEADERS ? JSON.parse(process.env.EVAL_HEADERS) : {};
 const ONLY = (process.env.EVAL_ONLY || '').split(',').map(s => s.trim()).filter(Boolean);
+const SUITE = process.env.EVAL_SUITE || 'baseline';
 
 let worker = null, env = null;
 if (!BASE) {
@@ -124,8 +127,15 @@ function judge(expect, res) {
   if (expect.any && !expect.any.some(w => answer.includes(norm(w)))) problems.push('未出现“' + expect.any.join('／') + '”之一');
   for (const w of expect.none || []) if (answer.includes(norm(w))) problems.push('出现不应有的“' + w + '”');
   if (expect.sources && !expect.sources.some(id => ids.includes(id))) problems.push('来源未命中 ' + expect.sources.join('／'));
+  for (const group of expect.sourceGroups || []) if (!group.some(id => ids.includes(id))) problems.push('此项缺少来源 ' + group.join('／'));
+  for (const [pattern, group] of expect.sourceWhen || []) if (pattern.test(answer) && !group.some(id => ids.includes(id))) problems.push('回答涉及 ' + pattern.source + '，缺少来源 ' + group.join('／'));
+  if (expect.sourcePrefix && !ids.some(id => id.startsWith(expect.sourcePrefix))) problems.push('缺少此类来源 ' + expect.sourcePrefix);
+  for (const pattern of expect.matches || []) if (!pattern.test(answer)) problems.push('缺少符合此断言的表述 ' + pattern.source);
+  for (const pattern of expect.rejects || []) if (pattern.test(answer)) problems.push('出现此断言禁止的表述 ' + pattern.source);
+  if (expect.minLength && answer.length < expect.minLength) problems.push('回答短于 ' + expect.minLength + ' 字符');
   if (expect.noSources && ids.length) problems.push('不应附来源，实际 ' + ids.join('、'));
   if (expect.type && res.data.type !== expect.type) problems.push('类型应为 ' + expect.type + '，实际 ' + res.data.type);
+  if (expect.types && !expect.types.includes(res.data.type)) problems.push('类型应为 ' + expect.types.join('／') + '，实际 ' + res.data.type);
   if (expect.step && !(res.data.steps || []).some(s => String(s.text || '').includes(expect.step))) problems.push('处理过程中没有“' + expect.step + '”');
   if (expect.action) {
     const a = res.data.action || {};
@@ -137,17 +147,23 @@ function judge(expect, res) {
 const cell = s => String(s ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
 const rows = [];
 let passed = 0, total = 0;
-const selected = ONLY.length ? CASES.filter(c => ONLY.includes(c.id)) : CASES;
+if (!['baseline', 'probes'].includes(SUITE)) throw new Error('EVAL_SUITE 只支持 baseline 或 probes');
+const cases = SUITE === 'probes' ? PROBE_CASES : CASES;
+const plans = SUITE === 'probes' ? [] : PLAN_CASES;
+const selected = ONLY.length ? cases.filter(c => ONLY.includes(c.id)) : cases;
+const selectedPlans = ONLY.length ? plans.filter(c => ONLY.includes(c.id)) : plans;
+if (!selected.length && !selectedPlans.length) throw new Error('EVAL_ONLY 没有匹配当前评估组中的题目');
 
 for (const c of selected) {
   const steps = c.steps || [{ node: c.node, q: c.q, tour: c.tour, expect: c.expect }];
   const sessionId = randomUUID();
-  let history = [], lastNode = null;
+  let history = [], lastNode = null, lastStory = null;
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i];
-    if (s.node !== lastNode) history = []; // 与页面一致：切换节点时清空本节点对话上下文
+    if (s.node !== lastNode || (s.story || null) !== lastStory) history = []; // 与签名范围一致
     lastNode = s.node;
-    const body = { question: s.q, node: s.node, sessionId, historyTokens: history, ...(s.tour || c.tour ? { tour: s.tour || c.tour } : {}), ...(c.free ? { free: true } : {}) };
+    lastStory = s.story || null;
+    const body = { question: s.q, node: s.node, sessionId, historyTokens: history, ...(s.story ? { story: s.story } : {}), ...(s.tour || c.tour ? { tour: s.tour || c.tour } : {}), ...(c.free ? { free: true } : {}) };
     const res = await post('/api/chat', body);
     if (typeof res.data.historyToken === 'string') history = [...history, res.data.historyToken].slice(-3);
     const problems = judge(s.expect || {}, res);
@@ -160,7 +176,7 @@ for (const c of selected) {
   }
 }
 const planRows = [];
-for (const c of ONLY.length ? PLAN_CASES.filter(p => ONLY.includes(p.id)) : PLAN_CASES) {
+for (const c of selectedPlans) {
   const res = await post('/api/plan', { preference: c.preference, length: c.length });
   const ok = res.status === c.expect.status && (res.status !== 200 || (Array.isArray(res.data.route) && res.data.route.length === 3));
   total++; if (ok) passed++;
@@ -171,12 +187,13 @@ for (const c of ONLY.length ? PLAN_CASES.filter(p => ONLY.includes(p.id)) : PLAN
 const now = new Date();
 const date = now.toISOString().slice(0, 10);
 let commit = '未知'; try { commit = execSync('git rev-parse --short HEAD').toString().trim(); } catch {}
-let out = process.env.EVAL_OUT || `docs/问答评估结果-${date}.md`;
+let out = process.env.EVAL_OUT || `docs/${SUITE === 'probes' ? '协作探测结果' : '问答评估结果'}-${date}.md`;
 if (!process.env.EVAL_OUT) { try { await access(out); out = out.replace(/\.md$/, `-${now.toISOString().slice(11, 16).replace(':', '')}.md`); } catch {} }
 const doc = [
   `# 问答评估结果（${date}，自动运行）`,
   '',
   `- 被测代码提交：\`${commit}\`；运行时间：${now.toISOString()}`,
+  ...(SUITE === 'probes' ? ['- 评估组：协作探测。通过接口直接发送原问，不执行页面追问改写或本地快捷回答；多轮题按请求逐行统计。'] : []),
   `- 调用方式：${BASE ? '已部署站点' : '本机直接调用服务端代码'}；模型：${BASE ? '以站点配置为准' : env.DEEPSEEK_MODEL || 'deepseek-chat'}`,
   `- 自动判定通过 ${passed} / ${total}。自动判定只检查关键词、来源 ID、类型和操作，**不能替代人工核对**；请对照原文逐项填写“人工判定”（通过／部分通过／不通过）。`,
   '- 每项只运行一次，模型输出有随机性，不能代表稳定通过率。',
@@ -196,3 +213,4 @@ const doc = [
 ].join('\n');
 await writeFile(out, doc);
 console.log(`\n自动判定通过 ${passed} / ${total}，结果已写入 ${out}`);
+if (SUITE === 'probes' && passed !== total) process.exitCode = 1;

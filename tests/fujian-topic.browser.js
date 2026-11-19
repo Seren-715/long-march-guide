@@ -1,30 +1,103 @@
 async page => {
-  const errors=[]; page.on('pageerror', e=>errors.push(e.message));
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
   await page.setViewportSize({width:1440,height:900});
   await page.goto('http://127.0.0.1:4187/');
-  await page.locator('#start-fujian').click();
-  const topic=page.locator('#fujian-page');
+  const topic = page.locator('#fujian-page');
+  const detail = page.locator('#fujian-detail');
+  const cards = page.locator('#fujian-list button');
+  const nav = section => page.locator('#section-' + section);
+  const hash = () => page.evaluate(() => location.hash);
+
+  await page.locator('#start-browse').click();
+  await nav('stories').click();
+  if (await hash() !== '#stories') throw Error('自由浏览未进入故事目录');
+  await nav('browse').click();
+  if (!(await page.locator('#map3d').isVisible())) throw Error('故事目录未返回沙盘自由浏览');
+  await nav('fujian').click();
   if (!(await topic.isVisible()) || !(await page.locator('#chat-pane').isVisible())) throw Error('桌面专题双栏未显示');
-  if (await topic.locator('article').count()!==12 || await topic.locator('article a[href]').count()!==12) throw Error('专题资料或出处数量不正确');
-  if (!(await topic.innerText()).includes('长征前支前活动')) throw Error('缺少历史口径提示');
-  if (!(await topic.innerText()).includes('近2.6万') || !(await topic.innerText()).includes('近万福建儿女')) throw Error('福建人数三种口径未在专题展示');
-  if (await page.evaluate(()=>location.hash)!=='#fujian') throw Error('缺少专题地址');
+  if (await cards.count() !== 12 || await detail.isVisible() || await topic.locator('a[href]').count()) throw Error('专题目录应有 12 张卡片且不展开正文或来源');
+  await nav('stories').click();
+  await nav('fujian').click();
+  await nav('browse').click();
+  await nav('fujian').click();
+
+  const titles = await cards.locator('b').allTextContents();
+  if (new Set(titles).size !== 12) throw Error('专题卡片标题应各不相同');
+  await cards.first().click();
+  const first = await hash();
+  if (!first.startsWith('#fujian-') || !(await detail.isVisible()) || !(await detail.locator('a[href]').count())) throw Error('专题正文或出处未显示');
+  if (await page.locator('#fujian-title').innerText() !== titles[0]) throw Error('专题正文标题错误');
   await page.reload();
-  if (!(await topic.isVisible())) throw Error('刷新专题地址未恢复');
-  await page.locator('#go-home').click();
-  if (!(await page.locator('#home').isVisible())) throw Error('返回首页失败');
+  if (!(await detail.isVisible()) || await hash() !== first) throw Error('刷新专题正文未恢复');
   await page.goBack();
-  if (!(await topic.isVisible())) throw Error('浏览器后退未返回专题');
+  if (!(await cards.first().isVisible()) || await hash() !== '#fujian') throw Error('后退未返回专题目录');
+  await page.goForward();
+  if (!(await detail.isVisible()) || await hash() !== first) throw Error('前进未恢复专题正文');
+  await page.locator('#fujian-back').click();
+  await cards.nth(1).click();
+  if (await hash() === first || await page.locator('#fujian-title').innerText() !== titles[1]) throw Error('不同专题卡片应进入不同正文页');
+
   await page.setViewportSize({width:390,height:844});
-  if (!(await topic.isVisible())) throw Error('手机专题未显示');
-  if (await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)) throw Error('手机页面横向溢出');
+  if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error('手机页面横向溢出');
   await page.locator('#sw-chat').click();
   if (!(await page.locator('#question').isVisible())) throw Error('手机对话未显示');
   await page.locator('#sw-read').click();
-  await topic.getByRole('button',{name:/查看关联节点：泸定桥/}).click();
+  await page.locator('#fujian-back').click();
+  await cards.filter({hasText:'杨成武'}).first().click();
+  await detail.getByRole('button',{name:/查看关联节点：泸定桥/}).click();
   if (!(await page.locator('#story-story_fj_yang_chengwu').isVisible())) throw Error('未进入相关节点的故事');
   await page.goBack();
-  if (!(await topic.isVisible())) throw Error('节点后退未返回专题');
+  if (!(await detail.isVisible())) throw Error('节点后退未返回专题正文');
+  await nav('stories').click();
+  await nav('fujian').click();
+  if (await hash() !== '#fujian') throw Error('手机板块切换失败');
+  const requests = [];
+  await page.route('**/api/chat', async route => {
+    requests.push(route.request().postDataJSON());
+    await route.fulfill({json:{
+      answer:'测试回答', type:'history', historyToken:'story-context-token-'+requests.length, canWeb:true,
+      sources:[{id:'story_fj_yang_chengwu', title:'测试出处', url:'https://example.com/source', excerpt:'测试依据'}]
+    }});
+  });
+  const askStory = async question => {
+    await detail.getByRole('button',{name:'向小征提问'}).click();
+    await page.locator('#question').fill(question);
+    await page.locator('#chat-form button[type=submit]').click();
+    await page.waitForFunction(() => !document.getElementById('send').disabled);
+  };
+  await cards.filter({hasText:'杨成武'}).first().click();
+  await askStory('他和谁一起指挥？');
+  if (requests[0]?.story !== 'story_fj_yang_chengwu') throw Error('问答未收到当前故事');
+  const mapCard = page.getByRole('button',{name:'打开讲解：泸定桥'}).last();
+  await mapCard.click();
+  if (await hash() !== '#luding' || !(await page.locator('#map3d').isVisible())) throw Error('回答中的卡片未打开关联沙盘');
+  await page.goBack();
+  await detail.waitFor();
+  await page.locator('#fujian-back').click();
+  await cards.filter({hasText:'傅连暲'}).first().click();
+  await askStory('他负责什么工作？');
+  if (requests[1]?.story !== 'story_fj_fu_lianzhang' || requests[1]?.historyTokens?.length !== 0) throw Error('切换故事后沿用了旧的问答上下文');
+  await page.locator('#sw-read').click();
+  await askStory('他的职务是什么？');
+  if (requests[2]?.historyTokens?.[0] !== 'story-context-token-2') throw Error('同一故事内无法继续追问');
+  const webButtons = page.locator('.msg.bot .webask');
+  const oldAnswer = webButtons.nth(1);
+  await oldAnswer.click();
+  await page.waitForFunction(() => !document.getElementById('send').disabled);
+  if (requests[3]?.question !== requests[1]?.question || requests[3]?.story !== 'story_fj_fu_lianzhang' ||
+      requests[3]?.web !== 'only' || requests[3]?.historyTokens?.length) throw Error('重搜旧问题时用了较新的对话');
+  await page.locator('#question').fill('联网搜索看看');
+  await page.locator('#chat-form button[type=submit]').click();
+  await page.waitForFunction(() => !document.getElementById('send').disabled);
+  if (requests[4]?.question !== requests[2]?.question || requests[4]?.historyTokens?.[0] !== 'story-context-token-2' ||
+      requests[4]?.web !== 'only') throw Error('文字触发联网没有复用最近一问的上下文');
+  await page.locator('#sw-read').click();
+  await page.locator('#fujian-back').click();
+  await cards.filter({hasText:'杨成武'}).first().click();
+  await page.locator('#sw-chat').click();
+  await oldAnswer.click();
+  if (!(await page.locator('#status').innerText()).includes('已切换') || requests.length !== 5) throw Error('旧篇联网按钮错误使用了新篇语境');
   if (errors.length) throw Error(errors.join('; '));
-  return {desktop:'双栏',stories:12,sources:12,reload:true,history:true,mobile:'切换正常',storyJump:true,overflow:false};
+  return {navigation:true, cards:12, details:true, history:true, mobile:true, relatedStop:true,webContext:true};
 }

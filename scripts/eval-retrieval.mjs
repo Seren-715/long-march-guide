@@ -8,6 +8,7 @@
 
 import { writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import worker from '../worker/index.js';
 
 // [查询, 应命中资料 ID, {requireAll:true}?]。缺省为命中任一，跨来源比较题必须命中全部。
@@ -55,6 +56,9 @@ export const CASES = [
   ['长征精神', ['jiangtaibao_spirit']],
   ['周总理过草地生病', ['story_zhou_enlai']],
   ['女红军', ['start_women_work', 'wuqi_women_nurses', 'jiangtaibao_women_work']],
+  ['湘', ['xiangjiang']],
+  ['遵', ['zunyi']],
+  ['湘 江', ['xiangjiang']],
 ];
 
 const env = { DEEPSEEK_API_KEY: 'offline', HISTORY_SIGNING_KEY: 'retrieval-eval' };
@@ -86,7 +90,7 @@ export async function evaluate() {
   return { rows, n, hit3: h3 / n, hit8: h8 / n, mrr: mrr / n };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const r = await evaluate(), pct = x => (x * 100).toFixed(1) + '%';
   for (const x of r.rows) console.log((x.rank ? String(x.rank).padStart(2) : ' ✗'), x.query, x.rank ? '' : '→ 应命中 ' + (x.requireAll?'全部：':'任一：') + x.expected.join('／') + '，实际 ' + (x.got.slice(0, 8).join('、') || '无'));
   console.log(`\n查询 ${r.n} 个：前 3 条命中 ${pct(r.hit3)}，前 8 条命中 ${pct(r.hit8)}，MRR ${r.mrr.toFixed(3)}`);
