@@ -781,7 +781,7 @@ assert.equal(log.length,2);assert.match(body.answer,/近万/);
 // Claude 实测发现，用户的错误数字被明确否定时，不能删掉纠正句。
 {
   const question='湘江战役红军损失了多少人？是不是只剩2万人？';
-  const rest='渡过湘江后，中央红军兵力减至3万余人。';
+  const rest='渡过湘江后，中央红军兵力减至3万余人。资料没有给出单场伤亡人数。';
   const makeReply=answer=>reply({type:'history',answer,sources:['xiangjiang_lines']});
   for(const correction of ['资料记载的不是“只剩2万人”。','“只剩2万人”与资料不符。','资料记载的并非仅剩下2万人。']){
     log=script([makeReply(correction+rest)]);
@@ -796,6 +796,60 @@ assert.equal(log.length,2);assert.match(body.answer,/近万/);
     assert.equal(log.length,2);
     assert.equal(body.answer,correction+rest);
   }
+}
+// Claude 联测原稿的两个反例：累计兵力的明确说明和前三道封锁线的原资料日期都应保留。
+{
+  const question='湘江战役红军损失了多少人？是不是只剩2万人？';
+  const ids=['xiangjiang','xiangjiang_lines','xiangjiang_detail'];
+  const answers=[
+    '资料记载的不是“只剩2万人”。湘江战役中，中央红军在国民党湘军和桂军夹击下付出极大牺牲、遭受重大损失；从长征出发时的8.6万余人减至3万余人。这是从出发到渡过湘江后的累计兵力变化，不是单场战役的损失数字。资料没有给出湘江战役单独的伤亡人数。',
+    '资料记载的是：1934年10月下旬至12月初，中央红军连续突破国民党军三道封锁线，在突破第四道封锁线的湘江战役中遭受重大损失，由出发时的8.6万余人减至3万余人。这是从出发到渡过湘江后的累计兵力变化，不是单场战役的损失数字。“只剩2万人”与资料不符。湘江战役单独的伤亡人数，资料没有给出。'
+  ];
+  for(const answer of answers){
+    log=script([reply({type:'history',answer,sources:ids})]);
+    body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+    assert.equal(log.length,1);
+    assert.equal(body.answer,answer);
+    assert.ok(!body.steps.some(step=>step.text==='按现有资料分别说明两种口径'));
+  }
+  const wrong='湘江战役于1934年10月发生。';
+  log=script([reply({type:'history',answer:wrong,sources:['xiangjiang_lines']})]);
+  body=await (await worker.fetch(make({question:'湘江战役发生在1934年10月吗？',node:'xiangjiang'}),env)).json();
+  assert.equal(log.length,2);
+  assert.doesNotMatch(body.answer,/湘江战役于1934年10月发生/);
+  const contradiction='湘江战役导致中央红军从长征出发时的8.6万余人减至3万余人。这是从出发到渡过湘江后的累计兵力变化，不是单场战役的损失数字。';
+  log=script([reply({type:'history',answer:contradiction,sources:ids})]);
+  body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+  assert.equal(log.length,2);
+  assert.doesNotMatch(body.answer,/湘江战役导致/);
+}
+// 对已知可分开的两个口径，模型连续答错时也要保留有依据的纠正。
+{
+  const sourceIds=['xiangjiang','xiangjiang_lines'];
+  const bad=reply({type:'history',answer:'湘江战役损失了6万人，战役后只剩2万人。',sources:sourceIds});
+  log=script([bad]);
+  const question='湘江战役红军损失了多少人？是不是只剩2万人？';
+  body=await (await worker.fetch(make({question,node:'start',free:true}),env)).json();
+  assert.equal(log.length,2);
+  assert.match(body.answer,/2万人.{0,12}与资料不符/);
+  assert.match(body.answer,/渡过湘江后.{0,25}3万余人/);
+  assert.match(body.answer,/未列出.{0,22}伤亡人数/);
+  assert.doesNotMatch(body.answer,/6万/);
+  assert.deepEqual(body.sources.flatMap(source=>source.ids).sort(),sourceIds);
+  assert.ok(body.steps.some(step=>step.text==='按现有资料分别说明两种口径'));
+  log=script([bad]);
+  body=await (await worker.fetch(make({question:'湘江之战后仅剩下2万人？单场伤亡人数是多少？',node:'start',free:true}),env)).json();
+  assert.match(body.answer,/仅剩下2万人.{0,12}与资料不符/);
+  assert.match(body.answer,/未列出.{0,22}伤亡人数/);
+  const onlyStrength='资料记载的不是“只剩2万人”。渡过湘江后，中央红军兵力减至3万余人。';
+  log=script([reply({type:'history',answer:onlyStrength,sources:['xiangjiang_lines']})]);
+  body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+  assert.match(body.answer,/未列出.{0,22}伤亡人数/);
+  assert.ok(body.steps.some(step=>step.text==='按现有资料分别说明两种口径'));
+  log=script([bad]);
+  body=await (await worker.fetch(make({question:'湘江战役红军损失了多少人？',node:'xiangjiang'}),env)).json();
+  assert.match(body.answer,/资料不足/);
+  assert.doesNotMatch(body.answer,/3万/);
 }
 const battleQuery='湘江之战是什么时间，结果如何？';
 const badBattle='1934年11月27日至12月1日，红军突破湘江封锁，付出重大代价。湘江战役中红军遭受重大损失，由出发时的8.6万余人减至3万余人。';

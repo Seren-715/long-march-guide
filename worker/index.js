@@ -322,7 +322,7 @@ function validCalendarDay(y,m,d){
   return date.getUTCFullYear()===y&&date.getUTCMonth()+1===m&&date.getUTCDate()===d;
 }
 const HISTORICAL_EVENTS=[
-  ['zunyi',/遵义/],['xiangjiang',/湘江/],['luding',/泸定桥/],
+  ['zunyi',/遵义/],['xiangjiang',/湘江/],['three-blockade-lines',/(?:前)?[三3]道封锁线/],['luding',/泸定桥/],
   ['chishui',/赤水/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
   ['liping',/黎平/],['gouba',/苟坝/],['dadu',/大渡河|安顺场/],
   ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
@@ -519,16 +519,23 @@ const XIANGJIANG_FULL_INTERVAL=/(?:从|自)(?:中央红军)?(?:长征)?出发(?:
 const XIANGJIANG_SCOPE_ISSUE='不要把从长征出发到渡过湘江后的兵力变化写成湘江单场战役伤亡；单场损失可以按资料说付出重大代价';
 function mixesXiangjiangStrengthWithBattle(answer,question,ids){
   if(!/湘江/.test(answer+question)&&!ids.includes('xiangjiang_lines'))return false;
-  const sentences=answer.split(/[。！？!\n]+/);
+  const sentences=answer.split(/[。！？!；;\n]+/);
   const directCasualtyQuestion=/伤亡|死亡|牺牲/.test(question)&&/湘江/.test(answer+question);
-  return sentences.some(sentence=>{
+  return sentences.some((sentence,index)=>{
     if(!XIANGJIANG_STRENGTH_START.test(sentence)||!XIANGJIANG_STRENGTH_END.test(sentence))return false;
     // 只有明确交代出发至渡过湘江的区间，才把此数对当作累计兵力变化。
     const fullInterval=XIANGJIANG_FULL_INTERVAL.test(sentence);
     const casualtyClaim=/(?:伤亡|阵亡|牺牲|减员|损失)(?:人数|了|约|为|达|共|数)*[：:]?(?:约)?(?:8[.．]6万|八万六千|八点六万|86000|5[.．]6万|五万六千|56000)/.test(sentence);
-    const battleChange=/(?:湘江(?:战役|之战)?(?:中|时|一役)|(?:此|该|这场|这一)战(?:役|斗)?).{0,20}(?:使|造成|导致|致使)/.test(sentence);
-    if(directCasualtyQuestion||casualtyClaim||battleChange)return true;
-    if(fullInterval)return false;
+    const battleChange=/(?:湘江(?:战役|之战)(?:中|时)?|湘江(?:中|时|一役)|(?:此|该|这场|这一)战(?:役|斗)?).{0,20}(?:使|造成|导致|致使)/.test(sentence);
+    if(casualtyClaim||battleChange)return true;
+    const next=sentences[index+1]||'';
+    const distinguishesCasualties=/(?:不是|并非|不能(?:当作|等同于))[^。；]{0,12}单场[^。；]{0,12}(?:伤亡|损失)/;
+    const consecutiveScope=/(?:由|从|自)(?:中央红军)?(?:长征)?出发/.test(sentence)
+      &&/^(?:这(?:是|一(?:数字|变化))|上述(?:数字|变化))/.test(next)
+      &&XIANGJIANG_FULL_INTERVAL.test(next)&&distinguishesCasualties.test(next);
+    if(consecutiveScope)return false;
+    if(fullInterval)return directCasualtyQuestion&&!distinguishesCasualties.test(sentence);
+    if(directCasualtyQuestion)return true;
     return /湘江|战役|这场|此次|此次战斗|伤亡|损失|减至|锐减|减少到|降到|降至/.test(sentence);
   });
 }
@@ -538,6 +545,21 @@ function asksForXiangjiangStrengthInterval(question){
   return XIANGJIANG_FULL_INTERVAL.test(q)&&/(?:兵力|红军人数|部队人数).{0,12}(?:变化|减少|多少)/.test(q)
     &&!/(?:伤亡|牺牲|阵亡|原因|为什么|顺便|另外|以及|带我|打开|并说明)/.test(q);
 }
+// 只覆盖已有两条资料能独立回答的复合查证，不替只问伤亡或还有其他要求的回复做决定。
+function xiangjiangRemainingClaim(question){
+  const q=squash(normalizeNumerals(question));
+  if(!/湘江/.test(q)||!/(?:伤亡|损失|阵亡|牺牲)(?:了|有)?(?:多少人?|人数是多少)/.test(q)
+    ||/(?:顺便|另外|以及|并说明|还想|为什么|怎么|带我|打开|讲个故事)/.test(q))return null;
+  return /(?:只剩|仅剩|就剩)(?:下)?2万(?:人)?(?=[？?。！，,；;]|$)/.exec(q)?.[0]||null;
+}
+function coversXiangjiangLossAndRemaining(answer){
+  const q=squash(answer);
+  const refusesFalseCount=/2万/.test(q)&&/不是|不符|并非|不准确|说法不对/.test(q);
+  const countGap=/(?:资料|记载)[^。！？]{0,35}(?:没有|未列出|未给出|未提供|未记载|未说明)[^。！？]{0,24}(?:人数|伤亡|损失数字)|(?:伤亡|损失人数|损失的(?:具体)?人数)[^。！？]{0,24}(?:没有|未列出|未给出|未提供|未记载|未说明|不详)/.test(q);
+  return refusesFalseCount&&XIANGJIANG_STRENGTH_END.test(q)&&countGap;
+}
+const XIANGJIANG_SCOPE_SOURCES=['xiangjiang','xiangjiang_lines'];
+const XIANGJIANG_SCOPE_ANSWER='从长征出发到渡过湘江后，中央红军兵力减至3万余人。湘江战役中部队付出重大代价，所引资料未列出这场战役单独的伤亡人数。';
 const XIANGJIANG_INTERVAL_ANSWER='从长征出发时到渡过湘江后，中央红军兵力由8.6万余人减至3万余人。这是这一整段的兵力变化，不能当作湘江单场战役的伤亡人数。';
 
 function explicitlyAsksOnlyTimeOrPlace(question){
@@ -710,7 +732,8 @@ export default {async fetch(request, env) {
   const fujianCountQuery=/(?:福建|闽籍|闽西|八闽).*(?:人数|多少人|多少|几万|数字|数量|口径|统计|差异|不同)|(?:人数|数量|数字|口径|统计|差异).*(?:福建|闽籍|闽西|八闽)|(?:近3万|近2\.6万|近万人).*(?:红军|长征|人数|福建|口径)/.test(data.question);
   const compareFujianCounts=asksAboutFujianCountDifference(question,fujianStory?.id);
   const xiangjiangStrengthQuery=asksForXiangjiangStrengthInterval(question);
-  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines'));
+  const remainingClaim=xiangjiangRemainingClaim(question);
+  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines')||(remainingClaim&&XIANGJIANG_SCOPE_SOURCES.includes(e.id)));
   const state={loaded:new Set(preload.map(e=>e.id)),action:null,current:free?null:current.id,tour};
   const gist=e=>e.id.startsWith('story_')?e.name.replace(/（[^）]*）$/,''):e.text.replace(/\s+/g,'').slice(0,26)+'…';
   const catalogue=nodes.map(n=>`[${n.id}] ${n.date} ${n.name}：${n.title}\n`+evidence.filter(e=>e.node===n.id).map(e=>`  - ${e.id}：${gist(e)}`).join('\n')).join('\n');
@@ -825,6 +848,13 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       }
       result??=firstFailed;
       if(!result) return {status:502,body:{error:'助手回复格式异常，请重试。'}};
+      if(remainingClaim&&result.type==='history'&&(!result.ids.length||result.badNumbers.length||result.badTitles.length||result.risks.length||!coversXiangjiangLossAndRemaining(result.answer))){
+        const verified=checkReply({type:'history',answer:`“${remainingClaim}”与资料不符。${XIANGJIANG_SCOPE_ANSWER}`,sources:XIANGJIANG_SCOPE_SOURCES},question,state.current,state.loaded);
+        if(verified.ids.length===XIANGJIANG_SCOPE_SOURCES.length&&!verified.badNumbers.length&&!verified.badTitles.length&&!verified.risks.length){
+          step({kind:'verify',text:'按现有资料分别说明两种口径',detail:'渡江后兵力与单场伤亡',ok:true});
+          result=verified;
+        }
+      }
       if(result.badNumbers.length||result.badTitles.length||result.risks.length){
         // 两次回答分别按完整句子核查：保留更完整的合格内容，不拼接不同版本。
         const candidates=[result,firstFailed].filter(Boolean).map(candidate=>{
