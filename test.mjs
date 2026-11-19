@@ -797,6 +797,68 @@ assert.equal(log.length,2);assert.match(body.answer,/近万/);
     assert.equal(body.answer,correction+rest);
   }
 }
+// 逐项核对：重复用户兵力数字并明确说明缺少记载，不能导致已查实的两点被删除。
+{
+  const question='核对：1935年10月，红一方面军到达吴起镇，随后在直罗镇打了胜仗，兵力约3万。';
+  const facts='1935年10月19日，红军陕甘支队到达吴起镇；11月21日至24日，红一方面军在直罗镇取得胜利。';
+  const ids=['wuqi','zhiluozhen'];
+  const ask=()=>worker.fetch(make({question,node:'wuqi'}),env).then(res=>res.json());
+  for(const gap of [
+    '兵力约3万，资料里没有依据。','“兵力约3万”这一说法，资料未记载。',
+    '关于“兵力约3万”：资料里没有吴起镇时兵力的记载。','第三点“兵力约3万”资料里没有提到，无法核实。'
+  ]){
+    const answer=facts+gap;
+    log=script([reply({type:'history',answer,sources:ids}),reply({type:'history',answer,sources:ids})]);
+    body=await ask();
+    assert.equal(log.length,1,'资料边界中的用户原数字不应触发重答：'+gap);
+    assert.equal(body.answer,answer);
+  }
+  for(const invalid of [
+    '前两点与资料一致。红一方面军兵力约3万，资料没有记载伤亡。',
+    '前两点与资料一致。兵力约4万，资料没有记载。',
+    '前两点与资料一致。1935年11月21日到达吴起镇，1935年10月19日在直罗镇取得胜利。'
+  ]){
+    log=script([reply({type:'history',answer:invalid,sources:ids}),reply({type:'history',answer:invalid,sources:ids})]);
+    body=await ask();
+    assert.equal(log.length,2);
+    assert.match(body.answer,/10月19日[^。]{0,35}吴起镇/);
+    assert.match(body.answer,/11月21日至24日[^。]{0,35}直罗镇/);
+    assert.match(body.answer,/资料(?:未|没有)[^。]+兵力/);
+  }
+  for(const incomplete of [facts,'你提到的三点中，前两点与资料一致，第三点资料里没有依据。']){
+    log=script([reply({type:'history',answer:incomplete,sources:ids})]);
+    body=await ask();
+    assert.match(body.answer,/10月19日[^。]{0,35}吴起镇/);
+    assert.match(body.answer,/11月21日至24日[^。]{0,35}直罗镇/);
+    assert.match(body.answer,/资料(?:未|没有)[^。]+兵力/);
+  }
+}
+
+{
+  const question='湘江一仗打完红军是不是就剩两万人了？';
+  const ids=['xiangjiang_lines'];
+  const fact='渡过湘江后，中央红军兵力减至3万余人。';
+  for(const correction of ['不是就剩两万人。','“就剩两万人”这一说法与资料不符。']){
+    log=script([reply({type:'history',answer:correction+fact,sources:ids})]);
+    body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+    assert.equal(log.length,1);
+    assert.equal(body.answer,correction+fact);
+  }
+  for(const wrong of ['湘江战役后就剩两万人。','不是就剩十万人。']){
+    log=script([reply({type:'history',answer:wrong,sources:ids}),reply({type:'history',answer:fact,sources:ids})]);
+    body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+    assert.equal(log.length,2);
+    assert.equal(body.answer,fact);
+  }
+  const wrong=reply({type:'history',answer:'湘江战役后就剩两万人。',sources:ids});
+  log=script([wrong,reply({type:'history',answer:'湘江战役后就剩两万人。',sources:ids})]);
+  body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+  assert.equal(log.length,2);
+  assert.match(body.answer,/“就剩两万人”与资料不符/);
+  assert.match(body.answer,/渡过湘江后[^。]+3万余人/);
+  assert.doesNotMatch(body.answer,/伤亡/);
+}
+
 // Claude 联测原稿的两个反例：累计兵力的明确说明和前三道封锁线的原资料日期都应保留。
 {
   const question='湘江战役红军损失了多少人？是不是只剩2万人？';

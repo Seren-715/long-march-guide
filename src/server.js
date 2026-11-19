@@ -326,7 +326,7 @@ const HISTORICAL_EVENTS=[
   ['chishui',/赤水/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
   ['liping',/黎平/],['gouba',/苟坝/],['dadu',/大渡河|安顺场/],
   ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
-  ['lazikou',/腊子口/],['wuqi',/吴起镇/],['jiajin',/夹金山/],
+  ['lazikou',/腊子口/],['wuqi',/吴起镇/],['zhiluozhen',/直罗镇/],['jiajin',/夹金山/],
   ['maoergai',/毛儿盖/],['huili',/会理/],['houchang',/猴场/],
   ['bangluo',/榜罗镇/],['hadapu',/哈达铺/],['wujiang',/强渡(?:了)?乌江|渡过(?:了)?乌江|乌江渡河/],
   ['tucheng',/土城/],['loushan',/娄山关/]
@@ -435,14 +435,26 @@ function numberTokens(text,source){
 function numbersAllowedIn(text){return [...numberTokens(text,true)];}
 function numbersClaimedIn(text){return [...numberTokens(text,false)];}
 const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(?:在|于)?\s*[“"「『‘]?\s*(?:(?:只剩|仅剩|就剩)(?:下)?|只有|仅有|才有?|总共|一共|共|大约|约|将近|近|多达)?\s*(\d{4}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[\/\-\.．]\d{1,2}[\/\-\.．]\d{1,2}|\s*年)?|\d{1,2}\s*月(?:\s*\d{1,2}\s*[日号])?|\d+(?:\.\d+)?\s*(?:万(?:人|名)?|人|名))/g;
+const COUNT_GAP='(?:(?:现有|所引)?资料(?:里|中)?并?(?:没有(?:依据|记载|提到|给出|(?:到达|抵达)?(?:吴起镇|直罗镇)(?:战役)?(?:时|当时)?兵力(?:数字)?的记载)|未(?:记载|提到|给出)|无法核实)|我?无法核实)';
+const COUNT_GAP_END='(?=[。！？；，,.!?;\\n]|$)';
+const COUNT_GAP_TOPIC=new RegExp('(^|[。！？；!?;\\n])([ \\t]*(?:(?:关于|至于|你提到的|第[一二三四五]点)\\s*)?[“"「『‘]?(?:兵力(?:为|是)?\\s*)?(?:[近约]|将近|大约)?\\s*(?:\\d+(?:\\.\\d+)?\\s*万|[一二两三四五六七八九十百千]+万)(?:余人|多人|人|名)?[”"」』’]?(?:的?说法|这(?:一|种|个)说法|这一?数字)?\\s*[，,：:]?\\s*)(?='+COUNT_GAP+COUNT_GAP_END+')','g');
 function withoutRefutedQuestionFacts(answer,question){
-  const compact=normalizeNumerals(question).replace(/\s+/g,'');
+  const compact=squash(normalizeNumerals(question));
+  const questionCounts=new Set(countFacts(normalizeNumerals(question)).map(c=>squash(c.raw)));
+  const repeatsQuestionCount=text=>{
+    const counts=countFacts(text);
+    return counts.length===1&&questionCounts.has(squash(counts[0].raw));
+  };
   // 带数字的引号只在句中明确否定该说法、且与提问一致时才可略过。
   const quotedRefutation=/[“"「『‘]([^”"」』’。！？]{1,40})[”"」』’]\s*(?=(?:这(?:一|种|个)说法\s*)?(?:与(?:现有|所引)?资料不符|不符合(?:现有|所引)?资料|不准确|不正确|并不属实|不属实)(?:[，。！？；、,.!?;\n]|$))/g;
   const normalized=normalizeNumerals(answer).replace(quotedRefutation,(match,fact)=>
-    /\d/.test(fact)&&compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的说法）':match);
-  return normalized.replace(EXPLICIT_NEGATION,(match,fact)=>
-    compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的数字）':match);
+    (repeatsQuestionCount(fact)||(!countFacts(fact).length&&/\d/.test(fact)&&compact.includes(squash(fact))))?'（已否定提问中的说法）':match);
+  return normalized.replace(COUNT_GAP_TOPIC,(match,boundary,topic)=>
+    repeatsQuestionCount(topic)?boundary+'（提问中的数字未核实）':match)
+    .replace(/(?:不是|并非|绝非)\s*[“"「『‘]?\s*(?:(?:只|仅|就)剩(?:下)?\s*)?([一二两三四五六七八九十百千万]+(?:人|名))(?![人名万千百])/g,(match,fact)=>
+      repeatsQuestionCount(fact)?'（已否定提问中的数字）':match)
+    .replace(EXPLICIT_NEGATION,(match,fact)=>
+      (countFacts(fact).length?repeatsQuestionCount(match):compact.includes(squash(fact)))?'（已否定提问中的数字）':match);
 }
 function dateSupported(claim,source){
   if(!claim.valid||!source.valid||(!claim.yearOmitted&&(source.yearOmitted||claim.y!==source.y)))return false;
@@ -545,22 +557,40 @@ function asksForXiangjiangStrengthInterval(question){
   return XIANGJIANG_FULL_INTERVAL.test(q)&&/(?:兵力|红军人数|部队人数).{0,12}(?:变化|减少|多少)/.test(q)
     &&!/(?:伤亡|牺牲|阵亡|原因|为什么|顺便|另外|以及|带我|打开|并说明)/.test(q);
 }
-// 只覆盖已有两条资料能独立回答的复合查证，不替只问伤亡或还有其他要求的回复做决定。
+// 只覆盖湘江渡江后兵力的具体误传，以及同时询问单场伤亡的问法。
 function xiangjiangRemainingClaim(question){
   const q=squash(normalizeNumerals(question));
-  if(!/湘江/.test(q)||!/(?:伤亡|损失|阵亡|牺牲)(?:了|有)?(?:多少人?|人数是多少)/.test(q)
-    ||/(?:顺便|另外|以及|并说明|还想|为什么|怎么|带我|打开|讲个故事)/.test(q))return null;
-  return /(?:只剩|仅剩|就剩)(?:下)?2万(?:人)?(?=[？?。！，,；;]|$)/.exec(q)?.[0]||null;
+  const claim=/(?:只剩|仅剩|就剩)(?:下)?[2二两]万(?:人)?(?=了?[？?。！，,；;]|$)/.exec(q)?.[0];
+  if(!claim||!q.includes('湘江')||/(?:顺便|另外|以及|并说明|还想|为什么|怎么|带我|打开|讲个故事)/.test(q))return null;
+  const asksLoss=/(?:伤亡|损失|阵亡|牺牲)(?:了|有)?(?:多少人?|人数是多少)/.test(q);
+  if(!asksLoss&&!/^湘江[^。！？；?;]{1,28}(?:是不是|是否)(?:就|只|仅)剩(?:下)?[2二两]万(?:人)?了?[？?。]?$/.test(q))return null;
+  return {claim,asksLoss};
 }
-function coversXiangjiangLossAndRemaining(answer){
+function coversXiangjiangRemaining(answer,asksLoss){
   const q=squash(answer);
-  const refusesFalseCount=/2万/.test(q)&&/不是|不符|并非|不准确|说法不对/.test(q);
+  const mentionsFalseCount=/[2二两]万/.test(q);
+  const refusesFalseCount=/不是|不符|并非|不准确|说法不对/.test(q);
   const countGap=/(?:资料|记载)[^。！？]{0,35}(?:没有|未列出|未给出|未提供|未记载|未说明)[^。！？]{0,24}(?:人数|伤亡|损失数字)|(?:伤亡|损失人数|损失的(?:具体)?人数)[^。！？]{0,24}(?:没有|未列出|未给出|未提供|未记载|未说明|不详)/.test(q);
-  return refusesFalseCount&&XIANGJIANG_STRENGTH_END.test(q)&&countGap;
+  return XIANGJIANG_STRENGTH_END.test(q)&&(!mentionsFalseCount||refusesFalseCount)&&(!asksLoss||(mentionsFalseCount&&countGap));
 }
 const XIANGJIANG_SCOPE_SOURCES=['xiangjiang','xiangjiang_lines'];
 const XIANGJIANG_SCOPE_ANSWER='从长征出发到渡过湘江后，中央红军兵力减至3万余人。湘江战役中部队付出重大代价，所引资料未列出这场战役单独的伤亡人数。';
 const XIANGJIANG_INTERVAL_ANSWER='从长征出发时到渡过湘江后，中央红军兵力由8.6万余人减至3万余人。这是这一整段的兵力变化，不能当作湘江单场战役的伤亡人数。';
+const WUQI_ZHILUO_SOURCES=['wuqi','zhiluozhen'];
+const WUQI_ZHILUO_ANSWER='1935年10月19日，中共中央率红军陕甘支队到达陕北吴起镇。1935年11月21日至24日，红一方面军在直罗镇取得胜利。所引资料未给出抵达吴起镇或直罗镇战役时的兵力。';
+
+function checksWuqiZhiluoStrength(question){
+  // 固定的两条资料只能核对这组具体说法，不覆盖夹带其他问题或时间地点的问法。
+  return /^(?:请)?核对[：:]1935年10月[，,]红一方面军(?:到达|抵达)吴起镇[，,](?:随后|之后)在直罗镇(?:打了胜仗|取得胜利)[，,]兵力(?:约|大约)(?:\d+(?:\.\d+)?|[一二两三四五六七八九十]+)万(?:人)?[。？?]?$/.test(squash(normalizeNumerals(question)));
+}
+function coversWuqiZhiluoStrength(result,question){
+  if(!WUQI_ZHILUO_SOURCES.every(id=>result.ids.includes(id)))return false;
+  const facts=result.answer.split(/[。！？；;\n]/);
+  return facts.some(part=>/吴起镇/.test(part)&&/到达|抵达/.test(part)&&/10\s*月\s*19\s*[日号]/.test(part))
+    &&facts.some(part=>/直罗镇/.test(part)&&/胜利|胜仗/.test(part)&&/11\s*月\s*21\s*[日号]/.test(part))
+    &&(/提问中的数字未核实/.test(withoutRefutedQuestionFacts(result.answer,question))
+      ||facts.some(part=>/兵力/.test(part)&&/资料[^。]{0,15}(?:没有|未给出|未提到|未记载|无法核实)/.test(part)));
+}
 
 function explicitlyAsksOnlyTimeOrPlace(question){
   return /(?:只(?:想|要|需要)?(?:知道|问|回答|告诉我|说)|仅(?:需)?(?:回答|说明)|只要).{0,16}(?:时间|日期|地点|哪天|什么时候|在哪)/.test(question)
@@ -733,7 +763,8 @@ export default {async fetch(request, env) {
   const compareFujianCounts=asksAboutFujianCountDifference(question,fujianStory?.id);
   const xiangjiangStrengthQuery=asksForXiangjiangStrengthInterval(question);
   const remainingClaim=xiangjiangRemainingClaim(question);
-  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines')||(remainingClaim&&XIANGJIANG_SCOPE_SOURCES.includes(e.id)));
+  const wuqiZhiluoCheck=checksWuqiZhiluoStrength(question);
+  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines')||(remainingClaim&&XIANGJIANG_SCOPE_SOURCES.includes(e.id))||(wuqiZhiluoCheck&&WUQI_ZHILUO_SOURCES.includes(e.id)));
   const state={loaded:new Set(preload.map(e=>e.id)),action:null,current:free?null:current.id,tour};
   const gist=e=>e.id.startsWith('story_')?e.name.replace(/（[^）]*）$/,''):e.text.replace(/\s+/g,'').slice(0,26)+'…';
   const catalogue=nodes.map(n=>`[${n.id}] ${n.date} ${n.name}：${n.title}\n`+evidence.filter(e=>e.node===n.id).map(e=>`  - ${e.id}：${gist(e)}`).join('\n')).join('\n');
@@ -760,7 +791,8 @@ ${catalogue}
 已取出的资料：
 ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
   const run=async emit=>{
-    const messages=[{role:'system',content:system},...history,{role:'user',content:question}];
+    const scopeHint=wuqiZhiluoCheck?'\n这条核对只回答吴起镇抵达、直罗镇战役和当时兵力三项。前两项分别给出日期和部队。兵力没有依据时，直接写所引资料未给出当时的兵力，无须复述用户的估算或提及其他阶段的人数。':'';
+    const messages=[{role:'system',content:system+scopeHint},...history,{role:'user',content:question}];
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
     const steps=[],step=s=>{steps.push(s);emit({step:s});};
     const useWeb=webEnabled(env)&&(data.web==='auto'||data.web==='only');
@@ -848,10 +880,12 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       }
       result??=firstFailed;
       if(!result) return {status:502,body:{error:'助手回复格式异常，请重试。'}};
-      if(remainingClaim&&result.type==='history'&&(!result.ids.length||result.badNumbers.length||result.badTitles.length||result.risks.length||!coversXiangjiangLossAndRemaining(result.answer))){
-        const verified=checkReply({type:'history',answer:`“${remainingClaim}”与资料不符。${XIANGJIANG_SCOPE_ANSWER}`,sources:XIANGJIANG_SCOPE_SOURCES},question,state.current,state.loaded);
-        if(verified.ids.length===XIANGJIANG_SCOPE_SOURCES.length&&!verified.badNumbers.length&&!verified.badTitles.length&&!verified.risks.length){
-          step({kind:'verify',text:'按现有资料分别说明两种口径',detail:'渡江后兵力与单场伤亡',ok:true});
+      if(remainingClaim&&result.type==='history'&&(!result.ids.length||result.badNumbers.length||result.badTitles.length||result.risks.length||!coversXiangjiangRemaining(result.answer,remainingClaim.asksLoss))){
+        const sources=remainingClaim.asksLoss?XIANGJIANG_SCOPE_SOURCES:['xiangjiang_lines'];
+        const facts=remainingClaim.asksLoss?XIANGJIANG_SCOPE_ANSWER:'从长征出发到渡过湘江后，中央红军兵力减至3万余人。';
+        const verified=checkReply({type:'history',answer:`“${remainingClaim.claim}”与资料不符。${facts}`,sources},question,state.current,state.loaded);
+        if(verified.ids.length===sources.length&&!verified.badNumbers.length&&!verified.badTitles.length&&!verified.risks.length){
+          step({kind:'verify',text:remainingClaim.asksLoss?'按现有资料分别说明两种口径':'按现有资料核对渡江后兵力',detail:remainingClaim.asksLoss?'渡江后兵力与单场伤亡':'中央红军渡过湘江后的兵力',ok:true});
           result=verified;
         }
       }
@@ -908,6 +942,13 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         result.badNumbers=[];result.badTitles=[];result.risks=[];
       }
       else if(result.type==='history'&&result.ids.length)step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});
+      if(wuqiZhiluoCheck&&result.type==='history'&&!coversWuqiZhiluoStrength(result,question)){
+        const verified=checkReply({type:'history',answer:WUQI_ZHILUO_ANSWER,sources:WUQI_ZHILUO_SOURCES},question,state.current,state.loaded);
+        if(verified.ids.length===WUQI_ZHILUO_SOURCES.length&&!verified.badNumbers.length&&!verified.badTitles.length&&!verified.risks.length){
+          step({kind:'verify',text:'按现有资料逐项核对',detail:'吴起镇、直罗镇及兵力的资料边界',ok:true});
+          result=verified;
+        }
+      }
       const {type,ids,answer,followups}=result,action=state.action||result.action;
       // 历史问题在资料库里没有查到出处：联网兜底；查到一部分但说明了资料没有涉及的内容：让页面提供“联网再查”
       const gap=/(?:资料|文献|记载|知识库)[^。]{0,24}(?:没有|未|不足|无法|尚无)|不知道/.test(answer);
