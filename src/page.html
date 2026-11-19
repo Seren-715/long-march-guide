@@ -183,6 +183,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 #open-reading:hover{border-color:var(--accent)}
 .related{display:grid;gap:8px;margin:14px 0 4px}
 .related-label{font-size:12px;color:var(--text3);letter-spacing:.04em}
+.story-links .story-next{padding:10px 13px}
+.story-links .story-next b{font-size:14.5px;line-height:1.6}
 .stop-card{display:flex;align-items:center;gap:14px;width:100%;padding:10px 12px 10px 10px;border:1px solid var(--accent-line);border-radius:14px;background:var(--accent-soft);color:var(--text);text-align:left;cursor:pointer;font:inherit;transition:transform .15s,box-shadow .15s,border-color .15s}
 .stop-card:hover{border-color:var(--accent);box-shadow:0 6px 18px rgba(179,38,30,.14);transform:translateY(-1px)}
 .stop-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -857,6 +859,8 @@ const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).map(g => {
 }).filter(Boolean);
 // 没有手写“下一个”的故事，按路线上的远近推荐：同一站最先，其次是时间上相邻的站
 const nodePos = id => nodes.findIndex(n => n.id === id);
+// 回答引用了某个故事的原文时，在回答下面给出“读完整的故事”入口（问答 → 故事）
+const GUIDE_BY_STORY = new Map(GUIDES.filter(g => g.story).map(g => [g.story, g]));
 const TRAILS = (Array.isArray(DATA.trails) ? DATA.trails : []).map(t => ({ ...t, items: (t.items || []).map(id => GUIDES.find(g => g.id === id)).filter(Boolean) })).filter(t => t.title && t.items.length >= 3);
 const trailsOf = id => TRAILS.filter(t => t.items.some(g => g.id === id));
 GUIDES.forEach((g, i) => { if (!g.next) g.next = GUIDES.map((x, j) => ({ x, j, d: Math.abs(nodePos(x.node) - nodePos(g.node)) })).filter(o => o.x.id !== g.id).sort((p, q) => p.d - q.d || ((p.j - i + GUIDES.length) % GUIDES.length) - ((q.j - i + GUIDES.length) % GUIDES.length)).slice(0, 4).map(o => o.x.id); });
@@ -1837,7 +1841,9 @@ function addMessage(who, text, sources = [], opts = {}) {
   const evidenceAnswer = !mine && renderEvidenceAnswer(text, sources, opts.evidenceFocus, opts.evidenceVersion);
   if (evidenceAnswer) body.append(...evidenceAnswer);
   else body.append(el('div', 'msg-text', text));
-  if (opts.related && opts.related.length) body.append(relatedCards(opts.related, opts.readingFujian));
+  // 故事优先：回答用到的故事放在前面；有故事入口时，地点卡片只留一张
+  if (opts.storyLinks && opts.storyLinks.length) { const box = el('div', 'related story-links'); box.append(el('div', 'related-label', '回答里用到了' + (opts.storyLinks.length > 1 ? '这些' : '这个') + '故事，可以读完整的')); for (const g of opts.storyLinks) box.append(taleCard(g, 'story-next')); body.append(box); }
+  if (opts.related && opts.related.length) body.append(relatedCards(opts.storyLinks && opts.storyLinks.length ? opts.related.slice(0, 1) : opts.related, opts.readingFujian));
   if (opts.web) {
     // 网络来源：与已核对资料分开标注，统一提示未经核对、可能有误；不再区分权威和非权威
     const box = el('div', 'webrefs'); box.append(el('div', 'trust web', '网络来源 · 未经人工核对，可能有误，引用前请打开原文确认'));
@@ -1959,6 +1965,7 @@ async function ask(question, opts = {}) {
     const liveSteps = []; const data = await askStream(JSON.parse(payload), s => { liveSteps.push(s); typing.addStep(s); }); typing.remove();
     if (typeof data.answer !== 'string' || !data.answer.trim()) throw new Error('暂未获得回答，请换个问法试试。');
     const srcIds = (Array.isArray(data.sources) ? data.sources : []).flatMap(x => x.ids || [x.id]);
+    const storyLinks = data.type === 'history' && !data.web && !readingFujian ? [...new Set(srcIds.map(id => GUIDE_BY_STORY.get(id)).filter(g => g && g.id !== currentStory))].slice(0, 2) : [];
     const related = free ? [...new Set(srcIds.filter(id => !readingFujian || !STORIES.some(s => s.id === id && s.kind === 'source_comparison')).map(nodeOfSource).filter(Boolean))].slice(0, 3) : [];
     if (related.length) lastRelated = related[0];
     if (free) {
@@ -1966,7 +1973,7 @@ async function ask(question, opts = {}) {
       if (matched.length) matched.forEach(n => markQuestionAnswered(n.id, question)); else markQuestionAnswered(questionNode, question);
       for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide();
     } else markQuestionAnswered(questionNode, question);
-    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, readingFujian, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? searchContext : null, evidenceFocus: data.evidenceFocus, evidenceVersion: requestVersion });
+    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { storyLinks, steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, readingFujian, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? searchContext : null, evidenceFocus: data.evidenceFocus, evidenceVersion: requestVersion });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     if (ttsOn) speak(data.answer);
