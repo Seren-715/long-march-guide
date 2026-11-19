@@ -230,15 +230,16 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .tale span{font-size:12.5px;line-height:1.55;color:var(--text2);margin-top:auto}
 .tales + .starts{margin-top:10px}
 
-.story-page{width:min(760px,100%)}
+.story-page{width:min(700px,100%)}
 .story-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .story-back{font-size:13px;color:var(--text3);padding:4px 0}
 .story-back:hover{color:var(--accent)}
 .story-page h1{margin-bottom:18px}
-.story-part p{font-size:17px!important;line-height:2!important}
-.story-hook{font-family:var(--serif);font-size:21px;line-height:1.6;font-weight:700;margin:6px 0 18px;padding-left:14px;border-left:3px solid var(--accent)}
-.story-part{position:relative;margin:0 0 16px;animation:stepin .35s ease-out}
-.story-part h3,.story-more h3{margin:0 0 4px;font-size:13px;font-weight:600;color:var(--text2);display:flex;align-items:baseline;gap:8px}
+.story-part p{font-family:var(--serif);font-size:18.5px!important;line-height:2.15!important;letter-spacing:.01em}
+.story-hook{font-family:var(--serif);font-size:23px;line-height:1.7;font-weight:700;margin:10px 0 40px;padding-top:18px;position:relative}
+.story-hook:before{content:"";position:absolute;top:0;left:0;width:36px;height:3px;background:var(--accent)}
+.story-part{position:relative;margin:0 0 30px;animation:stepin .9s ease-out}
+.story-part h3,.story-more h3{margin:0 0 6px;font-size:12.5px;font-weight:600;color:var(--text3);letter-spacing:.08em;display:flex;align-items:baseline;gap:8px}
 .story-part h3 em{font-style:normal;color:var(--accent);font-variant-numeric:tabular-nums}
 .story-part p,.story-more p{margin:0;font-size:15.5px;line-height:1.85}
 .story-page.event .story-part{padding-left:20px;border-left:2px solid var(--accent-line);margin-left:5px}
@@ -247,7 +248,35 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .term:hover,.term[aria-expanded=true]{color:var(--accent)}
 .term-note{margin:8px 0 0;padding:9px 12px;border-radius:10px;background:var(--bg2);font-size:13.5px;line-height:1.7;color:var(--text2)}
 .story-part .refs,.story-more .refs,.term-note .refs{margin-top:6px}
-.story-go{display:flex;align-items:center;gap:12px;margin:4px 0 6px}
+.story-go{display:flex;justify-content:center;margin:34px 0 20px}
+.story-cont{font-family:var(--serif);font-size:16px;color:var(--accent);padding:8px 4px;border-bottom:1px solid var(--accent-line);transition:border-color .15s,letter-spacing .2s}
+.story-cont:hover{border-color:var(--accent);letter-spacing:.06em}
+.story-cont:after{content:" ↓";display:inline-block;animation:nudge 1.8s ease-in-out infinite}
+@keyframes nudge{50%{transform:translateY(3px)}}
+@media(prefers-reduced-motion:reduce){.story-cont:after{animation:none}}
+.story-fold{margin:6px 0 24px;font-size:14px}
+.story-fold summary{cursor:pointer;color:var(--text3);font-size:13px;letter-spacing:.08em;padding:6px 0;list-style:none}
+.story-fold summary::-webkit-details-marker{display:none}
+.story-fold summary:before{content:"＋ "}
+.story-fold[open] summary:before{content:"－ "}
+.story-fold[open] summary{margin-bottom:8px}
+.story-ask{margin:26px 0 8px}
+.story-ask h3{font-family:var(--serif);font-size:15px;margin:0 0 6px;color:var(--text2)}
+.story-ask button{display:block;text-align:left;padding:7px 0;font-size:14.5px;line-height:1.6;color:var(--text2);border-bottom:1px dotted var(--border)}
+.story-ask button:before{content:"问　";color:var(--accent);font-size:12.5px}
+.story-ask button:hover:not(:disabled){color:var(--accent)}
+.onward{position:relative;margin:48px 0 20px;padding-left:28px}
+.onward:before{content:"";position:absolute;left:5px;top:10px;bottom:34px;width:0;border-left:2px dotted var(--accent-line)}
+.onward i{position:absolute;left:-28px;top:.45em;width:12px;height:12px;border-radius:50%;box-sizing:border-box;background:var(--accent)}
+.onward-now{position:relative;margin:0 0 18px;font-size:13px;color:var(--text3);letter-spacing:.06em}
+.onward-go{position:relative;display:block;width:100%;text-align:left;padding:0}
+.onward-go small{position:relative;display:block;font-size:12.5px;color:var(--accent);letter-spacing:.06em;margin-bottom:6px}
+.onward-go small i{background:var(--bg);border:2px solid var(--accent)}
+.onward-go b{display:block;font-family:var(--serif);font-size:21px;line-height:1.65;font-weight:700}
+.onward-go span{display:block;margin-top:8px;font-size:14px;color:var(--text2)}
+.onward-go:hover b,.onward-go:hover span{color:var(--accent)}
+.onward-map{display:block;margin-top:18px;font-size:13px;color:var(--text3);border-bottom:1px solid var(--border)}
+.onward-map:hover{color:var(--accent)}
 .story-go small{font-size:12px;color:var(--text3)}
 .story-more{margin-top:8px;padding-top:16px;border-top:1px solid var(--border2);animation:stepin .35s ease-out}
 .story-more > h3{margin:18px 0 8px;font-family:var(--serif);font-size:16px;color:var(--text)}
@@ -871,28 +900,29 @@ function openStory(id, push = true) {
   const body = $('story-body'); $('story-page').classList.toggle('event', g.kind === 'event'); $('story-back').hidden = false;
   $('story-tag').textContent = g.tag + (g.date ? ' · ' + g.date : ''); $('story-title').textContent = g.title;
   body.replaceChildren(el('p', 'story-hook', g.hook));
-  const parts = el('div', 'story-parts'), go = el('div', 'story-go'), more = el('button', 'btn btn-primary', ''), count = el('small'); more.type = 'button'; go.append(more, count); body.append(parts, go);
+  const parts = el('div', 'story-parts'), go = el('div', 'story-go'), more = el('button', 'story-cont', ''); more.type = 'button'; go.append(more); body.append(parts, go);
   let shown = 0;
   const finale = () => {
     go.remove(); readTales.add(g.id); renderTales(); const box = el('div', 'story-more');
     if (g.kind !== 'event') { const refs = guideRefs(g.parts[0].sources); for (const m of g.more || []) { const u = safeLink(m.url); if (u) refs.append(srcLink(u, m.title || '查看资料', 'ref')); } box.append(refs); }
     if (g.note) { const nt = el('div', 'tale-note'); nt.append(el('b', '', '关于这段记载'), document.createTextNode(g.note)); box.append(nt); }
-    if ((g.background || []).length) { box.append(el('h3', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); box.append(item); } }
-    if (g.place && find(g.place.node)) { const pl = el('div', 'story-place'); const btn = el('button', 'btn btn-ghost', '在路线上看这一站 →'); btn.type = 'button'; btn.addEventListener('click', () => choose(g.place.node)); pl.append(el('span', '', g.place.text), btn); box.append(pl); }
-    if ((g.whys || []).length) { box.append(el('h3', '', '读到这里，你可能想问')); const w = el('div', 'story-whys'); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(q, { story: g.id }); }); w.append(b); } box.append(w); }
-    let trailNext = null;
-    if (curTrail) {
-      const t = curTrail, at = t.items.findIndex(x => x.id === g.id), rest = t.items.filter(x => x.id !== g.id && !readTales.has(x.id));
-      trailNext = rest.find(x => t.items.indexOf(x) > at) || rest[0] || null;
-      const tb = el('div', 'trail-box'); tb.append(el('h3', '', '专题 · ' + t.title));
-      tb.append(el('p', 'trail-meta', '这是这条线上的第 ' + (at + 1) + ' 篇，共 ' + t.items.length + ' 篇；' + (rest.length ? '还有 ' + rest.length + ' 篇没读。' : '这条线你都读完了。')));
-      const dots = el('div', 'trail-dots'); t.items.forEach(x => dots.append(el('i', x.id === g.id ? 'cur' : readTales.has(x.id) ? 'on' : ''))); tb.append(dots);
-      if (trailNext) { const c = taleCard(trailNext, 'story-next'); c.addEventListener('click', () => { openTrail = t.id; }, true); tb.append(c); }
-      const all = el('button', 'story-all', '看整条专题 →'); all.type = 'button'; all.addEventListener('click', () => { storyTrail = t.id; openStoryList(); }); tb.append(all);
-      box.append(tb);
+    if ((g.background || []).length) { const fold = el('details', 'story-fold'); fold.append(el('summary', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); fold.append(item); } box.append(fold); }
+    if ((g.whys || []).length) { const ak = el('div', 'story-ask'); ak.append(el('h3', '', '在这里问小征')); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(q, { story: g.id }); }); ak.append(b); } box.append(ak); }
+    // 继续前行：不回到列表，顺着路线走到下一站。有正在读的专题就沿专题走，否则取路线上往前最近的一个没读过的故事
+    const here = find(g.node), tr = curTrail, at = tr ? tr.items.findIndex(x => x.id === g.id) : -1, restT = tr ? tr.items.filter(x => x.id !== g.id && !readTales.has(x.id)) : [];
+    const fwd = x => ((nodePos(x.node) - nodePos(g.node)) % nodes.length + nodes.length) % nodes.length;
+    const nextG = (tr && (restT.find(x => tr.items.indexOf(x) > at) || restT[0])) || GUIDES.filter(x => x.id !== g.id).sort((p, q) => (readTales.has(p.id) - readTales.has(q.id)) || fwd(p) - fwd(q))[0];
+    if (nextG) {
+      const nn = find(nextG.node), onTrail = tr && tr.items.includes(nextG), on = el('section', 'onward');
+      const now = el('p', 'onward-now', (here ? here.name + (here.date ? ' · ' + here.date : '') : g.title)); now.prepend(el('i'));
+      const go2 = el('button', 'onward-go'); go2.type = 'button';
+      const lab = el('small', '', (onTrail ? '沿「' + tr.title + '」 · ' : '') + (nn ? (nn.id === (here && here.id) ? '同在 ' + nn.name : '下一站 · ' + nn.name + (nn.date ? ' · ' + nn.date : '')) : '下一站')); lab.prepend(el('i'));
+      go2.append(lab, el('b', '', nextG.hook), el('span', '', '《' + nextG.title + '》 · 继续前行 →'));
+      go2.addEventListener('click', () => { if (onTrail) openTrail = tr.id; openStory(nextG.id); });
+      on.append(now, go2);
+      if (g.place && find(g.place.node)) { const pl = el('button', 'onward-map', '在路线上看这一站'); pl.type = 'button'; pl.addEventListener('click', () => choose(g.place.node)); on.append(pl); }
+      box.append(on);
     }
-    const nexts = (g.next || []).map(n => GUIDES.find(x => x.id === n)).filter(Boolean), nx = nexts.find(x => !readTales.has(x.id) && x !== trailNext) || nexts.find(x => x !== trailNext) || (trailNext ? null : nexts[0]);
-    if (nx) { box.append(el('h3', '', '再听一个')); box.append(taleCard(nx, 'story-next')); const all = el('button', 'story-all', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', () => openStoryList()); box.append(all); }
     body.append(box); box.scrollIntoView({ behavior: motion(), block: 'nearest' });
   };
   const reveal = () => {
@@ -900,7 +930,7 @@ function openStory(id, push = true) {
     if (part.label || part.date) { const h = el('h3'); if (part.date) h.append(el('em', '', part.date)); h.append(document.createTextNode(part.label || '')); item.append(h); }
     item.append(guideText(part)); if (g.kind === 'event') item.append(guideRefs(part.sources)); parts.append(item);
     if (shown > 1) item.scrollIntoView({ behavior: motion(), block: 'nearest' });
-    if (shown >= g.parts.length) finale(); else { more.textContent = shown === g.parts.length - 1 && g.kind !== 'event' ? '后来呢？' : '接着往下看'; count.textContent = shown + ' / ' + g.parts.length; }
+    if (shown >= g.parts.length) finale(); else { more.textContent = shown === g.parts.length - 1 && g.kind !== 'event' ? '后来呢？' : '接着往下看'; }
   };
   more.addEventListener('click', reveal); reveal();
   const fresh = currentStory !== g.id; showStoryPage(g.title, '#story-' + g.id, push); currentStory = g.id;
