@@ -296,6 +296,10 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-cats .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
 .story-cats .chip small{margin-left:6px;opacity:.75;font-size:12px}
 .story-cat-note{margin:0 0 16px;font-size:13.5px;line-height:1.7;color:var(--text2)}
+.story-filter{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;margin:0 0 6px}
+.story-filter b{font-family:var(--serif);font-size:16px}
+.story-filter-link{font-size:13px;color:var(--text3);border-bottom:1px solid var(--border)}
+.story-filter-link:hover{color:var(--accent);border-color:var(--accent)}
 .story-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
 .story-list .story-next{display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:280px;aspect-ratio:3/4;padding:20px 18px;border-radius:12px;overflow-wrap:anywhere}
 /* 书本卡片像实体按钮一样抬起、按下 */
@@ -562,6 +566,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .65s ease-o
 .hist-sec{margin:0 0 18px}
 .hist-sec h3{font-size:13px;font-weight:600;color:var(--text3);margin:0 0 8px;letter-spacing:.04em}
 .hist-list{display:grid;gap:8px}
+.hist-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .hist-list button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);font-size:14.5px;line-height:1.55;transition:border-color .15s,background .15s}
 .hist-list button:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--bg))}
 .hist-list small{font-size:12px;color:var(--text3)}
@@ -675,7 +680,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .65s ease-o
 <p class="home-scope">目前收录的是<b>中央红军主力</b>的长征路线：从中央苏区到吴起镇，共 23 处；另有直罗镇、会宁、将台堡三处。其他各路红军的资料还很少。</p>
 <div class="tales" id="tales" role="group" aria-label="从故事开始" hidden></div>
 <div class="starts" role="group" aria-label="开始方式">
-<button type="button" class="start" id="start-history" aria-haspopup="dialog"><b>历史记录</b><span>读过的故事、问过的问题</span></button>
+<button type="button" class="start" id="start-history" aria-haspopup="dialog"><b>档案</b><span>专题、分类和你的足迹</span></button>
 <button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
 <button type="button" class="start" id="start-people" aria-haspopup="dialog"><b>人物档案</b><span>从人物故事认识长征</span></button>
 <button type="button" class="start" id="start-fujian"><b>八闽儿女的长征</b><span>探寻福建与长征的故事</span></button>
@@ -717,7 +722,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .65s ease-o
 <div class="dialog-body"><div class="hist-list" id="claims-list"></div><p class="plan-note">核对结果以回答里附的出处为准；资料没有记载的，小征会如实说明。</p></div>
 </dialog>
 <dialog class="route-dialog" id="history-dialog" aria-labelledby="history-title">
-<div class="dialog-head"><div><h2 id="history-title">历史记录</h2><p>读过的故事、看过的站、问过的问题，点一下就能回去</p></div><button type="button" class="dialog-close" id="history-close" aria-label="关闭">×</button></div>
+<div class="dialog-head"><div><h2 id="history-title">档案</h2><p>按专题或分类找故事；你读过的故事、看过的站、问过的问题也在这里</p></div><button type="button" class="dialog-close" id="history-close" aria-label="关闭">×</button></div>
 <div class="dialog-body" id="history-body"></div>
 </dialog>
 <dialog class="route-dialog" id="people-dialog" aria-labelledby="people-title">
@@ -872,26 +877,27 @@ function openStoryFromCard(card, id) {
 }
 function taleCard(g, cls) { const b = el('button', cls); b.type = 'button'; b.append(el('small', '', g.tag + (readTales.has(g.id) ? ' · 已读' : '')), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => { if (b.closest('.story-list')) openStoryFromCard(b, g.id); else openStory(g.id); }); return b; }
 let storyCat = '';
+// 故事分类：首个是“全部”；分类和专题的切换都放在“档案”里，列表页只留一行当前看法
+const STORY_CATS = [['', '全部', '所有能读的故事，挑一个开始。'], ['人物故事', '人物故事', '从一个人的经历讲起：他（她）做了什么，后来怎样。'], ['事件故事', '事件故事', '一场战斗、一次渡河或一次会合是怎样发生的。'], ['会议与决策', '会议与决策', '关键时刻，大家争论什么、最后怎样定下方向。'], ['军民与民族', '军民与民族', '红军与沿途群众、少数民族之间发生的事。']].filter(c => !c[0] || GUIDES.some(g => g.cat === c[0]));
 function openStoryList(push = true) {
   const body = $('story-body'); $('story-page').classList.remove('event'); $('story-back').hidden = true;
   $('story-tag').textContent = '真人真事，皆有出处'; $('story-title').textContent = '长征路上的故事';
-  const CATS = [['', '全部', '所有能读的故事，挑一个开始。'], ['人物故事', '人物故事', '从一个人的经历讲起：他（她）做了什么，后来怎样。'], ['事件故事', '事件故事', '一场战斗、一次渡河或一次会合是怎样发生的。'], ['会议与决策', '会议与决策', '关键时刻，大家争论什么、最后怎样定下方向。'], ['军民与民族', '军民与民族', '红军与沿途群众、少数民族之间发生的事。']];
-  const bar = el('div', 'story-cats'), note = el('p', 'story-cat-note'), list = el('div', 'story-list');
-  const draw = cat => { const row = CATS.find(c => c[0] === cat) || CATS[0]; note.textContent = row[2]; list.replaceChildren(...GUIDES.filter(g => !cat || g.cat === cat).map(g => taleCard(g, 'story-next'))); [...bar.children].forEach((b, i) => b.setAttribute('aria-pressed', CATS[i][0] === cat ? 'true' : 'false')); storyCat = cat; };
-  CATS.forEach(([key, label]) => { const n = key ? GUIDES.filter(g => g.cat === key).length : GUIDES.length; if (key && !n) return; const b = el('button', 'chip', label); b.type = 'button'; b.append(el('small', '', String(n))); b.addEventListener('click', () => { storyTrail = ''; [...tbar.querySelectorAll('.chip')].forEach(x => x.setAttribute('aria-pressed', 'false')); draw(key); }); b.dataset.cat = key; bar.append(b); });
-  CATS.splice(0, CATS.length, ...CATS.filter(c => !c[0] || GUIDES.some(g => g.cat === c[0])));
-  const tbar = el('div', 'story-trails');
-  const drawTrail = id => {
-    const t = TRAILS.find(x => x.id === id); if (!t) { storyTrail = ''; [...tbar.querySelectorAll('.chip')].forEach(b => b.setAttribute('aria-pressed', 'false')); draw(''); return; }
-    storyTrail = id; storyCat = ''; [...bar.children].forEach(b => b.setAttribute('aria-pressed', 'false'));
-    const done = t.items.filter(g => readTales.has(g.id)).length; note.textContent = t.blurb + '　已读 ' + done + ' / ' + t.items.length + '，按故事发生的先后排列。';
+  const head = el('div', 'story-filter'), note = el('p', 'story-cat-note'), list = el('div', 'story-list');
+  const t = storyTrail && TRAILS.find(x => x.id === storyTrail), cat = !t && STORY_CATS.find(c => c[0] === storyCat) || STORY_CATS[0];
+  if (!t) storyTrail = '';
+  if (t) {
+    const done = t.items.filter(g => readTales.has(g.id)).length;
+    head.append(el('b', '', '专题 · ' + t.title)); note.textContent = t.blurb + '　已读 ' + done + ' / ' + t.items.length + '，按故事发生的先后排列。';
     list.replaceChildren(...t.items.map((g, i) => { const c = taleCard(g, 'story-next' + (readTales.has(g.id) ? ' is-read' : '')); c.append(el('i', 'trail-no', String(i + 1))); return c; }));
-    [...tbar.querySelectorAll('.chip')].forEach(b => b.setAttribute('aria-pressed', b.dataset.trail === id ? 'true' : 'false'));
-  };
-  if (TRAILS.length) { tbar.append(el('b', '', '专题')); for (const t of TRAILS) { const b = el('button', 'chip', t.title); b.type = 'button'; b.dataset.trail = t.id; b.append(el('small', '', String(t.items.length))); b.setAttribute('aria-pressed', 'false'); b.addEventListener('click', () => drawTrail(storyTrail === t.id ? '' : t.id)); tbar.append(b); } }
+  } else {
+    storyCat = cat[0]; const items = GUIDES.filter(g => !cat[0] || g.cat === cat[0]);
+    head.append(el('b', '', (cat[0] ? '分类 · ' + cat[1] : '全部故事') + ' · ' + items.length + ' 个')); note.textContent = cat[2];
+    list.replaceChildren(...items.map(g => taleCard(g, 'story-next')));
+  }
+  if (t || cat[0]) { const all = el('button', 'story-filter-link', '看全部'); all.type = 'button'; all.addEventListener('click', () => { storyTrail = ''; storyCat = ''; openStoryList(false); }); head.append(all); }
+  const arc = el('button', 'story-filter-link', '按专题或分类看 →'); arc.type = 'button'; arc.setAttribute('aria-haspopup', 'dialog'); arc.addEventListener('click', openHistory); head.append(arc);
   list.addEventListener('click', () => { openTrail = storyTrail || null; }, true);
-  body.replaceChildren(...(TRAILS.length ? [tbar] : []), bar, note, list);
-  if (storyTrail && TRAILS.some(t => t.id === storyTrail)) drawTrail(storyTrail); else { storyTrail = ''; draw(storyCat); }
+  body.replaceChildren(head, note, list);
   showStoryPage('长征路上的故事', '#stories', push); currentStory = null;
 }
 function openStory(id, push = true) {
@@ -1165,13 +1171,15 @@ $('claims-dialog').addEventListener('click', e => { if (e.target === e.currentTa
 renderTry();
 function openHistory() {
   const body = $('history-body'), has = hist.stories.length || hist.stops.length || hist.asks.length || route.length || viewed.size || messages.querySelector('.msg.user'); body.replaceChildren();
-  const sec = (title, items) => { if (!items.length) return; const box = el('div', 'hist-sec'), list = el('div', 'hist-list'); box.append(el('h3', '', title)); for (const it of items) list.append(it); box.append(list); body.append(box); };
+  const sec = (title, items, cls) => { if (!items.length) return; const box = el('div', 'hist-sec'), list = el('div', 'hist-list' + (cls ? ' ' + cls : '')); box.append(el('h3', '', title)); for (const it of items) list.append(it); box.append(list); body.append(box); };
   const item = (main, sub, fn) => { const b = el('button', ''); b.type = 'button'; b.append(document.createTextNode(main)); if (sub) b.append(el('small', '', sub)); b.addEventListener('click', () => { closeDialog('history-dialog'); fn(); }); return b; };
   if (route.length || viewed.size || messages.querySelector('.msg.user')) sec('继续这次参观', [item(route.length ? routeName + (finished ? ' · 已完成' : ' · 当前在「' + (find(selected)?.name || '') + '」') : '自由浏览 · 当前在「' + (find(selected)?.name || '') + '」', '', () => choose(selected))]);
+  sec('按专题读', TRAILS.map(t => { const done = t.items.filter(g => readTales.has(g.id)).length; return item(t.title, t.items.length + ' 篇' + (done ? ' · 已读 ' + done : ''), () => { storyTrail = t.id; storyCat = ''; openStoryList(); }); }), 'hist-grid');
+  sec('按分类读', STORY_CATS.map(c => item(c[1], (c[0] ? GUIDES.filter(g => g.cat === c[0]).length : GUIDES.length) + ' 个', () => { storyTrail = ''; storyCat = c[0]; openStoryList(); })), 'hist-grid');
   sec('读过的故事', hist.stories.map(id => GUIDES.find(g => g.id === id)).filter(Boolean).map(g => item(g.title, g.tag, () => openStory(g.id))));
   sec('看过的站', hist.stops.map(find).filter(Boolean).map(n => item(n.name, n.date, () => choose(n.id))));
   sec('问过的问题', hist.asks.map(a => item(a.q, '', () => ask(a.q, { fromHome: true }))));
-  if (!has) body.append(el('p', 'hist-empty', '还没有记录。读一个故事、看一站或问小征一个问题，这里就会记下来。'));
+  if (!has) body.append(el('p', 'hist-empty', '你的足迹：还没有记录。读一个故事、看一站或问小征一个问题，这里就会记下来。'));
   const foot = el('div', 'hist-foot'); foot.append(el('span', '', '记录只保存在这台设备的浏览器里，不会上传。'));
   const clear = el('button', 'btn btn-ghost', '清除'); clear.type = 'button'; clear.addEventListener('click', () => { hist.stories = []; hist.stops = []; hist.asks = []; readTales.clear(); try { localStorage.removeItem(HIST_KEY); } catch {} renderTales(); openHistory(); }); foot.append(clear); body.append(foot);
   const d = $('history-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
@@ -1653,7 +1661,18 @@ function addMessage(who, text, sources = [], opts = {}) {
   return row;
 }
 function stepItem(s, live) { const li = el('li', (s.kind === 'act' || s.kind === 'web' ? 'act' : s.kind === 'verify' ? (s.ok ? 'ok' : 'bad') : '') + (live ? ' live' : '')); li.append(el('b', '', String(s.text || '').slice(0, 80))); if (s.detail) li.append(document.createTextNode(' · ' + String(s.detail).slice(0, 80))); return li; }
-function stepList(steps) { const ul = el('ul', 'steps'); ul.setAttribute('aria-label', '小征的处理过程'); for (const s of steps) if (s && typeof s === 'object') ul.append(stepItem(s)); return ul; }
+// 相邻两步如果是同一件事（例如连续两次“查阅「湘江」的资料”），只显示一行，条数取较大的一次（两次可能有重复，不相加）；不改服务端返回的数据
+function mergeSteps(steps) {
+  const out = [];
+  for (const s of steps) {
+    if (!s || typeof s !== 'object') continue;
+    const prev = out[out.length - 1], n = /^(\d+) 条$/.exec(String(s.detail || '')), pn = prev && /^(\d+) 条$/.exec(String(prev.detail || ''));
+    if (prev && prev.kind === s.kind && prev.text === s.text && prev.ok === s.ok && (n && pn || !s.detail && !prev.detail)) { if (n) prev.detail = Math.max(Number(pn[1]), Number(n[1])) + ' 条'; continue; }
+    out.push({ ...s });
+  }
+  return out;
+}
+function stepList(steps) { const ul = el('ul', 'steps'); ul.setAttribute('aria-label', '小征的处理过程'); for (const s of mergeSteps(steps)) ul.append(stepItem(s)); return ul; }
 // 流式请求：服务端逐行返回处理步骤，最后一行是结果。不支持流式读取时退回普通请求。
 async function askStream(payload, onStep) {
   if (!window.ReadableStream || !window.TextDecoder) return fetchJSON('/api/chat', payload);
