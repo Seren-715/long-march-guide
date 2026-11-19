@@ -251,7 +251,7 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-go{display:flex;justify-content:center;margin:34px 0 20px}
 .story-cont{font-family:var(--serif);font-size:16px;color:var(--accent);padding:8px 4px;border-bottom:1px solid var(--accent-line);transition:border-color .15s,letter-spacing .2s}
 .story-cont:hover{border-color:var(--accent);letter-spacing:.06em}
-.story-cont:after{content:" ↓";display:inline-block;animation:nudge 1.8s ease-in-out infinite}
+.story-cont:after{content:" ↓";content:" ↓" / "";display:inline-block;animation:nudge 1.8s ease-in-out infinite}
 @keyframes nudge{50%{transform:translateY(3px)}}
 @media(prefers-reduced-motion:reduce){.story-cont:after{animation:none}}
 .story-fold{margin:6px 0 24px;font-size:14px}
