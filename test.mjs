@@ -1188,6 +1188,16 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
   body=await (await worker.fetch(make({question:'苟坝会议是哪天开的？',node:'chishui',free:true}),env)).json();
   assert.equal(calls.length,2,'日期挪到另一事件仍须重答');assert.doesNotMatch(body.answer,/3月10日召开苟坝会议/);
 }
+// —— 日期写在括号里：只归括号前紧挨的事件（猴场会议的日期不能因为同一小句提到黎平会议就被拒）——
+{
+  const run=async(answer,sources,question)=>{const calls=[];globalThis.fetch=async(url,options)=>{calls.push(1);return reply({type:'history',answer,sources})};
+    const body=await (await worker.fetch(make({question,node:'houchang',free:true}),env)).json();return {calls:calls.length,body};};
+  let r=await run('猴场会议（1934年12月31日晚至1935年1月1日凌晨）重申黎平会议的方针，决定立即强渡乌江、攻占遵义。',['houchang','houchang_liping'],'猴场会议和黎平会议是什么关系？');
+  assert.equal(r.calls,1,'括号里的日期归括号前的猴场会议，不应重答');assert.match(r.body.answer,/1934年12月31日/);
+  // 反例：括号前是另一个会议，日期仍须拦下
+  r=await run('遵义会议（1934年12月31日晚至1935年1月1日凌晨）重申黎平会议的方针。',['houchang','houchang_liping','zunyi'],'遵义会议是什么时候开的？');
+  assert.equal(r.calls,2,'括号前的事件与资料不符仍须重答');assert.doesNotMatch(r.body.answer,/遵义会议（1934年12月31日/);
+}
 globalThis.fetch=original;console.log('API and evidence tests passed');
 
 // 首答的可靠句子应在重答失败时保留，并重新校验完整剩余内容。

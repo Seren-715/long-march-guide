@@ -490,6 +490,13 @@ function dateSupported(claim,source){
   // 优先绑定日期所在的逗号分句；若分句不含事件，才回看整个句号句。
   // 一段有两个事件但无法分离日期归属时保守拒绝，而不是任一事件匹配即放行。
   const boundEvents=d=>{
+    // 日期写在括号里（“猴场会议（1934年12月31日晚至1935年1月1日凌晨）重申黎平会议的方针”），只归括号前紧挨的那个事件。
+    const at=d.localContext.indexOf(d.raw),before=at>0?d.localContext.slice(0,at):'';
+    const open=Math.max(before.lastIndexOf('（'),before.lastIndexOf('('));
+    if(open>0&&!/[）)]/.test(before.slice(open))){
+      const named=eventKeys(before.slice(Math.max(0,open-8),open));
+      if(named.length===1)return named;
+    }
     const local=eventKeys(d.localContext);
     if(local.length)return local;
     const whole=eventKeys(d.context);
