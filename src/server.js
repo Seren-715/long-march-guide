@@ -583,6 +583,9 @@ function checksWuqiZhiluoStrength(question){
   // 固定的两条资料只能核对这组具体说法，不覆盖夹带其他问题或时间地点的问法。
   return /^(?:请)?核对[：:]1935年10月[，,]红一方面军(?:到达|抵达)吴起镇[，,](?:随后|之后)在直罗镇(?:打了胜仗|取得胜利)[，,]兵力(?:约|大约)(?:\d+(?:\.\d+)?|[一二两三四五六七八九十]+)万(?:人)?[。？?]?$/.test(squash(normalizeNumerals(question)));
 }
+function checksDepartureStrength(question){
+  return /^(?:请核对[：:])?(?:中央红军|红一方面军)(?:长征出发|出发)(?:时|的时候)[，,]?(?:是不是|是否)(?:大约|约)?有?(?:\d+(?:\.\d+)?|[一二两三四五六七八九十百千]+)万(?:余)?人?[？?。]?$/.test(squash(normalizeNumerals(question)));
+}
 function coversWuqiZhiluoStrength(result,question){
   if(!WUQI_ZHILUO_SOURCES.every(id=>result.ids.includes(id)))return false;
   const facts=result.answer.split(/[。！？；;\n]/);
@@ -764,7 +767,8 @@ export default {async fetch(request, env) {
   const xiangjiangStrengthQuery=asksForXiangjiangStrengthInterval(question);
   const remainingClaim=xiangjiangRemainingClaim(question);
   const wuqiZhiluoCheck=checksWuqiZhiluoStrength(question);
-  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines')||(remainingClaim&&XIANGJIANG_SCOPE_SOURCES.includes(e.id))||(wuqiZhiluoCheck&&WUQI_ZHILUO_SOURCES.includes(e.id)));
+  const departureStrengthCheck=checksDepartureStrength(question);
+  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines')||(remainingClaim&&XIANGJIANG_SCOPE_SOURCES.includes(e.id))||(wuqiZhiluoCheck&&WUQI_ZHILUO_SOURCES.includes(e.id))||(departureStrengthCheck&&e.id==='yudu_army'));
   const state={loaded:new Set(preload.map(e=>e.id)),action:null,current:free?null:current.id,tour};
   const gist=e=>e.id.startsWith('story_')?e.name.replace(/（[^）]*）$/,''):e.text.replace(/\s+/g,'').slice(0,26)+'…';
   const catalogue=nodes.map(n=>`[${n.id}] ${n.date} ${n.name}：${n.title}\n`+evidence.filter(e=>e.node===n.id).map(e=>`  - ${e.id}：${gist(e)}`).join('\n')).join('\n');
@@ -824,6 +828,8 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         ?{answer:NINGHUA_EVIDENCE.summary+'\n'+NINGHUA_EVIDENCE.scope,ids:[NINGHUA_EVIDENCE.sourceId],read:'查阅《宁化县志》整理资料',detail:'对照支前记载和资料边界'}
         :compareFujianCounts
         ?{answer:FUJIAN_COUNT_COMPARISON,ids:[...FUJIAN_COUNT_IDS],read:'并列查阅三份福建人数资料',detail:'按原报道分别说明统计范围'}
+        :departureStrengthCheck
+          ?{answer:'资料记载，中央红军长征出发时为8.6万余人。',ids:['yudu_army'],read:'查阅中央红军长征出发时的兵力',detail:'核对出发时的实际人数'}
         :xiangjiangStrengthQuery
           ?{answer:XIANGJIANG_INTERVAL_ANSWER,ids:['xiangjiang_lines'],read:'查阅中央红军兵力变化资料',detail:'从长征出发到渡过湘江后'}
           :null;

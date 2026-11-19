@@ -797,6 +797,22 @@ assert.equal(log.length,2);assert.match(body.answer,/近万/);
     assert.equal(body.answer,correction+rest);
   }
 }
+// 出发兵力单项查证直接引用资料，不覆盖还询问路线的复合问题。
+{
+  log=script([]);
+  for(const question of ['中央红军长征出发时是不是有10万人？','红一方面军出发的时候是否有十万人？','中央红军长征出发时是不是有8.6万余人？']){
+    body=await (await worker.fetch(make({question,node:'start',free:true}),env)).json();
+    assert.equal(log.length,0);
+    assert.match(body.answer,/长征出发时为8\.6万余人/);
+    assert.ok(body.sources.flatMap(s=>s.ids).includes('yudu_army'));
+  }
+  const answer='中央红军长征出发时为8.6万余人。';
+  log=script([reply({type:'history',answer,sources:['yudu_army']})]);
+  body=await (await worker.fetch(make({question:'中央红军长征出发时是不是有10万人，分别从哪里出发？',node:'yudu'}),env)).json();
+  assert.equal(log.length,1,'包含第二个问题时须保留通常的检索和问答流程');
+  assert.equal(body.answer,answer);
+}
+
 // 逐项核对：重复用户兵力数字并明确说明缺少记载，不能导致已查实的两点被删除。
 {
   const question='核对：1935年10月，红一方面军到达吴起镇，随后在直罗镇打了胜仗，兵力约3万。';
