@@ -1198,6 +1198,16 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
   r=await run('遵义会议（1934年12月31日晚至1935年1月1日凌晨）重申黎平会议的方针。',['houchang','houchang_liping','zunyi'],'遵义会议是什么时候开的？');
   assert.equal(r.calls,2,'括号前的事件与资料不符仍须重答');assert.doesNotMatch(r.body.answer,/遵义会议（1934年12月31日/);
 }
+// —— 三大主力会师：会宁、将台堡两条资料一起预先取出 ——
+{
+  let seenBody;globalThis.fetch=async(url,options)=>{seenBody=JSON.parse(options.body);return reply({type:'history',answer:'1936年10月9日，红四方面军在甘肃会宁与红一方面军会师；1936年10月22日，红二方面军在将台堡与红一方面军会师。',sources:['huining','jiangtaibao']})};
+  const r=await (await worker.fetch(make({question:'红军三大主力是在哪里会师的？',node:'start',free:true}),env)).json();
+  const pre=seenBody.messages[0].content.split('已取出的资料：')[1];
+  assert.match(pre,/\[huining\]/);assert.match(pre,/\[jiangtaibao\]/);assert.match(r.answer,/10月22日/);
+  globalThis.fetch=async(url,options)=>{seenBody=JSON.parse(options.body);return reply({type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+  await worker.fetch(make({question:'遵义会议是什么时候开的？',node:'start',free:true}),env);
+  assert.doesNotMatch(seenBody.messages[0].content.split('已取出的资料：')[1],/\[jiangtaibao\]/,'无关问题不预取会师资料');
+}
 globalThis.fetch=original;console.log('API and evidence tests passed');
 
 // 首答的可靠句子应在重答失败时保留，并重新校验完整剩余内容。

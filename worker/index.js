@@ -813,7 +813,9 @@ export default {async fetch(request, env) {
   const remainingClaim=xiangjiangRemainingClaim(question);
   const wuqiZhiluoCheck=checksWuqiZhiluoStrength(question);
   const departureStrengthCheck=checksDepartureStrength(question);
-  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines')||(remainingClaim&&XIANGJIANG_SCOPE_SOURCES.includes(e.id))||(wuqiZhiluoCheck&&WUQI_ZHILUO_SOURCES.includes(e.id))||(departureStrengthCheck&&e.id==='yudu_army'));
+  // 问三大主力在哪里会师：会宁、将台堡两处会师各有一条资料，一起预先取出，免得只引会宁、漏了将台堡的日期出处。
+  const reunionQuery=/(?:三大主力|三个方面军|三支主力|三军|红一、红二、红四).{0,10}会师|会师.{0,6}(?:哪里|哪儿|在哪|何处|什么地方)/.test(question);
+  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines')||(remainingClaim&&XIANGJIANG_SCOPE_SOURCES.includes(e.id))||(wuqiZhiluoCheck&&WUQI_ZHILUO_SOURCES.includes(e.id))||(departureStrengthCheck&&e.id==='yudu_army')||(reunionQuery&&(e.id==='huining'||e.id==='jiangtaibao')));
   const state={loaded:new Set(preload.map(e=>e.id)),action:null,current:free?null:current.id,tour};
   const gist=e=>e.id.startsWith('story_')?e.name.replace(/（[^）]*）$/,''):e.text.replace(/\s+/g,'').slice(0,26)+'…';
   const catalogue=nodes.map(n=>`[${n.id}] ${n.date} ${n.name}：${n.title}\n`+evidence.filter(e=>e.node===n.id).map(e=>`  - ${e.id}：${gist(e)}`).join('\n')).join('\n');
