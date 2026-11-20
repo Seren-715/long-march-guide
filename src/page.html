@@ -1952,7 +1952,7 @@ const LOCAL_REPLIES = [
 // “联网搜索看看”这类只有搜索意图、没有话题的话，搜的是上一个真正的问题，而不是这句话本身
 const WEB_INTENT = /^(请|帮我|麻烦|那|再)?\s*(联网|上网|网上|在网上|网络)\s*(搜索|搜一下|搜|查找|查一下|查)?\s*(一下|看看|下|吧)?[。！!？?\s]*$/;
 // “具体点呢”“然后呢”这类没有话题的追问：原话照发，由服务端按已签名的上文接上主题（见 server.js 的 followUpAnchor）。
-// 页面只做一件事：这类追问不覆盖“上一个问题”，所以接着点“联网搜索”，搜的仍是真正的主题。
+// 页面只做一件事：这类追问不覆盖“上一个问题”，所以接着在输入框说“联网搜索”，搜的仍是真正的主题。
 const FOLLOW_UP_FILLER = /所以|那么|那|然后|后来|接着|之后|为什么|为啥|怎么样|怎么|怎样|如何|具体|详细|细致|展开|再说说|说说|讲讲|说一下|讲一下|一点|一些|还有|别的|其他|更多|结果|原因|意思|什么|结局|最后|回事|这样|这么|呢|吗|啊|吧|嘛|呀|了|的|是|要|会|还|再|多|点|些|说|讲/g; // 与服务端一致：去掉虚词后什么都不剩的短问题算无话题追问
 const VAGUE = /^(那|请|能不能|可以|能)?(再|多)?(具体|详细|细致|展开)(一?点|些|说说|讲讲|说一下|讲一下|说说看)?(呢|吧|嘛|啊)?[。！!？?\s]*$|^(再|多)(说|讲)(一?点|一些|说|讲)?(呢|吧)?[。！!？?\s]*$|^(然后|后来|接着|之后)呢?[。！!？?\s]*$|^(为什么|为啥|怎么会这样|怎么回事)呢?[。！!？?\s]*$/;
 async function ask(question, opts = {}) {
@@ -1982,8 +1982,10 @@ async function ask(question, opts = {}) {
   const build = () => JSON.stringify({ question: apiQuestion, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
   let payload = build();
   while (new TextEncoder().encode(payload).length > 22000 && prior.length) { prior.shift(); payload = build(); }
-  const searchContext = vague && lastSearch?.version === requestVersion ? lastSearch : { question: apiQuestion, version: requestVersion, history: prior.slice() };
-  if (!opts.webOnly && !vague) lastSearch = searchContext;
+  // 这一轮的原话和发问前的签名记录：回答下方的“联网搜索”重放它，服务端据此把“后来呢”接回原主题去搜。
+  // 输入框里只说“联网搜索”时搜的是最近一个实质问题（lastSearch），无话题追问不覆盖它。
+  const turnContext = { question: apiQuestion, version: requestVersion, history: prior.slice() };
+  if (!opts.webOnly && !vague) lastSearch = turnContext;
   const typing = showTyping();
   try {
     const liveSteps = []; const data = await askStream(JSON.parse(payload), s => { liveSteps.push(s); typing.addStep(s); }); typing.remove();
@@ -1997,7 +1999,7 @@ async function ask(question, opts = {}) {
       if (matched.length) matched.forEach(n => markQuestionAnswered(n.id, question)); else markQuestionAnswered(questionNode, question);
       for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide();
     } else markQuestionAnswered(questionNode, question);
-    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { storyLinks, steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, readingFujian, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? searchContext : null, evidenceFocus: data.evidenceFocus, evidenceVersion: requestVersion });
+    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { storyLinks, steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, readingFujian, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? turnContext : null, evidenceFocus: data.evidenceFocus, evidenceVersion: requestVersion });
     if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-5); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     if (ttsOn) speak(data.answer);
