@@ -370,7 +370,7 @@ function clauseAt(text,start,end,minor=false){
   }
   return text.slice(left+1,right);
 }
-function dateFacts(text,allowPreviousSentence=false,carryDay=false){
+function dateFacts(text,allowPreviousSentence=false){
   const source=normalizeNumerals(text),out=[];
   const add=(match,y,m,d,endM,endD)=>{
     const valid=Number.isInteger(y)&&y>=1&&Number.isInteger(m)&&m>=1&&m<=12
@@ -392,11 +392,11 @@ function dateFacts(text,allowPreviousSentence=false,carryDay=false){
     const before=source.slice(0,m.index),boundary=Math.max(before.lastIndexOf('。'),before.lastIndexOf('！'),before.lastIndexOf('？'),before.lastIndexOf('\n'));
     let prior=out.filter(d=>d.start>boundary&&d.end<=m.index).sort((a,b)=>b.start-a.start)[0];
     // 仅在单条资料中，允许句首的“25日”继承紧邻上一句最后一个明确年月。
-    // 回答（carryDay）也允许：模型常把资料里同一句的“9月28日……30日上午”拆成两句；继承来的日期照样要过年月日和事件核对。
-    if(!prior&&(allowPreviousSentence||carryDay)&&!m[1]&&!source.slice(boundary+1,m.index).trim()){
+    // （曾试过让回答也这样继承，结果红四团“27日拂晓……”被按事件归属拒绝、整条降级，弊大于利，已撤回。）
+    if(!prior&&allowPreviousSentence&&!m[1]&&!source.slice(boundary+1,m.index).trim()){
       const earlier=source.slice(0,Math.max(0,boundary));
       const previousBoundary=Math.max(earlier.lastIndexOf('。'),earlier.lastIndexOf('！'),earlier.lastIndexOf('？'),earlier.lastIndexOf('\n'));
-      const candidates=out.filter(d=>d.start>previousBoundary&&d.end<=boundary&&(carryDay||!d.yearOmitted)).sort((a,b)=>b.start-a.start);
+      const candidates=out.filter(d=>d.start>previousBoundary&&d.end<=boundary&&!d.yearOmitted).sort((a,b)=>b.start-a.start);
       if(candidates.length&&new Set(candidates.map(d=>`${d.y}-${d.endM||d.m}`)).size===1)prior=candidates[0];
     }
     if(!prior&&!m[1])continue;
@@ -443,7 +443,7 @@ function countFacts(text){
   return out;
 }
 function numberTokens(text,source){
-  const normalized=normalizeNumerals(text),dates=dateFacts(normalized,false,!source),maskedDate=maskDates(normalized,dates),counts=countFacts(maskedDate);
+  const normalized=normalizeNumerals(text),dates=dateFacts(normalized),maskedDate=maskDates(normalized,dates),counts=countFacts(maskedDate);
   const keys=new Set(),raw=[...maskedDate];
   for(const d of dates)if(d.valid&&!d.yearOmitted)keys.add('N:'+d.y);
   for(const c of counts){
@@ -541,7 +541,7 @@ function unsupportedDates(answer,ids){
   // 引号里原样引用所引资料的话（如电令“我军明十三号继续西进”），其中的日期就是资料原文，不再单独判断归属。
   const normalized=normalizeNumerals(answer),cited=squash(normalizeNumerals(ids.map(id=>evidence.find(e=>e.id===id).text).join('|')));
   const quoted=[...normalized.matchAll(/“([^”]{2,80})”/g)].filter(q=>cited.includes(squash(q[1]))).map(q=>[q.index,q.index+q[0].length]);
-  return dateFacts(answer,false,true).filter(d=>{
+  return dateFacts(answer).filter(d=>{
     if(quoted.some(([a,b])=>d.start>=a&&d.end<=b))return false;
     const matches=sources.filter(s=>dateSupported(d,s));
     // 无年份的回答不能从多个可能年份中任意选一个。
@@ -553,7 +553,7 @@ function unsupportedNumbers(answer,ids,question){
   const citedTexts=ids.map(id=>evidence.find(e=>e.id===id).text);
   const allowed=new Set(citedTexts.flatMap(numbersAllowedIn));
   // 不能把“近2.6万”作为“精确26000人”的来源；同值换单位须保留近似性质。
-  const citedCounts=citedTexts.flatMap(countFacts),claimedCounts=countFacts(maskDates(claims,dateFacts(claims,false,true)));
+  const citedCounts=citedTexts.flatMap(countFacts),claimedCounts=countFacts(maskDates(claims,dateFacts(claims)));
   const badPrecision=claimedCounts.filter(c=>!citedCounts.some(s=>s.value===c.value
     &&(c.qualifier==='exact'?s.qualifier==='exact':s.qualifier===c.qualifier||s.qualifier==='exact')));
   const describe=key=>{

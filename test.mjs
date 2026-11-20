@@ -1218,13 +1218,11 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
   r=await run('1935年6月，红军干部休养连在贵州盘县附近遭敌机轰炸，她为掩护在遵义作战时腿部负伤的团政委钟赤兵，身中17块弹片。');
   assert.equal(r.n,2,'月份不符仍须重答');assert.doesNotMatch(r.body.answer,/1935年6月/);
 }
-// —— 回答把同一句拆成两句后，句首的“30日”继承上一句的月份；引号里原样引用资料的日期不再单独判断 ——
+// —— 引号里原样引用资料的日期不再单独判断；另起一句的“29日”与资料不符仍要拦 ——
 {
   const run=async(answer,sources,question,node)=>{let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer,sources})};
     const body=await (await worker.fetch(make({question,node,free:true}),env)).json();return {n,body};};
-  let r=await run('红九军团于9月28日从松毛岭保卫战中撤出，集结在长汀钟屋村（今中复村）。30日上午，在观寿公祠门前大草坪召开告别群众大会。',['story_fj_zhongfu_farewell'],'红九军团是怎样撤出松毛岭的？','start');
-  assert.equal(r.n,1,'句首的30日应继承9月并与资料相符');
-  r=await run('红九军团于9月28日从松毛岭保卫战中撤出，集结在长汀钟屋村（今中复村）。29日上午，在观寿公祠门前大草坪召开告别群众大会。',['story_fj_zhongfu_farewell'],'红九军团是怎样撤出松毛岭的？','start');
+  let r=await run('红九军团于9月28日从松毛岭保卫战中撤出，集结在长汀钟屋村（今中复村）。29日上午，在观寿公祠门前大草坪召开告别群众大会。',['story_fj_zhongfu_farewell'],'红九军团是怎样撤出松毛岭的？','start');
   assert.equal(r.n,2,'继承出来的日期与资料不符仍要拦下');assert.doesNotMatch(r.body.answer,/29日上午/);
   r=await run('1934年12月12日，中革军委在湖南通道召开紧急会议，会后发出“万万火急”电令，部署“我军明十三号继续西进”。',['tongdao'],'通道会议决定了什么？','tongdao');
   assert.equal(r.n,1,'引号里原样引用资料的日期不应被拦');
