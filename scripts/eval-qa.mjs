@@ -155,7 +155,7 @@ const selectedPlans = ONLY.length ? plans.filter(c => ONLY.includes(c.id)) : pla
 if (!selected.length && !selectedPlans.length) throw new Error('EVAL_ONLY 没有匹配当前评估组中的题目');
 
 for (const c of selected) {
-  const steps = c.steps || [{ node: c.node, q: c.q, tour: c.tour, expect: c.expect }];
+  const steps = c.steps || [{ node: c.node, q: c.q, tour: c.tour, story: c.story, expect: c.expect }];
   const sessionId = randomUUID();
   let history = [], lastNode = null, lastStory = null;
   for (let i = 0; i < steps.length; i++) {

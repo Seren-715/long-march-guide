@@ -75,4 +75,22 @@ export const PROBE_CASES = [
   { id: 'P-18', node: 'start', free: true, q: '我是小学生，老师让我讲一个长征故事，三分钟的', expect: {
     type: 'history', sourcePrefix: 'story_', none: ['想听哪个'], minLength: 100,
   } },
+  // 以下为 11-19/20 修过的问题，防止回退（见协作仓库 031、032、036）
+  { id: 'P-19', node: 'start', free: true, q: '苟坝会议为什么决定不打打鼓新场？', expect: {
+    type: 'history', all: ['打鼓新场'], sources: ['story_mao_lamp'], none: ['现有资料不足以'],
+  } },
+  { id: 'P-20', node: 'start', free: true, q: '三大主力红军在哪里会师？', expect: {
+    type: 'history', all: ['会宁', '将台堡'], sources: ['huining', 'jiangtaibao'], none: ['现有资料不足以'],
+  } },
+  { id: 'P-21', node: 'zunyi', story: 'guide_zhang_wentian', q: '遵义会议之前，通道和黎平会议改变了什么？', expect: {
+    type: 'history', all: ['通道', '黎平'], none: ['现有资料不足以'],
+  } },
+  { id: 'P-22', node: 'start', free: true, q: '具体点呢', expect: {
+    type: 'chat', noSources: true, any: ['说完整'],
+  } },
+  { id: 'P-23', free: true, steps: [
+    { node: 'start', q: '苟坝会议为什么决定不打打鼓新场？' },
+    { node: 'start', q: '具体点呢', expect: { any: ['打鼓新场', '苟坝', '马灯'], sources: ['story_mao_lamp'] } },
+    { node: 'start', q: '然后呢', expect: { any: ['三人', '苟坝', '打鼓新场', '赤水'], none: ['现有资料不足以', '说完整'] } },
+  ] },
 ];
