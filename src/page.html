@@ -303,10 +303,11 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-filter-link{font-size:13px;color:var(--text3);border-bottom:1px solid var(--border)}
 .story-filter-link:hover{color:var(--accent);border-color:var(--accent)}
 .story-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
-.story-list .story-next{display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:280px;aspect-ratio:3/4;padding:20px 18px;border-radius:12px;overflow-wrap:anywhere}
-/* 书本卡片像实体按钮一样抬起、按下 */
-.story-list .story-next{box-shadow:0 5px 0 #e6d1ca,0 10px 20px rgba(71,37,29,.08);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}
-.story-list .story-next:active,.story-list .story-next.is-pressed{transform:translateY(5px);box-shadow:0 0 0 #e6d1ca,0 2px 5px rgba(71,37,29,.08);border-color:var(--accent-line)}
+.story-list .story-next{display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:220px;padding:20px 18px;border-radius:10px;overflow-wrap:anywhere}
+/* 书本卡片：一条细线托底，按下时轻轻下沉，不用厚重的立体阴影 */
+.story-list .story-next{box-shadow:0 2px 0 var(--border);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}
+.story-list .story-next:active,.story-list .story-next.is-pressed{transform:translateY(2px);box-shadow:0 0 0 var(--border);border-color:var(--accent-line)}
+#story-title:focus:not(:focus-visible),#story-title[tabindex="-1"]:focus{outline:none}
 html.story-opening::view-transition-old(root){animation:none}
 html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-out both;mix-blend-mode:normal}
 @keyframes story-reveal{from{clip-path:circle(0 at var(--story-x) var(--story-y))}to{clip-path:circle(var(--story-radius) at var(--story-x) var(--story-y))}}
@@ -315,7 +316,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .story-list .story-next span{margin-top:auto;padding-top:16px;line-height:1.6}
 @media(max-width:1250px){.story-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:980px){.story-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
-@media(max-width:420px){.story-list .story-next{min-height:280px;padding:16px 14px}.story-list .story-next b{font-size:15px}}
+@media(max-width:420px){.story-list .story-next{min-height:200px;padding:16px 14px}.story-list .story-next b{font-size:15px}}
 .story-next span{display:block;margin-top:3px;font-size:12px;color:var(--text3)}
 .story-all{display:block;margin:10px auto 0;font-size:13px;color:var(--accent)}
 .tale-note{margin:10px 0 14px;padding:10px 12px;border-radius:10px;background:#fff8ec;border:1px solid #f1dfbd;font-size:13px;line-height:1.7;color:#6b4a12}
@@ -484,7 +485,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
   .home-side .tale b{font-size:15px}
   .home-side .tale span{font-size:12px}
   .home-side .starts{gap:8px;margin:8px 0 10px}
-  .home-side .start{padding:8px 10px;border-radius:999px;align-items:center}
+  .home-side .start{padding:8px 10px;border-radius:0;align-items:center}
   .home-side .start > span{display:none}
   .home-side .start b{font-size:13.5px}
   .home-side .start span{font-size:11.5px}
@@ -590,10 +591,11 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .hist-empty{color:var(--text2);font-size:14px;line-height:1.7}
 .hist-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px;font-size:12.5px;color:var(--text3)}
 .starts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:24px 0 18px}
-.start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:var(--bg);transition:background .15s,border-color .15s,transform .15s}
-.start:focus-visible,.start:active{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
-@media (hover:hover){.start:hover{background:var(--primary);color:var(--on-primary);border-color:var(--primary);transform:translateY(-1px)}.start:hover span{color:inherit}}
-.start:focus-visible span,.start:active span{color:inherit}
+/* 首页入口：像书的目录一样用细线分隔的文字行，不用方框和色块 */
+.start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:12px 4px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;transition:color .15s,border-color .15s}
+.start:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.start:active{color:var(--accent)}
+@media (hover:hover){.start:hover{color:var(--accent);border-color:var(--accent)}}
 .start b{font-size:15px;font-weight:600}
 .start span{font-size:12px;color:var(--text3)}
 .or{display:flex;align-items:center;gap:12px;margin:0 0 14px;font-size:12px;color:var(--text3)}
