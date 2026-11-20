@@ -543,7 +543,13 @@ function unsupportedDates(answer,ids){
   const quoted=[...normalized.matchAll(/“([^”]{2,80})”/g)].filter(q=>cited.includes(squash(q[1]))).map(q=>[q.index,q.index+q[0].length]);
   return dateFacts(answer).filter(d=>{
     if(quoted.some(([a,b])=>d.start>=a&&d.end<=b))return false;
-    const matches=sources.filter(s=>dateSupported(d,s));
+    let matches=sources.filter(s=>dateSupported(d,s));
+    // 资料把起止分开写（“9 月 16 日到达腊子口……至 17 日凌晨突破”），回答合写成“9月16日至17日”：起点、终点各自有据（含事件归属）即可。
+    if(!matches.length&&d.endD!=null&&(d.endD!==d.d||(d.endM||d.m)!==d.m)){
+      const first={...d,endM:d.m,endD:null},last={...d,m:d.endM||d.m,d:d.endD,endM:d.endM||d.m,endD:null};
+      const a=sources.filter(s=>dateSupported(first,s)),b=sources.filter(s=>dateSupported(last,s));
+      if(a.length&&b.length)matches=[...a,...b];
+    }
     // 无年份的回答不能从多个可能年份中任意选一个。
     return !matches.length||(d.yearOmitted&&new Set(matches.filter(s=>!s.yearOmitted).map(s=>s.y)).size>1);
   }).map(d=>d.raw);

@@ -1236,6 +1236,15 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
   const body=await (await worker.fetch(make({question:'听说红军长征时每个人都要背着一袋炒面走二万五千里，是真的吗？',node:'start',free:true}),env)).json();
   assert.equal(n,2,'断言“没有这回事”须重答');assert.doesNotMatch(body.answer,/没有[^。]{0,24}这回事/);
 }
+// —— 日期区间：资料把起止分开写，回答合写成“16日至17日”时，起点和终点各自有据即可 ——
+{
+  const run=async answer=>{let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer,sources:['lazikou']})};
+    const body=await (await worker.fetch(make({question:'腊子口是怎么打下来的？',node:'lazikou'}),env)).json();return {n,body};};
+  let r=await run('1935年9月16日至17日，红一军团第二师第四团夺取天险腊子口。');
+  assert.equal(r.n,1,'起止两天都有据的区间不应被拦');
+  r=await run('1935年9月16日至19日，红一军团第二师第四团夺取天险腊子口。');
+  assert.equal(r.n,2,'终点无据的区间仍须重答');assert.doesNotMatch(r.body.answer,/16日至19日/);
+}
 globalThis.fetch=original;console.log('API and evidence tests passed');
 
 // 首答的可靠句子应在重答失败时保留，并重新校验完整剩余内容。
