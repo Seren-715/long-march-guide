@@ -659,6 +659,8 @@ function observedRisks(answer,ids,question){
   const cited=ids.map(id=>evidence.find(e=>e.id===id)?.text||'').join('');
   const casualties=compact.replace(/损失(?:\d+|[零〇一二两三四五六七八九十百千万]+)门(?:大炮|炮)/g,'');
   if ((/草地/.test(compact)||/草地/.test(q)) && /(?:损失|伤亡|牺牲|死亡).{0,24}(?:主要|因为|由于|导致)/.test(casualties) && (!ids.includes('caodi_losses')||/主要/.test(casualties)) && !/(?:资料|记载).{0,12}(?:未说明|没有说明|不足)/.test(compact)) issues.push('请引用直接说明伤亡原因的资料，不要推断主要原因');
+  // 资料没有记载不等于没有这回事：不能把“资料里没有这一说法”说成断然否定（P-06 传言题偶发）。
+  if (compact.split(/[。！？；;\n]/).some(part=>/(?:并|根本|从来|压根)?没有[^，,]{0,24}这回事|纯属(?:虚构|谣传|编造|杜撰)|是(?:谣言|谣传|编造的)/.test(part)&&!/资料|记载|提到|文献|出处/.test(part.replace(/“[^”]*”/g,'')))) issues.push('资料没有记载不等于没有这回事：只能说资料里没有这一说法、无法证实，并给出资料里相关的记载，不要断言“没有这回事”或“是谣言”');
   if (/1934年11月下旬至12月初/.test(compact) && /三道封锁线/.test(compact)) issues.push('三道封锁线对应的时间是1934年10月下旬至12月初，不能更改时段');
   if (/红二方面军.{0,80}(?:历时|走了|用了|持续|长征)(?:约|近|将近|大约)?两年/.test(compact)) issues.push('红二方面军长征为1935年11月至1936年10月，不能说历时两年；两年是1934年至1936年各路长征的总体时段');
   // 核心会师事实：1936-10-09 会宁为红一与红四方面军，红二方面军在将台堡会师。

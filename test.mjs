@@ -1229,6 +1229,13 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
   r=await run('1934年12月12日，中革军委在湖南通道召开紧急会议，会后电令写“我军明十四号继续西进”。',['tongdao'],'通道会议决定了什么？','tongdao');
   assert.equal(r.n,2,'引号里的话与资料不一致仍要核对');
 }
+// —— 传言题：资料没写不能说成“没有这回事” ——
+{
+  let n=0;globalThis.fetch=async()=>{n++;return reply(n===1?{type:'history',answer:'资料记载的不是这样。红军并没有“每人背一袋炒面走完全程”这回事。过草地时粮食十分紧缺。',sources:['caodi_food_rations']}
+    :{type:'history',answer:'资料里没有“每人背一袋炒面走完全程”的说法，无法证实。资料记载过草地时粮食十分紧缺。',sources:['caodi_food_rations']})};
+  const body=await (await worker.fetch(make({question:'听说红军长征时每个人都要背着一袋炒面走二万五千里，是真的吗？',node:'start',free:true}),env)).json();
+  assert.equal(n,2,'断言“没有这回事”须重答');assert.doesNotMatch(body.answer,/没有[^。]{0,24}这回事/);
+}
 globalThis.fetch=original;console.log('API and evidence tests passed');
 
 // 首答的可靠句子应在重答失败时保留，并重新校验完整剩余内容。
