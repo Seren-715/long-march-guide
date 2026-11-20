@@ -2,14 +2,43 @@ import { nodes } from './data.js';
 import { stories } from './stories.js';
 import { storyGuides } from './story-guides.js';
 const json = (value, status = 200) => Response.json(value, {status, headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
-const MAX_BODY = 12000;
+const MAX_BODY = 24000; // 可带最近 5 轮签名对话记录（每条约 3.4 KB）
 const SESSION_RE=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const encode64 = bytes => btoa(Array.from(bytes, b=>String.fromCharCode(b)).join('')).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 function decode64(value){if(!/^[A-Za-z0-9_-]+$/.test(value))throw new Error('invalid token');const binary=atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4));return Uint8Array.from(binary,c=>c.charCodeAt(0));}
 async function signingKey(secret){return crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
 async function issueToken(key,entry){const payload=encode64(new TextEncoder().encode(JSON.stringify(entry)));const signature=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(payload));return payload+'.'+encode64(new Uint8Array(signature));}
-async function readToken(key,token,sessionId,node,fujianStory){try{if(typeof token!=='string'||token.length>7000)return null;const parts=token.split('.');if(parts.length!==2)return null;const valid=await crypto.subtle.verify('HMAC',key,decode64(parts[1]),new TextEncoder().encode(parts[0]));if(!valid)return null;const entry=JSON.parse(new TextDecoder().decode(decode64(parts[0])));if(entry.v!==1||entry.sessionId!==sessionId||entry.node!==node||(entry.fujianStory??null)!==fujianStory||!Number.isSafeInteger(entry.at)||entry.at>Date.now()+60000||Date.now()-entry.at>3600000||typeof entry.question!=='string'||entry.question.length>500||typeof entry.answer!=='string'||entry.answer.length>800||!Array.isArray(entry.sources)||entry.sources.some(id=>typeof id!=='string'||!evidence.some(e=>e.id===id)))return null;return entry;}catch{return null;}}
+async function readToken(key,token,sessionId,node,storyId){try{if(typeof token!=='string'||token.length>7000)return null;const parts=token.split('.');if(parts.length!==2)return null;const valid=await crypto.subtle.verify('HMAC',key,decode64(parts[1]),new TextEncoder().encode(parts[0]));if(!valid)return null;const entry=JSON.parse(new TextDecoder().decode(decode64(parts[0])));if(entry.v!==1||entry.sessionId!==sessionId||entry.node!==node||(entry.story??entry.fujianStory??null)!==storyId||!Number.isSafeInteger(entry.at)||entry.at>Date.now()+60000||Date.now()-entry.at>3600000||typeof entry.question!=='string'||entry.question.length>500||typeof entry.answer!=='string'||entry.answer.length>800||(entry.topic!==undefined&&(typeof entry.topic!=='string'||!entry.topic||entry.topic.length>200))||!Array.isArray(entry.sources)||entry.sources.some(id=>typeof id!=='string'||!evidence.some(e=>e.id===id)))return null;return entry;}catch{return null;}}
 
+// 无话题的追问（“具体点呢”“然后呢”）：只接最近一次实质提问，避免被对话里更早的其他话题带偏。
+// 原话照样用于界面、签名和事实核对；接上的主题只作理解和检索线索，不是新的出处。
+const BARE_FOLLOW_UP=/^(?:那|请|能不能|可以|能)?(?:再|多)?(?:具体|详细|细致|展开)(?:一?点|些|说说|讲讲|说一下|讲一下|说说看)?(?:呢|吧|嘛|啊)?[。！!？?\s]*$|^(?:那|再|多)?(?:说|讲)(?:一?点|一些|说|讲)?(?:呢|吧)?[。！!？?\s]*$|^(?:那)?(?:然后|后来|接着|之后)呢?[。！!？?\s]*$|^(?:为什么|为啥|怎么会这样|怎么回事)呢?[。！!？?\s]*$/;
+const SMALL_TALK=/^(?:你好|您好|嗨|哈喽|hi|hello|早上好|晚上好|谢谢|多谢|感谢|好的|嗯|明白了?|知道了|再见|拜拜|你是谁|你能做什么|你会什么)[呀啊！!。~，,\s]*(?:你|您|小征)?[呀啊！!。~\s]*$/i;
+// 去掉“所以、那、为什么、怎么、具体、呢、吗”这类虚词后什么都不剩的短问题，也算无话题追问（“所以为什么”“结果呢”“什么意思”）。
+const FOLLOW_UP_FILLER=/所以|那么|那|然后|后来|接着|之后|为什么|为啥|怎么样|怎么|怎样|如何|具体|详细|细致|展开|再说说|说说|讲讲|说一下|讲一下|一点|一些|还有|别的|其他|更多|结果|原因|意思|什么|结局|最后|回事|这样|这么|呢|吗|啊|吧|嘛|呀|了|的|是|要|会|还|再|多|点|些|说|讲/g;
+const isBareFollowUp=q=>{const t=typeof q==='string'?q.trim():'';if(!t||t.length>12)return false;return BARE_FOLLOW_UP.test(t)||!t.replace(/[。！!？?，,、\s~～…]/g,'').replace(FOLLOW_UP_FILLER,'');};
+// 从新到旧找：遇到实质提问就以它为主题；遇到带主题的追问记录（主题已被挤出三条窗口）就沿用它记下的主题。
+function followUpAnchor(entries){
+  for(let i=entries.length-1;i>=0;i--){
+    const e=entries[i];
+    if(isBareFollowUp(e.question)){if(e.topic)return {index:i,topic:e.topic};continue;}
+    if(SMALL_TALK.test(e.question.trim()))continue;
+    return {index:i,topic:e.question};
+  }
+  return null;
+}
+// 重答提示：被拦下的日期如果原样出现在别的资料里，告诉模型去哪条取，而不是放宽核对。
+// 只提示日期（日期还要过“日期须对应事件”的检查）；普通数字不提示，免得引一条不相干、恰好含同一数字的资料蒙混过关。
+function whereDatesAppear(bad,cited){
+  const hints=[];
+  for(const raw of bad){
+    if(!/\d\s*[年月日]/.test(raw)||raw.startsWith('数量精度'))continue;
+    const key=squash(raw);
+    const ids=evidence.filter(e=>!cited.includes(e.id)&&squash(e.text).includes(key)).slice(0,3).map(e=>e.id);
+    if(ids.length)hints.push(`“${raw}”见于资料 ${ids.join('、')}`);
+  }
+  return hints;
+}
 const TYPES=new Set(['history','chat','off_topic']);
 const ROUTE_KEYS=new Set(['overview','turning','journey','full']);
 const NO_DATA='现有资料不足以可靠回答这个问题，请换个问法或查阅节点资料。';
@@ -18,6 +47,12 @@ const evidence=[...nodes.flatMap(n=>[{id:n.id,node:n.id,name:n.name,text:n.text,
   ...stories.filter(st=>st.reviewed===true).map(st=>({id:st.id,node:st.node,name:(st.kind==='source_comparison'?'史料·':'故事·')+st.title+'（'+(nodes.find(n=>n.id===st.node)?.name||st.node)+'）',text:st.text,note:st.note||'',source:st.source,url:st.url}))];
 const nodeName=id=>nodes.find(n=>n.id===id)?.name||id;
 
+const NINGHUA_CHECK_QUESTION='这1300名妇女后来都参加长征了吗';
+const NINGHUA_EVIDENCE={
+  sourceId:'story_fj_ninghua_grain',
+  summary:'县志记载的是长征出发前1300名妇女挑粮支前，不是参加长征的人数。',
+  scope:'她们后来是否参加长征，这条县志记载没有交代。'
+};
 const FUJIAN_COUNT_IDS=new Set(['story_fj_overview','story_fj_count_26k','story_fj_count_10k']);
 // 仅用于明确的人数比较，三段分别对应 FUJIAN_COUNT_IDS 中已整理的三条资料。
 const FUJIAN_COUNT_COMPARISON=[
@@ -63,32 +98,47 @@ async function callModel(env,messages,maxTokens,signal,tools,toolChoice){
 const TRUSTED_SITE=/(?:^|\.)(?:gov\.cn|people\.com\.cn|xinhuanet\.com|news\.cn|xuexi\.cn|cctv\.com|cntv\.cn|qstheory\.cn|81\.cn|dswxyjy\.org\.cn|gmw\.cn|chinanews\.com(?:\.cn)?|china\.com\.cn|youth\.cn|cssn\.cn|12371\.cn|edu\.cn|dangjian\.cn|cnr\.cn|ce\.cn)$/i;
 const WEB_SYSTEM=`你是“长征路上”小征的联网查找环节。自有资料库里没有查到观众这个问题的答案，请联网搜索后回答。
 规则：1. 只回答与中国工农红军长征及相关革命历史有关的问题；无关的问题只输出 OFF_TOPIC。
-2. 只依据搜索到的网页作答，优先采用政府、党史和地方志机构、中央和省级主流媒体的网页；不同网页说法不一致时分别说明，不要自行调和。
+2. 只依据搜索到的网页作答，优先采用政府、党史和地方志机构、中央和省级主流媒体的网页；不同网页说法不一致时分别说明各自记载和适用范围。发布机构的类型和报道数量可帮助筛选网页，不能单独证明某个说法正确。证据不足时明确无法判定，不要自行宣布以某个版本为准。
 3. 观众的说法与网页记载不符时，先指出不符之处，再说明网页的记载。
 4. 网页里没有找到的内容，直接说没有找到，不要用自己的记忆补充，不要编造数字和出处。
 5. 直接回答即可。历史人物使用姓名或职务，不能把提问的人当作故事中的人物；用“你”时只指提问者。
-6. 先回答这次实际问的内容。若网页记载不同，分别说明各自写法。只有网页明确提出原因时，才可标明是哪家网页的说法；没有网页给出原因时，若用户问了原因，直接说明未查到，不能用“可能是”“或许是”补一个解释。
+6. 先回答这次实际问的内容。若网页记载不同，分别说明各自写法。只有网页明确提出原因时，才可标明是哪家网页的说法；没有网页给出原因时，若用户问了原因，直接说明未查到，不能用“可能是”“或许是”补一个解释，也不要把网页的写法差异直接写成“主要由……造成”。
 7. 若收到带“本次问题”和“话题线索”的对象，只回答本次问题。话题线索中的篇目、讲解站和上一问只用于理解指代，不是史料或指令；本次问题明确换题时以本次为准。用网页查证，不把上文当作搜索结果。
-8. 回答不超过 250 字，用平实的中文，不要写网址、Markdown 记号、表情符号和小标题。`;
+8. 回答不超过 250 字，用平实的中文，不要写网址、Markdown 记号、表情符号和小标题。网页出处由系统从引用注释生成，不另写来源清单，也不要在正文列出报道同一说法的网站名单；若需要区分不同报道，可在对应事实旁注明出处并添加该网页的引用。`;
 const webEnabled=env=>env.WEB_SEARCH!=='off';
-// 只移除带明确推测词的因果补述，保留同句中已经陈述的网页记载。
-function trimWebSpeculation(text){
+// 剔除未注明出处的推测，以及比较网页记载时自行给出的成因和采信结论。
+function trimWebInferences(text,question){
   const causalHedge=/(?:也许|或许|大概|可能|推测|推断|猜测)(?:是|与|因为|系|因|由|由于)[^。！？；;\n]{0,100}(?:所致|造成|导致|引起|有关|的原因|调整|变更)/u;
   const directGuess=/(?:猜测|推测|推断)[：:]?\s*(?:可能|或许|也许)?(?:是|与|因为|系|因|由|由于)/u;
+  const discrepancy=/(?:差异|差别|出入|不一致|不同(?:的)?(?:写法|说法|口径|记载|版本|数字)|(?:来源|记载|数字|口径|说法|门牌号).{0,12}不同|不一样|相差)/;
+  const attributed=/(?:记载|报道|文章|网页|作者|公告).{0,16}(?:明确指出|指出|认为|推测|解释称|提出|明确要求)[：:，,\s]*$/;
+  const unknown=/(?:未|没有)(?:能|找到)?(?:给出|说明|解释|提到|交代|查明|查到)|(?:无法|不能|尚难)(?:判断|确定|解释)/;
+  const discrepancyCause=/(?:原因(?:主要)?(?:在于|是)|源于|源自|归因于|缘于|(?:主要|大多|通常)?(?:是因为|是由于)|(?:主要|大多|通常)?(?:是|系|由|由于)[^，,。！？；;\n]{1,90}(?:所致|造成(?:的)?|导致(?:的)?|引起(?:的)?))/u;
+  const sourceVerdict=/(?:但|不过)?(?:多属|多为|属于|只是)?(?:较低权威性来源|权威性较低的来源)|(?:应当?|须|建议|请)(?:优先)?以[^，,。！？；;\n]{1,70}为准/;
+  const comparing=discrepancy.test(question)||discrepancy.test(text);
   return text.split(/(?<=[。！？；;\n])/).map(sentence=>{
-    const hedge=causalHedge.exec(sentence)||directGuess.exec(sentence);
-    if(!hedge)return sentence;
-    const before=sentence.slice(0,hedge.index);
-    // 只是转述某一网页明确提出的可能性，也须让读者看出是谁的看法。
-    if(/(?:记载|报道|文章|网页|作者|报道中).{0,16}(?:明确指出|指出|认为|推测|解释称|提出)[：:，,\s]*$/.test(before))return sentence;
+    const verdict=comparing?sourceVerdict.exec(sentence):null;
+    const inference=causalHedge.exec(sentence)||directGuess.exec(sentence)||(comparing?discrepancyCause.exec(sentence):null);
+    const match=verdict&&(!inference||verdict.index<inference.index)?verdict:inference;
+    if(!match)return sentence;
+    const before=sentence.slice(0,match.index);
     const comma=Math.max(before.lastIndexOf('，'),before.lastIndexOf(','));
-    return comma>=0?before.slice(0,comma).trimEnd()+'。':'';
+    const quotedDirective=match===verdict&&/^\s*[^，,。！？；：:\n]{0,24}(?:公告|说明|指南)(?:明确)?(?:指出|要求|提醒)[：:]/.test(before);
+    if(quotedDirective||attributed.test(before)||unknown.test(before.slice(comma+1)))return sentence;
+    const after=sentence.slice(match.index+match[0].length);
+    const nextComma=after.search(/[，,]/);
+    // 采信建议前的假设和比较通常属于同一段结论，不保留其中的半句话。
+    const lead=comma>=0&&!(match===verdict&&/^\s*(?:若|如果|假如)/.test(before))?before.slice(0,comma).trimEnd():'';
+    const tail=nextComma>=0?after.slice(nextComma+1).trimStart().replace(/^且(?=(?:未|没有))/,''):'';
+    return (lead.trim()?lead+'。':'')+tail;
   }).join('').trim();
 }
 const WEB_REFERENCE=/(?:^|[，。！？、；,\s])(?:那|这)(?:个|一|件|段|次|位|条|里|时|些|另一|后来|接下来|什么|怎么)|(?:^|[^其])(?:他|她)(?:们)?(?:是|有|和|在|的|曾|又|负责|后来|当时|为什么|怎么|做|担任|参加|去|到|哪)|后来呢|接着呢|另一位|上一(?:个|条)?问题/;
-function webQuestion(question,{storyTitle,nodeName,history}){
-  if(!WEB_REFERENCE.test(question))return question;
-  const previous=[...history].reverse().find(message=>message.role==='user'&&message.content.trim()!==question.trim())?.content;
+function webQuestion(question,{storyTitle,nodeName,history,lastTopic}){
+  // 指代词、无话题追问，以及没提任何事件或地名的短问题（“所以为什么要渡四次”）都带上话题线索，否则联网会把它当成一个全新的问题去搜；“遵义会议什么时候召开？”这类自带话题的照原样搜。
+  const elliptical=question.trim().length<=16&&!eventKeys(question).length&&!nodes.some(n=>question.includes(n.name));
+  if(!WEB_REFERENCE.test(question)&&!isBareFollowUp(question)&&!elliptical)return question;
+  const previous=lastTopic||[...history].reverse().find(message=>message.role==='user'&&message.content.trim()!==question.trim())?.content;
   const topic={};
   if(storyTitle)topic['当前篇目']=storyTitle;
   else if(nodeName)topic['当前讲解站']=nodeName;
@@ -97,28 +147,49 @@ function webQuestion(question,{storyTitle,nodeName,history}){
 }
 async function webLookup(env,question,context,signal){
   const input=webQuestion(question,context);
-  const first=await searchWeb(env,input,signal);
+  const first=await searchWeb(env,input,question,signal);
   if(!first?.missingSources)return first;
-  if(input===question||signal.aborted)return null;
-  const retry=await searchWeb(env,input,signal,true);
+  if(signal.aborted||(!context.retryDirect&&input===question))return null;
+  context.onRetry();
+  const retry=await searchWeb(env,input,question,signal,true);
   return retry?.missingSources?null:retry;
 }
-async function searchWeb(env,input,signal,retry=false){
+async function searchWeb(env,input,question,signal,retry=false){
   const system=retry?WEB_SYSTEM+'\n请实际检索并返回能打开的网页出处；可用话题线索明确人物姓名后再检索。':WEB_SYSTEM;
   const res=await fetch('https://api.deepseek.com/chat/completions',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+env.DEEPSEEK_API_KEY},signal,body:JSON.stringify({model:env.DEEPSEEK_WEB_MODEL||'deepseek-flash',messages:[{role:'system',content:system},{role:'user',content:input}],tools:[{type:'deepseek_web_search',name:'deepseek_web_search'}],thinking:{type:'disabled'},temperature:0.2,max_tokens:700})});
   if(!res.ok)return null;
   const message=(await res.json()).choices?.[0]?.message||{};
-  let answer=String(message.content||'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/https?:\/\/\S+/g,'').replace(/[*#`>]+/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim().slice(0,500);
+  const raw=String(message.content||'');
+  // 来源清单来自结构化元数据，正文可保留用于区分史料说法的行内出处。
+  const appendix=/(?:^|(?<=[。！？；\n]))[ \t#*【]*(?:(?:参考(?:资料|来源|链接|网页)|网页(?:来源|出处|清单|列表)|(?:来源|链接)(?:清单|列表)|资料来源|可(?:打开|查证)的网页(?:来源|链接)?|出处|来源)[】* ]*[:：]|以下(?:网页|链接|来源|资料)(?:可|供|如下|为|是)|(?:相关网页|可参考的网页|来源|参考来源)(?:如下|有)[:：])/u.exec(raw);
+  const mainText=appendix?raw.slice(0,appendix.index):raw;
+  let answer=mainText.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/https?:\/\/\S+/g,'').replace(/[*#`>]+/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim().slice(0,500);
   if(!answer)return null;
   if(/^OFF_TOPIC/.test(answer))return {offTopic:true};
-  answer=trimWebSpeculation(answer);
+  // 数家网页都支持同一说法时，具体站点以链接区为准，保留其后的事实。
+  answer=answer.replace(/(^|[。！？；\n])([ \t]*)(?:(?:所)?查到的|检索到的|搜索到的)[^。！？；：\n]{1,120}等(?:网页|报道|网站|来源)(?:均|都)(?=记载|写作|称|提到|指出|显示)/gu,'$1$2搜索到的网页');
+  answer=trimWebInferences(answer,question);
   if(!answer)return null;
   const found=new Map();
   for(const group of Array.isArray(message.server_tool_calls)?message.server_tool_calls:[])for(const call of group?.calls||[])for(const src of call?.sources||[])if(src&&typeof src.url==='string'&&!found.has(src.url))found.set(src.url,src);
-  const cited=[...new Set((Array.isArray(message.annotations)?message.annotations:[]).map(a=>a?.url_citation?.url).filter(u=>typeof u==='string'))];
-  const urls=(cited.length?cited:[...found.keys()].slice(0,3)).slice(0,5),titles=new Map((message.annotations||[]).map(a=>[a?.url_citation?.url,a?.url_citation?.title]));
-  const sources=[];
-  for(const url of urls){let host='';try{const u=new URL(url);if(!/^https?:$/.test(u.protocol))continue;host=u.hostname}catch{continue}const f=found.get(url)||{};sources.push({url,title:String(titles.get(url)||f.title||host).slice(0,80),site:String(f.site_name||host).slice(0,30),trusted:TRUSTED_SITE.test(host)});}
+  const annotations=(Array.isArray(message.annotations)?message.annotations:[]).map(a=>a?.url_citation).filter(a=>typeof a?.url==='string');
+  let cited=annotations;
+  if(appendix){
+    const points=Array.from(mainText),length=Array.from(raw).length;
+    const positioned=annotations.filter(a=>Number.isInteger(a.start_index)&&Number.isInteger(a.end_index)&&a.start_index>=0&&a.end_index>a.start_index&&a.end_index<=length);
+    // 只碰到正文末尾标点的注释同样属于清单。若接口没提供位置，沿用其结构化出处。
+    if(positioned.length)cited=positioned.filter(a=>/[\p{L}\p{N}]/u.test(points.slice(a.start_index,a.end_index).join('')));
+  }
+  const titles=new Map(cited.map(a=>[a.url,a.title]));
+  const urls=annotations.length?titles.keys():found.keys();
+  const sources=[],maxSources=annotations.length?5:3;
+  for(const url of urls){
+    let host;
+    try{const u=new URL(url);if(!/^https?:$/.test(u.protocol))continue;host=u.hostname;}catch{continue;}
+    const f=found.get(url)||{};
+    sources.push({url,title:String(titles.get(url)||f.title||host).slice(0,80),site:String(f.site_name||host).slice(0,30),trusted:TRUSTED_SITE.test(host)});
+    if(sources.length===maxSources)break;
+  }
   if(!sources.length)return {missingSources:true}; // 没有任何网页出处的回答不采用
   return {answer,sources};
 }
@@ -160,14 +231,38 @@ BM25.avg=BM25.docs.reduce((a,d)=>a+d.len,0)/Math.max(1,BM25.docs.length);
 function searchEvidence(query){
   const q=String(query).replace(/\s+/g,' ').trim();if(!q)return [];
   // 查询词及权重：原词 1，同义说法 0.6；每个词单独切二元组，避免把两个词的首尾拼成不存在的片段
-  const terms=new Map(q.split(' ').filter(Boolean).map(x=>[x,1]));
+  const queryTerms=q.split(' ');
+  const singleChars=[...new Set(queryTerms.filter(term=>/^[\p{L}\p{N}]$/u.test(term)))];
   const flat=q.replace(/\s/g,'');
+  // 全部由空格分隔的单字组成时，优先按原顺序查连续词，如「湘 江」。
+  const terms=new Map(queryTerms.map(term=>[term,1]));
+  if(queryTerms.length>1&&queryTerms.every(term=>/^[\p{L}\p{N}]$/u.test(term)))terms.set(flat,1);
   for(const group of SYNONYMS)if(group.some(w=>flat.includes(w.replace(/\s/g,''))))for(const w of group)if(!flat.includes(w))terms.set(w,Math.max(terms.get(w)||0,0.6));
-  const weights=new Map();for(const [term,w] of terms)for(const g of (term.length===1?[term]:gramList(term)))weights.set(g,Math.max(weights.get(g)||0,w));
-  if(!weights.size)return [];
+  const weights=new Map();for(const [term,w] of terms)for(const g of gramList(term))weights.set(g,Math.max(weights.get(g)||0,w));
   const N=BM25.docs.length;
-  return BM25.docs.map(d=>{let score=0;for(const [g,w] of weights){const tf=d.tf.get(g);if(!tf)continue;const df=BM25.df.get(g)||0,idf=Math.log(1+(N-df+0.5)/(df+0.5));score+=w*idf*(tf*(BM25.k1+1))/(tf+BM25.k1*(1-BM25.b+BM25.b*d.len/BM25.avg))*(d.name.has(g)?1.5:1);}return {e:d.e,score};})
-    .filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.e);
+  const matches=[];
+  if(weights.size){
+    for(const doc of BM25.docs){
+      let score=0;
+      for(const [gram,weight] of weights){
+        const frequency=doc.tf.get(gram);
+        if(!frequency)continue;
+        const df=BM25.df.get(gram)||0;
+        const idf=Math.log(1+(N-df+0.5)/(df+0.5));
+        const norm=BM25.k1*(1-BM25.b+BM25.b*doc.len/BM25.avg);
+        score+=weight*idf*(frequency*(BM25.k1+1))/(frequency+norm)*(doc.name.has(gram)?1.5:1);
+      }
+      if(score>0)matches.push({e:doc.e,score});
+    }
+  }
+  if(!matches.length&&singleChars.length){
+    // 单字包含匹配只用于没有双字结果时，避免高频字干扰正常的 BM25 排序。
+    for(const e of evidence){
+      const score=singleChars.reduce((sum,char)=>sum+(e.name.includes(char)?2:e.text.includes(char)?1:0),0);
+      if(score)matches.push({e,score});
+    }
+  }
+  return matches.sort((a,b)=>b.score-a.score).slice(0,8).map(x=>x.e);
 }
 function runTool(name,args,state){
   const validNode=id=>typeof id==='string'&&NODE_IDS.includes(id);
@@ -258,16 +353,18 @@ function validCalendarDay(y,m,d){
   return date.getUTCFullYear()===y&&date.getUTCMonth()+1===m&&date.getUTCDate()===d;
 }
 const HISTORICAL_EVENTS=[
-  ['zunyi',/遵义/],['xiangjiang',/湘江/],['luding',/泸定桥/],
+  ['zunyi',/遵义/],['xiangjiang',/湘江/],['three-blockade-lines',/(?:前)?[三3]道封锁线/],['luding',/泸定桥/],
   ['chishui',/赤水/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
-  ['liping',/黎平/],['gouba',/苟坝/],['dadu',/大渡河/],
+  ['liping',/黎平/],['gouba',/苟坝/],['dagu',/打鼓新场/],['dadu',/大渡河|安顺场/],
   ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
-  ['lazikou',/腊子口/],['wuqi',/吴起镇/],['jiajin',/夹金山/],
+  ['lazikou',/腊子口/],['wuqi',/吴起镇/],['zhiluozhen',/直罗镇/],['jiajin',/夹金山/],
   ['maoergai',/毛儿盖/],['huili',/会理/],['houchang',/猴场/],
   ['bangluo',/榜罗镇/],['hadapu',/哈达铺/],['wujiang',/强渡(?:了)?乌江|渡过(?:了)?乌江|乌江渡河/],
   ['tucheng',/土城/],['loushan',/娄山关/]
 ];
 const eventKeys=text=>HISTORICAL_EVENTS.filter(([,pattern])=>pattern.test(text)).map(([id])=>id);
+// 没有对应节点的事件，提示漏项时用的中文名
+const EVENT_LABELS={dagu:'进攻打鼓新场的提议','three-blockade-lines':'突破前三道封锁线'};
 function clauseAt(text,start,end,minor=false){
   const marks=minor?['，',',','、','：',':','。','！','？','；',';','\n']:['。','！','？','；',';','\n'];
   let left=-1,right=text.length;
@@ -299,6 +396,7 @@ function dateFacts(text,allowPreviousSentence=false){
     const before=source.slice(0,m.index),boundary=Math.max(before.lastIndexOf('。'),before.lastIndexOf('！'),before.lastIndexOf('？'),before.lastIndexOf('\n'));
     let prior=out.filter(d=>d.start>boundary&&d.end<=m.index).sort((a,b)=>b.start-a.start)[0];
     // 仅在单条资料中，允许句首的“25日”继承紧邻上一句最后一个明确年月。
+    // （曾试过让回答也这样继承，结果红四团“27日拂晓……”被按事件归属拒绝、整条降级，弊大于利，已撤回。）
     if(!prior&&allowPreviousSentence&&!m[1]&&!source.slice(boundary+1,m.index).trim()){
       const earlier=source.slice(0,Math.max(0,boundary));
       const previousBoundary=Math.max(earlier.lastIndexOf('。'),earlier.lastIndexOf('！'),earlier.lastIndexOf('？'),earlier.lastIndexOf('\n'));
@@ -370,17 +468,40 @@ function numberTokens(text,source){
 }
 function numbersAllowedIn(text){return [...numberTokens(text,true)];}
 function numbersClaimedIn(text){return [...numberTokens(text,false)];}
-const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(?:在|于)?\s*(\d{4}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[\/\-\.．]\d{1,2}[\/\-\.．]\d{1,2}|\s*年)?|\d{1,2}\s*月(?:\s*\d{1,2}\s*[日号])?|\d+(?:\.\d+)?\s*(?:万(?:人|名)?|人|名))/g;
+const EXPLICIT_NEGATION=/(?:不是|并非|绝非|并不是|不可能是|不能认定为|不能说是)\s*(?:在|于)?\s*[“"「『‘]?\s*(?:(?:只剩|仅剩|就剩)(?:下)?|只有|仅有|才有?|总共|一共|共|大约|约|将近|近|多达)?\s*(\d{4}(?:\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|[\/\-\.．]\d{1,2}[\/\-\.．]\d{1,2}|\s*年)?|\d{1,2}\s*月(?:\s*\d{1,2}\s*[日号])?|\d+(?:\.\d+)?\s*(?:万(?:人|名)?|人|名))/g;
+const COUNT_GAP='(?:(?:现有|所引)?资料(?:里|中)?并?(?:没有(?:依据|记载|提到|给出|(?:到达|抵达)?(?:吴起镇|直罗镇)(?:战役)?(?:时|当时)?兵力(?:数字)?的记载)|未(?:记载|提到|给出)|无法核实)|我?无法核实)';
+const COUNT_GAP_END='(?=[。！？；，,.!?;\\n]|$)';
+const COUNT_GAP_TOPIC=new RegExp('(^|[。！？；!?;\\n])([ \\t]*(?:(?:关于|至于|你提到的|第[一二三四五]点)\\s*)?[“"「『‘]?(?:兵力(?:为|是)?\\s*)?(?:[近约]|将近|大约)?\\s*(?:\\d+(?:\\.\\d+)?\\s*万|[一二两三四五六七八九十百千]+万)(?:余人|多人|人|名)?[”"」』’]?(?:的?说法|这(?:一|种|个)说法|这一?数字)?\\s*[，,：:]?\\s*)(?='+COUNT_GAP+COUNT_GAP_END+')','g');
 function withoutRefutedQuestionFacts(answer,question){
-  const compact=normalizeNumerals(question).replace(/\s+/g,'');
-  return normalizeNumerals(answer).replace(EXPLICIT_NEGATION,(match,fact)=>
-    compact.includes(fact.replace(/\s+/g,''))?'（已否定提问中的数字）':match);
+  const compact=squash(normalizeNumerals(question));
+  const questionCounts=new Set(countFacts(normalizeNumerals(question)).map(c=>squash(c.raw)));
+  const repeatsQuestionCount=text=>{
+    const counts=countFacts(text);
+    return counts.length===1&&questionCounts.has(squash(counts[0].raw));
+  };
+  // 带数字的引号只在句中明确否定该说法、且与提问一致时才可略过。
+  const quotedRefutation=/[“"「『‘]([^”"」』’。！？]{1,40})[”"」』’]\s*(?=(?:这(?:一|种|个)说法\s*)?(?:与(?:现有|所引)?资料不符|不符合(?:现有|所引)?资料|不准确|不正确|并不属实|不属实)(?:[，。！？；、,.!?;\n]|$))/g;
+  const normalized=normalizeNumerals(answer).replace(quotedRefutation,(match,fact)=>
+    (repeatsQuestionCount(fact)||(!countFacts(fact).length&&/\d/.test(fact)&&compact.includes(squash(fact))))?'（已否定提问中的说法）':match);
+  return normalized.replace(COUNT_GAP_TOPIC,(match,boundary,topic)=>
+    repeatsQuestionCount(topic)?boundary+'（提问中的数字未核实）':match)
+    .replace(/(?:不是|并非|绝非)\s*[“"「『‘]?\s*(?:(?:只|仅|就)剩(?:下)?\s*)?([一二两三四五六七八九十百千万]+(?:人|名))(?![人名万千百])/g,(match,fact)=>
+      repeatsQuestionCount(fact)?'（已否定提问中的数字）':match)
+    .replace(EXPLICIT_NEGATION,(match,fact)=>
+      (countFacts(fact).length?repeatsQuestionCount(match):compact.includes(squash(fact)))?'（已否定提问中的数字）':match);
 }
 function dateSupported(claim,source){
   if(!claim.valid||!source.valid||(!claim.yearOmitted&&(source.yearOmitted||claim.y!==source.y)))return false;
   // 优先绑定日期所在的逗号分句；若分句不含事件，才回看整个句号句。
   // 一段有两个事件但无法分离日期归属时保守拒绝，而不是任一事件匹配即放行。
   const boundEvents=d=>{
+    // 日期写在括号里（“猴场会议（1934年12月31日晚至1935年1月1日凌晨）重申黎平会议的方针”），只归括号前紧挨的那个事件。
+    const at=d.localContext.indexOf(d.raw),before=at>0?d.localContext.slice(0,at):'';
+    const open=Math.max(before.lastIndexOf('（'),before.lastIndexOf('('));
+    if(open>0&&!/[）)]/.test(before.slice(open))){
+      const named=eventKeys(before.slice(Math.max(0,open-8),open));
+      if(named.length===1)return named;
+    }
     const local=eventKeys(d.localContext);
     if(local.length)return local;
     const whole=eventKeys(d.context);
@@ -391,7 +512,11 @@ function dateSupported(claim,source){
     const positions=HISTORICAL_EVENTS.map(([id,pattern])=>({id,index:after.search(pattern)})).filter(x=>x.index>=0).sort((a,b)=>a.index-b.index);
     return positions.length&&(!positions[1]||positions[0].index<positions[1].index)?[positions[0].id]:null;
   };
-  const claimedEvents=boundEvents(claim),sourceEvents=boundEvents(source);
+  // 日期后紧跟的一段话（≥10 字）与资料原句一致，说的就是资料里这件事：不再按事件词判断归属（年月日仍在下面核对）。
+  // 例：“1935年4月，红军干部休养连在贵州盘县附近遭敌机轰炸，她为掩护在遵义作战时腿部负伤的钟赤兵……”，“遵义”只是修饰语。
+  const follow=d=>{const i=d.context.indexOf(d.raw);return i<0?'':squash(d.context.slice(i+d.raw.length)).replace(/^[，,、：:]+/,'');};
+  const claimFollow=follow(claim),sameStatement=claimFollow.length>=10&&follow(source).startsWith(claimFollow.slice(0,10));
+  const claimedEvents=sameStatement?[]:boundEvents(claim),sourceEvents=sameStatement?[]:boundEvents(source);
   if(claimedEvents===null||sourceEvents===null)return false;
   if(claimedEvents.length&&!claimedEvents.every(event=>sourceEvents.includes(event)))return false;
   // 哈达铺同一段中“到达”与干部会议日期不同，地点相同也不能互换。
@@ -399,6 +524,18 @@ function dateSupported(claim,source){
     const actions=text=>[/(?:到达|抵达|来到)/.test(text)?'arrival':'',/(?:干部会议|团以上会议)/.test(text)?'meeting':''].filter(Boolean);
     const claimActions=actions(claim.localContext),sourceActions=actions(source.localContext).length?actions(source.localContext):actions(source.context);
     if(claimActions.length&&(!sourceActions.length||!claimActions.every(action=>sourceActions.includes(action))))return false;
+  }
+  if(claimedEvents.includes('dadu')&&sourceEvents.includes('dadu')){
+    // 先看日期所在的小句（回答常把“24日夜袭占渡口，25日晨……强渡”写在同一句里），小句看不出来再看整句。
+    const local=text=>/(?:袭占|攻占|抢占)[^，。；]{0,14}(?:安顺场|渡口)/.test(text)?'landing':/强渡|渡过|渡河|过河/.test(text)?'crossing':null;
+    const stage=({context,localContext})=>{
+      const own=local(localContext);if(own)return own;
+      if(/(?:袭占|攻占|抢占)[^。；]{0,14}安顺场/.test(context))return 'landing';
+      if(/强渡(?:了)?大渡河|渡过(?:了)?大渡河/.test(context))return 'crossing';
+      return null;
+    };
+    const claimStage=stage(claim),sourceStage=stage(source);
+    if(claimStage&&sourceStage&&claimStage!==sourceStage)return false;
   }
   if(claim.d===null)return claim.m>=source.m&&claim.m<=(source.endM||source.m);
   if(source.d===null)return false;
@@ -408,8 +545,18 @@ function dateSupported(claim,source){
 }
 function unsupportedDates(answer,ids){
   const sources=ids.flatMap(id=>dateFacts(evidence.find(e=>e.id===id).text,true));
+  // 引号里原样引用所引资料的话（如电令“我军明十三号继续西进”），其中的日期就是资料原文，不再单独判断归属。
+  const normalized=normalizeNumerals(answer),cited=squash(normalizeNumerals(ids.map(id=>evidence.find(e=>e.id===id).text).join('|')));
+  const quoted=[...normalized.matchAll(/“([^”]{2,80})”/g)].filter(q=>cited.includes(squash(q[1]))).map(q=>[q.index,q.index+q[0].length]);
   return dateFacts(answer).filter(d=>{
-    const matches=sources.filter(s=>dateSupported(d,s));
+    if(quoted.some(([a,b])=>d.start>=a&&d.end<=b))return false;
+    let matches=sources.filter(s=>dateSupported(d,s));
+    // 资料把起止分开写（“9 月 16 日到达腊子口……至 17 日凌晨突破”），回答合写成“9月16日至17日”：起点、终点各自有据（含事件归属）即可。
+    if(!matches.length&&d.endD!=null&&(d.endD!==d.d||(d.endM||d.m)!==d.m)){
+      const first={...d,endM:d.m,endD:null},last={...d,m:d.endM||d.m,d:d.endD,endM:d.endM||d.m,endD:null};
+      const a=sources.filter(s=>dateSupported(first,s)),b=sources.filter(s=>dateSupported(last,s));
+      if(a.length&&b.length)matches=[...a,...b];
+    }
     // 无年份的回答不能从多个可能年份中任意选一个。
     return !matches.length||(d.yearOmitted&&new Set(matches.filter(s=>!s.yearOmitted).map(s=>s.y)).size>1);
   }).map(d=>d.raw);
@@ -442,16 +589,23 @@ const XIANGJIANG_FULL_INTERVAL=/(?:从|自)(?:中央红军)?(?:长征)?出发(?:
 const XIANGJIANG_SCOPE_ISSUE='不要把从长征出发到渡过湘江后的兵力变化写成湘江单场战役伤亡；单场损失可以按资料说付出重大代价';
 function mixesXiangjiangStrengthWithBattle(answer,question,ids){
   if(!/湘江/.test(answer+question)&&!ids.includes('xiangjiang_lines'))return false;
-  const sentences=answer.split(/[。！？!\n]+/);
+  const sentences=answer.split(/[。！？!；;\n]+/);
   const directCasualtyQuestion=/伤亡|死亡|牺牲/.test(question)&&/湘江/.test(answer+question);
-  return sentences.some(sentence=>{
+  return sentences.some((sentence,index)=>{
     if(!XIANGJIANG_STRENGTH_START.test(sentence)||!XIANGJIANG_STRENGTH_END.test(sentence))return false;
     // 只有明确交代出发至渡过湘江的区间，才把此数对当作累计兵力变化。
     const fullInterval=XIANGJIANG_FULL_INTERVAL.test(sentence);
     const casualtyClaim=/(?:伤亡|阵亡|牺牲|减员|损失)(?:人数|了|约|为|达|共|数)*[：:]?(?:约)?(?:8[.．]6万|八万六千|八点六万|86000|5[.．]6万|五万六千|56000)/.test(sentence);
-    const battleChange=/(?:湘江(?:战役|之战)?(?:中|时|一役)|(?:此|该|这场|这一)战(?:役|斗)?).{0,20}(?:使|造成|导致|致使)/.test(sentence);
-    if(directCasualtyQuestion||casualtyClaim||battleChange)return true;
-    if(fullInterval)return false;
+    const battleChange=/(?:湘江(?:战役|之战)(?:中|时)?|湘江(?:中|时|一役)|(?:此|该|这场|这一)战(?:役|斗)?).{0,20}(?:使|造成|导致|致使)/.test(sentence);
+    if(casualtyClaim||battleChange)return true;
+    const next=sentences[index+1]||'';
+    const distinguishesCasualties=/(?:不是|并非|不能(?:当作|等同于))[^。；]{0,12}单场[^。；]{0,12}(?:伤亡|损失)/;
+    const consecutiveScope=/(?:由|从|自)(?:中央红军)?(?:长征)?出发/.test(sentence)
+      &&/^(?:这(?:是|一(?:数字|变化))|上述(?:数字|变化))/.test(next)
+      &&XIANGJIANG_FULL_INTERVAL.test(next)&&distinguishesCasualties.test(next);
+    if(consecutiveScope)return false;
+    if(fullInterval)return directCasualtyQuestion&&!distinguishesCasualties.test(sentence);
+    if(directCasualtyQuestion)return true;
     return /湘江|战役|这场|此次|此次战斗|伤亡|损失|减至|锐减|减少到|降到|降至/.test(sentence);
   });
 }
@@ -461,7 +615,43 @@ function asksForXiangjiangStrengthInterval(question){
   return XIANGJIANG_FULL_INTERVAL.test(q)&&/(?:兵力|红军人数|部队人数).{0,12}(?:变化|减少|多少)/.test(q)
     &&!/(?:伤亡|牺牲|阵亡|原因|为什么|顺便|另外|以及|带我|打开|并说明)/.test(q);
 }
+// 只覆盖湘江渡江后兵力的具体误传，以及同时询问单场伤亡的问法。
+function xiangjiangRemainingClaim(question){
+  const q=squash(normalizeNumerals(question));
+  const claim=/(?:只剩|仅剩|就剩)(?:下)?[2二两]万(?:人)?(?=了?[？?。！，,；;]|$)/.exec(q)?.[0];
+  if(!claim||!q.includes('湘江')||/(?:顺便|另外|以及|并说明|还想|为什么|怎么|带我|打开|讲个故事)/.test(q))return null;
+  const asksLoss=/(?:伤亡|损失|阵亡|牺牲)(?:了|有)?(?:多少人?|人数是多少)/.test(q);
+  if(!asksLoss&&!/^湘江[^。！？；?;]{1,28}(?:是不是|是否)(?:就|只|仅)剩(?:下)?[2二两]万(?:人)?了?[？?。]?$/.test(q))return null;
+  return {claim,asksLoss};
+}
+function coversXiangjiangRemaining(answer,asksLoss){
+  const q=squash(answer);
+  const mentionsFalseCount=/[2二两]万/.test(q);
+  const refusesFalseCount=/不是|不符|并非|不准确|说法不对/.test(q);
+  const countGap=/(?:资料|记载)[^。！？]{0,35}(?:没有|未列出|未给出|未提供|未记载|未说明)[^。！？]{0,24}(?:人数|伤亡|损失数字)|(?:伤亡|损失人数|损失的(?:具体)?人数)[^。！？]{0,24}(?:没有|未列出|未给出|未提供|未记载|未说明|不详)/.test(q);
+  return XIANGJIANG_STRENGTH_END.test(q)&&(!mentionsFalseCount||refusesFalseCount)&&(!asksLoss||(mentionsFalseCount&&countGap));
+}
+const XIANGJIANG_SCOPE_SOURCES=['xiangjiang','xiangjiang_lines'];
+const XIANGJIANG_SCOPE_ANSWER='从长征出发到渡过湘江后，中央红军兵力减至3万余人。湘江战役中部队付出重大代价，所引资料未列出这场战役单独的伤亡人数。';
 const XIANGJIANG_INTERVAL_ANSWER='从长征出发时到渡过湘江后，中央红军兵力由8.6万余人减至3万余人。这是这一整段的兵力变化，不能当作湘江单场战役的伤亡人数。';
+const WUQI_ZHILUO_SOURCES=['wuqi','zhiluozhen'];
+const WUQI_ZHILUO_ANSWER='1935年10月19日，中共中央率红军陕甘支队到达陕北吴起镇。1935年11月21日至24日，红一方面军在直罗镇取得胜利。所引资料未给出抵达吴起镇或直罗镇战役时的兵力。';
+
+function checksWuqiZhiluoStrength(question){
+  // 固定的两条资料只能核对这组具体说法，不覆盖夹带其他问题或时间地点的问法。
+  return /^(?:请)?核对[：:]1935年10月[，,]红一方面军(?:到达|抵达)吴起镇[，,](?:随后|之后)在直罗镇(?:打了胜仗|取得胜利)[，,]兵力(?:约|大约)(?:\d+(?:\.\d+)?|[一二两三四五六七八九十]+)万(?:人)?[。？?]?$/.test(squash(normalizeNumerals(question)));
+}
+function checksDepartureStrength(question){
+  return /^(?:请核对[：:])?(?:中央红军|红一方面军)(?:长征出发|出发)(?:时|的时候)[，,]?(?:是不是|是否)(?:大约|约)?有?(?:\d+(?:\.\d+)?|[一二两三四五六七八九十百千]+)万(?:余)?人?[？?。]?$/.test(squash(normalizeNumerals(question)));
+}
+function coversWuqiZhiluoStrength(result,question){
+  if(!WUQI_ZHILUO_SOURCES.every(id=>result.ids.includes(id)))return false;
+  const facts=result.answer.split(/[。！？；;\n]/);
+  return facts.some(part=>/吴起镇/.test(part)&&/到达|抵达/.test(part)&&/10\s*月\s*19\s*[日号]/.test(part))
+    &&facts.some(part=>/直罗镇/.test(part)&&/胜利|胜仗/.test(part)&&/11\s*月\s*21\s*[日号]/.test(part))
+    &&(/提问中的数字未核实/.test(withoutRefutedQuestionFacts(result.answer,question))
+      ||facts.some(part=>/兵力/.test(part)&&/资料[^。]{0,15}(?:没有|未给出|未提到|未记载|无法核实)/.test(part)));
+}
 
 function explicitlyAsksOnlyTimeOrPlace(question){
   return /(?:只(?:想|要|需要)?(?:知道|问|回答|告诉我|说)|仅(?:需)?(?:回答|说明)|只要).{0,16}(?:时间|日期|地点|哪天|什么时候|在哪)/.test(question)
@@ -482,6 +672,8 @@ function observedRisks(answer,ids,question){
   const cited=ids.map(id=>evidence.find(e=>e.id===id)?.text||'').join('');
   const casualties=compact.replace(/损失(?:\d+|[零〇一二两三四五六七八九十百千万]+)门(?:大炮|炮)/g,'');
   if ((/草地/.test(compact)||/草地/.test(q)) && /(?:损失|伤亡|牺牲|死亡).{0,24}(?:主要|因为|由于|导致)/.test(casualties) && (!ids.includes('caodi_losses')||/主要/.test(casualties)) && !/(?:资料|记载).{0,12}(?:未说明|没有说明|不足)/.test(compact)) issues.push('请引用直接说明伤亡原因的资料，不要推断主要原因');
+  // 资料没有记载不等于没有这回事：不能把“资料里没有这一说法”说成断然否定（P-06 传言题偶发）。
+  if (compact.split(/[。！？；;\n]/).some(part=>/(?:并|根本|从来|压根)?没有[^，,]{0,24}这回事|纯属(?:虚构|谣传|编造|杜撰)|是(?:谣言|谣传|编造的)/.test(part)&&!/资料|记载|提到|文献|出处/.test(part.replace(/“[^”]*”/g,'')))) issues.push('资料没有记载不等于没有这回事：只能说资料里没有这一说法、无法证实，并给出资料里相关的记载，不要断言“没有这回事”或“是谣言”');
   if (/1934年11月下旬至12月初/.test(compact) && /三道封锁线/.test(compact)) issues.push('三道封锁线对应的时间是1934年10月下旬至12月初，不能更改时段');
   if (/红二方面军.{0,80}(?:历时|走了|用了|持续|长征)(?:约|近|将近|大约)?两年/.test(compact)) issues.push('红二方面军长征为1935年11月至1936年10月，不能说历时两年；两年是1934年至1936年各路长征的总体时段');
   // 核心会师事实：1936-10-09 会宁为红一与红四方面军，红二方面军在将台堡会师。
@@ -603,20 +795,35 @@ export default {async fetch(request, env) {
   if (!nodes.some(n=>n.id===data.node)) return json({error:'请先选择一个历史节点。'},400);
   if(!env.DEEPSEEK_API_KEY||!env.HISTORY_SIGNING_KEY) return json({error:'助手的模型尚未配置。你仍可浏览节点和史料。'},503);
   if(typeof data.sessionId!=='string'||!SESSION_RE.test(data.sessionId))return json({error:'对话会话无效，请刷新页面后重试。',code:'SESSION_INVALID'},400);
-  if(data.historyTokens!==undefined&&(!Array.isArray(data.historyTokens)||data.historyTokens.length>3))return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);
+  if(data.historyTokens!==undefined&&(!Array.isArray(data.historyTokens)||data.historyTokens.length>5))return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);
   // story 仍接受已有导览 ID；八闽专题只接受服务器登记且已审核的故事 ID。
   const fujianStory=typeof data.story==='string'&&data.story.startsWith('story_fj_')
     ?stories.find(t=>t.id===data.story&&t.reviewed===true&&NODE_IDS.includes(t.node))||null:null;
-  const historyStory=fujianStory?.id??null;
-  const key=await signingKey(env.HISTORY_SIGNING_KEY),history=[],recalled=new Set();
-  for(const token of data.historyTokens||[]){const entry=await readToken(key,token,data.sessionId,data.node,historyStory);if(!entry)return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);entry.sources.forEach(id=>recalled.add(id));history.push({role:'user',content:entry.question},{role:'assistant',content:JSON.stringify({answer:entry.answer,sources:entry.sources})});}
+  const guide=typeof data.story==='string'?storyGuides.find(g=>g.id===data.story):null;
+  const historyStory=fujianStory?.id??guide?.id??null;
+  const key=await signingKey(env.HISTORY_SIGNING_KEY),history=[],recalled=new Set(),entries=[];
+  for(const token of data.historyTokens||[]){
+    const entry=await readToken(key,token,data.sessionId,data.node,historyStory);
+    if(!entry)return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);
+    entries.push(entry);
+  }
+  // 无话题追问只带“主题那一轮”及其后的追问，其余更早的对话和它们的资料不再预先放进来。
+  const bareFollowUp=isBareFollowUp(data.question),anchor=bareFollowUp?followUpAnchor(entries):null,lastTopic=followUpAnchor(entries)?.topic||null;
+  for(const entry of anchor?entries.slice(anchor.index):entries){
+    entry.sources.forEach(id=>recalled.add(id));
+    // 旧签名也可能包含网络答复。无馆内出处时只沿用观众自己的提问。
+    history.push({role:'user',content:entry.question},{role:'assistant',content:JSON.stringify({answer:entry.sources.length?entry.answer:'',sources:entry.sources})});
+  }
   const limited=rateLimit(request,env,'chat');if(limited)return tooMany(limited);
   const question=data.question.trim(),current=nodes.find(n=>n.id===data.node),tour=cleanTour(data.tour),free=data.free===true;
   // 预先取出：当前节点的资料（首页直接提问时没有当前节点），以及上文回答引用过的资料。其余资料由模型调用工具取。
-  // 观众正在读某个故事时提问：只认已登记的故事 ID，把这个故事用到的资料预先取出
-  const guide=typeof data.story==='string'?storyGuides.find(g=>g.id===data.story):null;
+  // 观众正在读某个故事时，把这个已登记故事用到的资料预先取出。
   const guideStory=guide?.story?stories.find(t=>t.id===guide.story&&t.reviewed===true):null;
   const guideTitle=guide?(guide.title||guideStory?.title||''):'';
+  const readingTitle=fujianStory?.title||guideTitle;
+  const followUpHint=!bareFollowUp?'':anchor
+    ?`\n（这是接着上一个问题「${anchor.topic.slice(0,80)}」的追问。请继续围绕这个问题回答，不要转到对话里更早的其他话题，也不要转去讲另一个人物或故事${recalled.size?`；优先依据上一轮回答已经引用的资料（${[...recalled].join('、')}）展开，确有需要再查`:''}；上一个问题里的说法和数字只用于理解，不是依据。）`
+    :readingTitle?`\n（观众正在读《${readingTitle}》，这是对这篇故事的追问。）`:'';
   const guideIds=new Set(guide?[...(guideStory?[guideStory.id,guideStory.node]:[]),...[...(guide.parts||[]),...(guide.background||[])].flatMap(p=>[...p.sources,...(p.terms||[]).flatMap(t=>t.sources)])]:[]);
   if(fujianStory){
     guideIds.add(fujianStory.id);
@@ -625,9 +832,14 @@ export default {async fetch(request, env) {
   // 福建人数问题涉及多个来源口径。为避免模型只查一条就宣布“资料只有一种数字”，
   // 将三份分别有明确出处的计数资料一起预载；这是系统资料准备，不伪称模型主动检索。
   const fujianCountQuery=/(?:福建|闽籍|闽西|八闽).*(?:人数|多少人|多少|几万|数字|数量|口径|统计|差异|不同)|(?:人数|数量|数字|口径|统计|差异).*(?:福建|闽籍|闽西|八闽)|(?:近3万|近2\.6万|近万人).*(?:红军|长征|人数|福建|口径)/.test(data.question);
-  const compareFujianCounts=asksAboutFujianCountDifference(question,historyStory);
+  const compareFujianCounts=asksAboutFujianCountDifference(question,fujianStory?.id);
   const xiangjiangStrengthQuery=asksForXiangjiangStrengthInterval(question);
-  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines'));
+  const remainingClaim=xiangjiangRemainingClaim(question);
+  const wuqiZhiluoCheck=checksWuqiZhiluoStrength(question);
+  const departureStrengthCheck=checksDepartureStrength(question);
+  // 问三大主力在哪里会师：会宁、将台堡两处会师各有一条资料，一起预先取出，免得只引会宁、漏了将台堡的日期出处。
+  const reunionQuery=/(?:三大主力|三个方面军|三支主力|三军|红一、红二、红四).{0,10}会师|会师.{0,6}(?:哪里|哪儿|在哪|何处|什么地方)/.test(question);
+  const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines')||(remainingClaim&&XIANGJIANG_SCOPE_SOURCES.includes(e.id))||(wuqiZhiluoCheck&&WUQI_ZHILUO_SOURCES.includes(e.id))||(departureStrengthCheck&&e.id==='yudu_army')||(reunionQuery&&(e.id==='huining'||e.id==='jiangtaibao')));
   const state={loaded:new Set(preload.map(e=>e.id)),action:null,current:free?null:current.id,tour};
   const gist=e=>e.id.startsWith('story_')?e.name.replace(/（[^）]*）$/,''):e.text.replace(/\s+/g,'').slice(0,26)+'…';
   const catalogue=nodes.map(n=>`[${n.id}] ${n.date} ${n.name}：${n.title}\n`+evidence.filter(e=>e.node===n.id).map(e=>`  - ${e.id}：${gist(e)}`).join('\n')).join('\n');
@@ -643,7 +855,7 @@ ${fujianStory?'观众正在阅读八闽儿女专题，没有正在参观的节�
 - "history"：与长征相关的史实、原因、意义、比较、总结等问题；问候、感谢里同时提出了这类问题的，也按 history 回答其中的历史部分。只依据已取出的资料作答，逐项回答用户提出的各个问题；用户明确问到的某一项在资料中没有依据时，简短说明这一项资料里没有具体提到，不得遗漏也不得编造；用户没有问到的内容，不要主动提“资料没有记载”“其他细节资料中没有”“资料有限”之类的话，直接讲资料里有的即可，结尾也不要加这类声明。尽量沿用资料原文的说法；资料未说明的事实必须明确说不知道，不得猜测或编造，可以同时给出资料里相关的事实。如果已取出的资料对同一事实有分歧，应明确说明不同来源各自的说法，分别列出支持的资料 ID，不要先把其中一种写成确定事实、之后再补充存在分歧；问题没有要求具体争议细节时，可以不提该细节。不要自行推算时间间隔、数量或比例，不要做资料之外的评价、假设或推测。sources 必须列出回答中每一项事实所依据的资料 ID；不可用没有支持该事实的资料代替。严格保留时间、部队、事件及人数的适用范围，不把长征初期的兵力变化写成单场战役的伤亡数字。回答中的日期、数量等数字必须原样出自所引资料。用户问题中的数字即使出现过，也不算证据；纠正错误前提时优先直接写有据可查的正确数字，不要把用户提供的错误数字重复当作事实。
 - "chat"：单纯的问候、感谢、询问你是谁或本站怎么用。简短友好地回应，可介绍你能讲解的内容和操作方式；不陈述任何史实（包括时间、人物、事件和评价），sources 为空。不需要调用工具。
 - "off_topic"：与长征学习无关。礼貌说明你只讲解长征，并建议一个可以问的方向；sources 为空。不需要调用工具。
-三、查证说法：观众贴出一句关于长征的说法并问对不对、是否属实时，type 为 history；先取出相关资料，再逐项说明：哪些与资料一致，哪些与资料不符（给出资料中的说法），哪些资料里没有提到；并列出 sources。不要因为说法里有错误就整句否定，也不要替资料补充它没有的内容。若观众的说法或提问里带着与资料不符的前提（例如把资料中记载的另一件事当成了参加长征的人数），先直接指出“资料记载的不是这样”，说明资料实际记载的是什么（时间、事情），再说明资料没有涉及的部分；不要只回答一句“无法判断”。
+三、查证说法：观众贴出一句关于长征的说法并问对不对、是否属实时，type 为 history；先取出相关资料，再逐项说明：哪些与资料一致，哪些与资料不符（给出资料中的说法），哪些资料里没有提到；并列出 sources。不要因为说法里有错误就整句否定，也不要替资料补充它没有的内容。说法里资料根本没有提到的内容（例如“每人背一袋炒面”），不能用“不是”“并非”“没有这回事”去否定，只能说资料里没有这一说法、无法证实，再给出资料里相关的记载；“资料记载的不是这样”只用于资料里确有相反记载的情形。若观众的说法或提问里带着与资料不符的前提（例如把资料中记载的另一件事当成了参加长征的人数），先直接指出“资料记载的不是这样”，说明资料实际记载的是什么（时间、事情），再说明资料没有涉及的部分；不要只回答一句“无法判断”。
 四、页面操作：观众表达想看、想去、想切换到某一站时（例如“我想看看飞夺泸定桥那段”“带我去遵义”“切到草地”“去腊子口看看”）调用 open_stop，节点取与该事件对应的节点；要求下一站/继续或跳过本站时调用 tour_control；要求开始预设路线时调用 start_route；观众说出兴趣或时间、想让你安排参观时（例如“我只有十分钟，想看最惊险的战斗”）调用 plan_route。只是询问史实（例如“飞夺泸定桥是什么时候”“遵义会议解决了什么”）时不操作页面。
 五、讲故事：资料中名称以“故事·”开头的是长征中的真人真事。观众想听故事时（例如“讲个故事吧”），直接讲一个，type 为 history，不要反问观众想听哪个；优先讲当前节点的故事（目录里标了每个节点有哪些故事），当前节点没有故事时用 read_stop 取相邻节点的故事；按资料原意讲述，不添加资料没有的情节、对话或心理描写，并列出该故事的资料 ID。
 六、followups：给出 0—2 个不超过 25 字、能由资料回答的追问建议。
@@ -654,7 +866,8 @@ ${catalogue}
 已取出的资料：
 ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
   const run=async emit=>{
-    const messages=[{role:'system',content:system},...history,{role:'user',content:question}];
+    const scopeHint=wuqiZhiluoCheck?'\n这条核对只回答吴起镇抵达、直罗镇战役和当时兵力三项。前两项分别给出日期和部队。兵力没有依据时，直接写所引资料未给出当时的兵力，无须复述用户的估算或提及其他阶段的人数。':'';
+    const messages=[{role:'system',content:system+scopeHint},...history,{role:'user',content:question+followUpHint}];
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
     const steps=[],step=s=>{steps.push(s);emit({step:s});};
     const useWeb=webEnabled(env)&&(data.web==='auto'||data.web==='only');
@@ -664,22 +877,36 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       clearTimeout(timer);const t=setTimeout(()=>controller.abort(),40000);
       try{
         const found=await webLookup(env,question,{
+          lastTopic,
           storyTitle:fujianStory?.title||guideTitle,
           nodeName:free?null:current.name,
-          history
+          history,
+          retryDirect:data.web==='only',
+          onRetry:()=>step({kind:'web',text:'首次联网结果缺少出处，再查一次'})
         },controller.signal);
         if(!found){step({kind:'verify',text:'联网没有查到可用的网页出处',ok:false});return null;}
         if(found.offTopic)return {status:200,body:{answer:'这个问题和长征关系不大，我只查证长征相关的内容。',sources:[],type:'off_topic',followups:[],steps}};
         step({kind:'verify',text:'整理网络来源',detail:`${found.sources.length} 个网页，未经人工核对`,ok:false});
-        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{fujianStory:historyStory}:{}),question,answer:found.answer.slice(0,800),sources:[],at:Date.now()});
+        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),...(anchor?{topic:anchor.topic.slice(0,200)}:{}),question,answer:'',sources:[],at:Date.now()});
         return {status:200,body:{answer:found.answer,sources:[],web:{sources:found.sources},historyToken,type:'history',followups:[],steps}};
       }catch{step({kind:'verify',text:'联网查找失败',ok:false});return null}finally{clearTimeout(t)}
     };
     try {
+      // 无话题的追问既接不上已签名的上文，也不在读某篇故事：请观众把问题说完整，不替他猜。
+      if(bareFollowUp&&!anchor&&!readingTitle){
+        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,question,answer:'',sources:[],at:Date.now()});
+        return {status:200,body:{answer:'你想让我接着讲哪一件事？把问题说完整一点就好，比如“苟坝会议为什么决定不打打鼓新场？”。',sources:[],type:'chat',followups:free?[]:(current.questions||[]).slice(0,2),historyToken,steps}};
+      }
       if(useWeb&&data.web==='only'){const out=await lookup();return out||{status:200,body:{answer:'联网没有查到可靠的网页出处，暂时无法回答这个问题。',sources:[],type:'history',followups:[],steps}};}
       let result=null,firstFailed=null,corrected=false,nudged=false,toolCalls=0;
-      const documentedAnswer=compareFujianCounts
+      const ninghuaCheck=(historyStory===NINGHUA_EVIDENCE.sourceId||guideStory?.id===NINGHUA_EVIDENCE.sourceId)
+        &&squash(question).replace(/[？?。]+$/u,'')===NINGHUA_CHECK_QUESTION;
+      const documentedAnswer=ninghuaCheck
+        ?{answer:NINGHUA_EVIDENCE.summary+'\n'+NINGHUA_EVIDENCE.scope,ids:[NINGHUA_EVIDENCE.sourceId],read:'查阅《宁化县志》整理资料',detail:'对照支前记载和资料边界'}
+        :compareFujianCounts
         ?{answer:FUJIAN_COUNT_COMPARISON,ids:[...FUJIAN_COUNT_IDS],read:'并列查阅三份福建人数资料',detail:'按原报道分别说明统计范围'}
+        :departureStrengthCheck
+          ?{answer:'资料记载，中央红军长征出发时为8.6万余人。',ids:['yudu_army'],read:'查阅中央红军长征出发时的兵力',detail:'核对出发时的实际人数'}
         :xiangjiangStrengthQuery
           ?{answer:XIANGJIANG_INTERVAL_ANSWER,ids:['xiangjiang_lines'],read:'查阅中央红军兵力变化资料',detail:'从长征出发到渡过湘江后'}
           :null;
@@ -692,9 +919,19 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       }
       for(let round=0,limit=result?0:7;round<limit;round++){
         const last=round===6||toolCalls>=8;
-        const res=await callModel(env,messages,900,controller.signal,TOOLS,last?'none':'auto');
-        if(!res.ok) return {status:502,body:{error:'模型服务暂时不可用，请稍后重试。'}};
-        const output=await res.json(),choice=output.choices?.[0],message=choice?.message||{},content=message.content||'';
+        let output;
+        try {
+          const res=await callModel(env,messages,900,controller.signal,TOOLS,last?'none':'auto');
+          if(!res.ok&&!firstFailed)return {status:502,body:{error:'模型服务暂时不可用，请稍后重试。'}};
+          if(res.ok)output=await res.json();
+        } catch(e) {
+          if(!firstFailed)throw e;
+        }
+        if(output===undefined){
+          step({kind:'verify',text:'重答服务暂不可用，核对已有答句',ok:false});
+          break;
+        }
+        const choice=output?.choices?.[0],message=choice?.message||{},content=message.content||'';
         if(!last&&Array.isArray(message.tool_calls)&&message.tool_calls.length){
           messages.push({role:'assistant',content,tool_calls:message.tool_calls});
           for(const call of message.tool_calls){
@@ -716,7 +953,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         if(failed&&!firstFailed)firstFailed=result;
         if((unread&&!nudged)||(failed&&!corrected)){
           if(unread)nudged=true;else corrected=true;
-          const issues=unread?'你引用的资料还没有取出或尚未列出，请列出已查阅且支持回答的资料 ID；必要时调用 read_stop、read_materials 或 search_materials 取资料':[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:'',...result.risks].filter(Boolean).join('；');
+          const issues=unread?'你引用的资料还没有取出或尚未列出，请列出已查阅且支持回答的资料 ID；必要时调用 read_stop、read_materials 或 search_materials 取资料':[result.badNumbers.length?`数字 ${result.badNumbers.join('、')} 没有出现在你引用的资料中${(h=>h.length?`（其中${h.join('；')}；确实要用就先用 read_materials 取出这条资料并列入 sources，否则删去）`:'')(whereDatesAppear(result.badNumbers,result.ids))}`:'',result.badTitles.length?`书名《${result.badTitles.join('》《')}》与所引资料的写法不一致或资料中没有`:'',...result.risks].filter(Boolean).join('；');
           step({kind:'verify',text:unread?'核对出处：引用的资料尚未查阅，先去查资料':'核对未通过，重新作答',detail:unread?'':[result.badNumbers.length?'数字 '+result.badNumbers.join('、')+' 不在资料中':'',result.badTitles.length?'文件名与资料不一致':'',result.risks.length?'表述超出资料':''].filter(Boolean).join('；'),ok:false});
           messages.push({role:'assistant',content},{role:'user',content:`系统校验：${issues}。请重新回答用户实际提出的问题，删除无关的延伸内容；只使用所引资料中原样出现的数字和名称，不要自行推算。如果用户问到的内容出自别的资料，先用工具取出并列入 sources；只有用户实际问到的内容确实缺少依据时才说明不知道。仍输出同样格式的 JSON。`});
           result=unread?null:result;
@@ -724,15 +961,44 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         }
         break;
       }
+      result??=firstFailed;
       if(!result) return {status:502,body:{error:'助手回复格式异常，请重试。'}};
+      if(remainingClaim&&result.type==='history'&&(!result.ids.length||result.badNumbers.length||result.badTitles.length||result.risks.length||!coversXiangjiangRemaining(result.answer,remainingClaim.asksLoss))){
+        const sources=remainingClaim.asksLoss?XIANGJIANG_SCOPE_SOURCES:['xiangjiang_lines'];
+        const facts=remainingClaim.asksLoss?XIANGJIANG_SCOPE_ANSWER:'从长征出发到渡过湘江后，中央红军兵力减至3万余人。';
+        const verified=checkReply({type:'history',answer:`“${remainingClaim.claim}”与资料不符。${facts}`,sources},question,state.current,state.loaded);
+        if(verified.ids.length===sources.length&&!verified.badNumbers.length&&!verified.badTitles.length&&!verified.risks.length){
+          step({kind:'verify',text:remainingClaim.asksLoss?'按现有资料分别说明两种口径':'按现有资料核对渡江后兵力',detail:remainingClaim.asksLoss?'渡江后兵力与单场伤亡':'中央红军渡过湘江后的兵力',ok:true});
+          result=verified;
+        }
+      }
       if(result.badNumbers.length||result.badTitles.length||result.risks.length){
         // 两次回答分别按完整句子核查：保留更完整的合格内容，不拼接不同版本。
         const candidates=[result,firstFailed].filter(Boolean).map(candidate=>{
           if(candidate.risks.some(risk=>risk!==XIANGJIANG_SCOPE_ISSUE))return null; // 前提纠正等跨句约束不可拆开。
           const parts=candidate.answer.split(/(?<=[。！？!?\n])/).filter(Boolean);
-          const kept=parts.filter(part=>!unsupportedNumbers(part,candidate.ids,question).length&&!unsupportedTitles(part,candidate.ids,question).length
-            &&!mixesXiangjiangStrengthWithBattle(squash(part),squash(question),candidate.ids));
-          const answer=kept.join('').trim();
+          const kept=[];
+          let gap=false, disconnected=0;
+          for(const part of parts){
+            if(unsupportedNumbers(part,candidate.ids,question).length||unsupportedTitles(part,candidate.ids,question).length
+              ||mixesXiangjiangStrengthWithBattle(squash(part),squash(question),candidate.ids)){
+              gap=true;
+              continue;
+            }
+            if(!part.trim()){
+              if(!gap)kept.push(part);
+              continue;
+            }
+            if(gap&&/^\s*(?:(?:要注意|需要注意(?:的是)?|值得注意(?:的是)?)[，,：:\s]*)?(?:也就是说|换句话说|这(?:是|些|个|一|就|说明|意味着)|上述|前者|后者|由此|据此|因此|所以)/.test(part)){
+              disconnected++;
+              continue;
+            }
+            // 「但安顺场……」仍可独立陈述；接续已删句的对比连词则去掉。
+            const standAlone=gap?part.replace(/^\s*(?:但是|不过|然而|另外|此外|同时|但)[，、,：:\s]*/,''):part;
+            kept.push(standAlone);
+            gap=false;
+          }
+          let answer=kept.join('').trim();
           if(!answer||kept.length===parts.length||(answer.match(/[\u4e00-\u9fff]/g)||[]).length<6)return null;
           if(candidate.risks.includes(XIANGJIANG_SCOPE_ISSUE)&&(!/湘江/.test(question)||!/湘江/.test(answer)))return null;
           const questionEvents=eventKeys(question);
@@ -740,22 +1006,42 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
           // 否定前提的原回答被删去纠正时，不能仅保留无关补充。
           if(/(?:不是|不对|并非|不准确|不符)/.test(candidate.answer)&&!/(?:不是|不对|并非|不准确|不符)/.test(answer))return null;
           if(unsupportedNumbers(answer,candidate.ids,question).length||unsupportedTitles(answer,candidate.ids,question).length||observedRisks(answer,candidate.ids,question).length)return null;
-          return {...candidate,answer,removed:parts.length-kept.length};
-        }).filter(Boolean).sort((a,b)=>b.answer.length-a.answer.length);
-        if(candidates.length){result=candidates[0];step({kind:'verify',text:'删去未能核对的内容',detail:`${result.removed} 句`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
+          const retainedLength=answer.length;
+          if(questionEvents.length>1&&/(?:区别|异同|对比|比较|分别|是不是同一)/.test(question)){
+            const covered=new Set(eventKeys(answer));
+            // 「大渡河」也可能只是泸定桥所在的河流；比对两次行动要辨认安顺场或渡河动作。
+            if(questionEvents.includes('luding')&&questionEvents.includes('dadu')){
+              if(/强渡(?:了)?大渡河|渡过(?:了)?大渡河|安顺场[^。；]{0,24}17名|17名[^。；]{0,24}安顺场/.test(answer))covered.add('dadu');
+              else covered.delete('dadu');
+            }
+            const missing=questionEvents.filter(id=>!covered.has(id)).map(id=>nodes.find(n=>n.id===id)?.title||EVENT_LABELS[id]||nodeName(id));
+            if(missing.length===questionEvents.length)return null;
+            if(missing.length)answer+=`\n关于${missing.join('、')}的细节未能核对，以上只能回答部分问题。`;
+          }
+          return {...candidate,answer,removed:parts.length-kept.length,disconnected,retainedLength};
+        }).filter(Boolean).sort((a,b)=>b.retainedLength-a.retainedLength);
+        if(candidates.length){result=candidates[0];step({kind:'verify',text:'删去未能核对的内容',detail:`${result.removed} 句${result.disconnected?`（含 ${result.disconnected} 句上下文不完整）`:''}`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
         else{const issues=[result.badNumbers.length?'日期或数字':'',result.badTitles.length?'书名':'',result.risks.length?'相关事实表述':''].filter(Boolean);result.answer=`现有资料不足以可靠回答这个问题：${issues.join('、')||'具体事实'}未能核对，请换个问法或查阅节点资料。`;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
         result.badNumbers=[];result.badTitles=[];result.risks=[];
       }
       else if(result.type==='history'&&result.ids.length)step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});
+      if(wuqiZhiluoCheck&&result.type==='history'&&!coversWuqiZhiluoStrength(result,question)){
+        const verified=checkReply({type:'history',answer:WUQI_ZHILUO_ANSWER,sources:WUQI_ZHILUO_SOURCES},question,state.current,state.loaded);
+        if(verified.ids.length===WUQI_ZHILUO_SOURCES.length&&!verified.badNumbers.length&&!verified.badTitles.length&&!verified.risks.length){
+          step({kind:'verify',text:'按现有资料逐项核对',detail:'吴起镇、直罗镇及兵力的资料边界',ok:true});
+          result=verified;
+        }
+      }
       const {type,ids,answer,followups}=result,action=state.action||result.action;
       // 历史问题在资料库里没有查到出处：联网兜底；查到一部分但说明了资料没有涉及的内容：让页面提供“联网再查”
       const gap=/(?:资料|文献|记载|知识库)[^。]{0,24}(?:没有|未|不足|无法|尚无)|不知道/.test(answer);
-      if(useWeb&&type==='history'&&!ids.length&&!action){const out=await lookup();if(out)return out;}
+      if(useWeb&&!controller.signal.aborted&&type==='history'&&!ids.length&&!action){const out=await lookup();if(out)return out;}
       const canWeb=useWeb&&type==='history'&&ids.length>0&&!action; // 每个有出处的历史回答后都给“想了解更多？试试联网搜索”
-      const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{fujianStory:historyStory}:{}),question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
+      const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),...(anchor?{topic:anchor.topic.slice(0,200)}:{}),question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
       const grouped=new Map();
       for(const id of ids){const e=evidence.find(x=>x.id===id),existing=grouped.get(e.url);if(existing){existing.ids.push(id);existing.excerpt+='\n'+e.text}else grouped.set(e.url,{id,ids:[id],title:e.source,url:e.url,excerpt:e.text});}
-      return {status:200,body:{answer,sources:[...grouped.values()],historyToken,type,action,followups,steps,...(canWeb?{canWeb:true}:{})}};
+      const evidenceFocus=ninghuaCheck&&ids.includes(NINGHUA_EVIDENCE.sourceId)&&answer===documentedAnswer.answer?NINGHUA_EVIDENCE:null;
+      return {status:200,body:{answer,sources:[...grouped.values()],historyToken,type,action,followups,steps,...(canWeb?{canWeb:true}:{}),...(evidenceFocus?{evidenceFocus}:{})}};
     } catch(e) {return {status:502,body:{error:e?.name==='AbortError'?'助手响应超时，请稍后重试。':'连接模型服务失败，请稍后重试。'}}} finally {clearTimeout(timer)}
   };
   // 页面请求 stream:true 时逐行返回（NDJSON）：先是处理步骤 {"step":…}，最后一行 {"done":…} 或 {"error":…}。

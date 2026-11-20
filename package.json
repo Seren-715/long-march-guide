@@ -11,6 +11,7 @@
     "eval": "node scripts/eval-qa.mjs",
     "audit": "node scripts/audit-grounding.mjs",
     "check:kb": "node scripts/check-kb-text.mjs",
-    "eval:retrieval": "node scripts/eval-retrieval.mjs"
+    "eval:retrieval": "node scripts/eval-retrieval.mjs",
+    "eval:sweep": "node scripts/eval-sweep.mjs"
   }
 }

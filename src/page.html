@@ -183,6 +183,8 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 #open-reading:hover{border-color:var(--accent)}
 .related{display:grid;gap:8px;margin:14px 0 4px}
 .related-label{font-size:12px;color:var(--text3);letter-spacing:.04em}
+.story-links .story-next{padding:10px 13px}
+.story-links .story-next b{font-size:14.5px;line-height:1.6}
 .stop-card{display:flex;align-items:center;gap:14px;width:100%;padding:10px 12px 10px 10px;border:1px solid var(--accent-line);border-radius:14px;background:var(--accent-soft);color:var(--text);text-align:left;cursor:pointer;font:inherit;transition:transform .15s,box-shadow .15s,border-color .15s}
 .stop-card:hover{border-color:var(--accent);box-shadow:0 6px 18px rgba(179,38,30,.14);transform:translateY(-1px)}
 .stop-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -230,15 +232,16 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .tale span{font-size:12.5px;line-height:1.55;color:var(--text2);margin-top:auto}
 .tales + .starts{margin-top:10px}
 
-.story-page{width:min(760px,100%)}
+.story-page{width:min(700px,100%)}
 .story-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .story-back{font-size:13px;color:var(--text3);padding:4px 0}
 .story-back:hover{color:var(--accent)}
 .story-page h1{margin-bottom:18px}
-.story-part p{font-size:17px!important;line-height:2!important}
-.story-hook{font-family:var(--serif);font-size:21px;line-height:1.6;font-weight:700;margin:6px 0 18px;padding-left:14px;border-left:3px solid var(--accent)}
-.story-part{position:relative;margin:0 0 16px;animation:stepin .35s ease-out}
-.story-part h3,.story-more h3{margin:0 0 4px;font-size:13px;font-weight:600;color:var(--text2);display:flex;align-items:baseline;gap:8px}
+.story-part p{font-family:var(--serif);font-size:18.5px!important;line-height:2.15!important;letter-spacing:.01em}
+.story-hook{font-family:var(--serif);font-size:23px;line-height:1.7;font-weight:700;margin:10px 0 40px;padding-top:18px;position:relative}
+.story-hook:before{content:"";position:absolute;top:0;left:0;width:36px;height:3px;background:var(--accent)}
+.story-part{position:relative;margin:0 0 30px;animation:stepin .9s ease-out}
+.story-part h3,.story-more h3{margin:0 0 6px;font-size:12.5px;font-weight:600;color:var(--text3);letter-spacing:.08em;display:flex;align-items:baseline;gap:8px}
 .story-part h3 em{font-style:normal;color:var(--accent);font-variant-numeric:tabular-nums}
 .story-part p,.story-more p{margin:0;font-size:15.5px;line-height:1.85}
 .story-page.event .story-part{padding-left:20px;border-left:2px solid var(--accent-line);margin-left:5px}
@@ -247,7 +250,35 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .term:hover,.term[aria-expanded=true]{color:var(--accent)}
 .term-note{margin:8px 0 0;padding:9px 12px;border-radius:10px;background:var(--bg2);font-size:13.5px;line-height:1.7;color:var(--text2)}
 .story-part .refs,.story-more .refs,.term-note .refs{margin-top:6px}
-.story-go{display:flex;align-items:center;gap:12px;margin:4px 0 6px}
+.story-go{display:flex;justify-content:center;margin:34px 0 20px}
+.story-cont{font-family:var(--serif);font-size:16px;color:var(--accent);padding:8px 4px;border-bottom:1px solid var(--accent-line);transition:border-color .15s,letter-spacing .2s}
+.story-cont:hover{border-color:var(--accent);letter-spacing:.06em}
+.story-cont:after{content:" ↓";content:" ↓" / "";display:inline-block;animation:nudge 1.8s ease-in-out infinite}
+@keyframes nudge{50%{transform:translateY(3px)}}
+@media(prefers-reduced-motion:reduce){.story-cont:after{animation:none}}
+.story-fold{margin:6px 0 24px;font-size:14px}
+.story-fold summary{cursor:pointer;color:var(--text3);font-size:13px;letter-spacing:.08em;padding:6px 0;list-style:none}
+.story-fold summary::-webkit-details-marker{display:none}
+.story-fold summary:before{content:"＋ "}
+.story-fold[open] summary:before{content:"－ "}
+.story-fold[open] summary{margin-bottom:8px}
+.story-ask{margin:26px 0 8px}
+.story-ask h3{font-family:var(--serif);font-size:15px;margin:0 0 6px;color:var(--text2)}
+.story-ask button{display:block;text-align:left;padding:7px 0;font-size:14.5px;line-height:1.6;color:var(--text2);border-bottom:1px dotted var(--border)}
+.story-ask button:before{content:"问　";color:var(--accent);font-size:12.5px}
+.story-ask button:hover:not(:disabled){color:var(--accent)}
+.onward{position:relative;margin:48px 0 20px;padding-left:28px}
+.onward:before{content:"";position:absolute;left:5px;top:10px;bottom:34px;width:0;border-left:2px dotted var(--accent-line)}
+.onward i{position:absolute;left:-28px;top:.45em;width:12px;height:12px;border-radius:50%;box-sizing:border-box;background:var(--accent)}
+.onward-now{position:relative;margin:0 0 18px;font-size:13px;color:var(--text3);letter-spacing:.06em}
+.onward-go{position:relative;display:block;width:100%;text-align:left;padding:0}
+.onward-go small{position:relative;display:block;font-size:12.5px;color:var(--accent);letter-spacing:.06em;margin-bottom:6px}
+.onward-go small i{background:var(--bg);border:2px solid var(--accent)}
+.onward-go b{display:block;font-family:var(--serif);font-size:21px;line-height:1.65;font-weight:700}
+.onward-go span{display:block;margin-top:8px;font-size:14px;color:var(--text2)}
+.onward-go:hover b,.onward-go:hover span{color:var(--accent)}
+.onward-map{display:block;margin-top:18px;font-size:13px;color:var(--text3);border-bottom:1px solid var(--border)}
+.onward-map:hover{color:var(--accent)}
 .story-go small{font-size:12px;color:var(--text3)}
 .story-more{margin-top:8px;padding-top:16px;border-top:1px solid var(--border2);animation:stepin .35s ease-out}
 .story-more > h3{margin:18px 0 8px;font-family:var(--serif);font-size:16px;color:var(--text)}
@@ -267,11 +298,16 @@ button.ctx-pill:hover{background:var(--hover);color:var(--text)}
 .story-cats .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
 .story-cats .chip small{margin-left:6px;opacity:.75;font-size:12px}
 .story-cat-note{margin:0 0 16px;font-size:13.5px;line-height:1.7;color:var(--text2)}
+.story-filter{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;margin:0 0 6px}
+.story-filter b{font-family:var(--serif);font-size:16px}
+.story-filter-link{font-size:13px;color:var(--text3);border-bottom:1px solid var(--border)}
+.story-filter-link:hover{color:var(--accent);border-color:var(--accent)}
 .story-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
-.story-list .story-next{display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:280px;aspect-ratio:3/4;padding:20px 18px;border-radius:12px;overflow-wrap:anywhere}
-/* 书本卡片像实体按钮一样抬起、按下 */
-.story-list .story-next{box-shadow:0 5px 0 #e6d1ca,0 10px 20px rgba(71,37,29,.08);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}
-.story-list .story-next:active,.story-list .story-next.is-pressed{transform:translateY(5px);box-shadow:0 0 0 #e6d1ca,0 2px 5px rgba(71,37,29,.08);border-color:var(--accent-line)}
+.story-list .story-next{display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:220px;padding:20px 18px;border-radius:10px;overflow-wrap:anywhere}
+/* 书本卡片：一条细线托底，按下时轻轻下沉，不用厚重的立体阴影 */
+.story-list .story-next{box-shadow:0 2px 0 var(--border);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}
+.story-list .story-next:active,.story-list .story-next.is-pressed{transform:translateY(2px);box-shadow:0 0 0 var(--border);border-color:var(--accent-line)}
+#story-title:focus:not(:focus-visible),#story-title[tabindex="-1"]:focus{outline:none}
 html.story-opening::view-transition-old(root){animation:none}
 html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-out both;mix-blend-mode:normal}
 @keyframes story-reveal{from{clip-path:circle(0 at var(--story-x) var(--story-y))}to{clip-path:circle(var(--story-radius) at var(--story-x) var(--story-y))}}
@@ -280,7 +316,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .story-list .story-next span{margin-top:auto;padding-top:16px;line-height:1.6}
 @media(max-width:1250px){.story-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:980px){.story-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
-@media(max-width:420px){.story-list .story-next{min-height:280px;padding:16px 14px}.story-list .story-next b{font-size:15px}}
+@media(max-width:420px){.story-list .story-next{min-height:200px;padding:16px 14px}.story-list .story-next b{font-size:15px}}
 .story-next span{display:block;margin-top:3px;font-size:12px;color:var(--text3)}
 .story-all{display:block;margin:10px auto 0;font-size:13px;color:var(--accent)}
 .tale-note{margin:10px 0 14px;padding:10px 12px;border-radius:10px;background:#fff8ec;border:1px solid #f1dfbd;font-size:13px;line-height:1.7;color:#6b4a12}
@@ -304,6 +340,18 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .ref svg{flex:none;width:10px;height:10px}
 .ref span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ref:hover{color:var(--text);border-color:color-mix(in srgb,var(--text) 30%,var(--border))}
+.evidence-marker{display:inline-grid;place-items:center;min-width:27px;min-height:27px;margin-left:5px;padding:0 5px;border:1px solid var(--border);border-radius:50%;background:var(--bg);color:var(--accent);font-size:12px;line-height:1;vertical-align:middle}
+.evidence-marker:hover,.evidence-marker[aria-expanded=true]{border-color:var(--accent);background:var(--accent);color:#fff}
+.evidence-card{margin:0 0 18px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--bg);color:var(--text);font-size:14px}
+.msg-body .evidence-card{margin:12px 0 0}
+.evidence-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.evidence-card h2,.evidence-card h3{margin:0;font-size:16px;line-height:1.45}
+.evidence-card p{margin:5px 0;line-height:1.65;overflow-wrap:anywhere}
+.evidence-card-section{border-left:2px solid transparent;padding:9px 12px;margin:8px 0}
+.evidence-card-section.active{border-color:var(--accent);border-radius:0 8px 8px 0;background:color-mix(in srgb,var(--accent) 7%,var(--bg))}
+.evidence-card mark{background:color-mix(in srgb,var(--accent) 13%,var(--bg));color:var(--text);font-weight:650}
+.evidence-card-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-top:10px}
+.evidence-story-entry{display:inline-flex;margin:10px 7px 10px 0}
 .evidence{margin-top:8px;font-size:13px;color:var(--text2)}
 .evidence summary{cursor:pointer;color:var(--text3);font-size:12px;list-style:none}
 .evidence summary::-webkit-details-marker{display:none}
@@ -437,7 +485,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
   .home-side .tale b{font-size:15px}
   .home-side .tale span{font-size:12px}
   .home-side .starts{gap:8px;margin:8px 0 10px}
-  .home-side .start{padding:8px 10px;border-radius:999px;align-items:center}
+  .home-side .start{padding:8px 10px;border-radius:0;align-items:center}
   .home-side .start > span{display:none}
   .home-side .start b{font-size:13.5px}
   .home-side .start span{font-size:11.5px}
@@ -498,7 +546,12 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .fujian-intro{max-width:660px;color:var(--text2);line-height:1.9;margin:0 0 12px}
 .fujian-note{border-left:3px solid var(--accent-line);padding:4px 0 4px 14px;color:var(--text3);font-size:13px;line-height:1.8;margin:22px 0 32px}
 .fujian-section-title{font-size:14px;margin:0 0 18px;color:var(--text2)}
-#fujian-detail .btn{margin-top:16px}
+.fujian-story-footer{display:grid;gap:14px;margin-top:18px}
+.fujian-story-sources{display:grid;justify-items:start;gap:7px}
+.fujian-story-sources .src{align-items:baseline;min-width:0}
+.fujian-story-sources .src span{white-space:normal;overflow-wrap:anywhere;line-height:1.55}
+.fujian-story-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.fujian-story-actions .btn{height:auto;min-height:36px;max-width:100%;margin:0;padding:7px 14px;white-space:normal;line-height:1.4;text-align:center}
 .session.topic-mode .read-head,.session.topic-mode #map3d,.session.topic-mode #exhibit,.session.topic-mode #chat-chips,.session.topic-mode #chat-form .ctx-pill{display:none}
 .story-card p{margin:0 0 8px;font-size:15px;line-height:1.85}
 .story-note{display:block;margin:0 0 8px;font-size:12px;color:var(--accent);overflow-wrap:anywhere}
@@ -531,16 +584,18 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .hist-sec{margin:0 0 18px}
 .hist-sec h3{font-size:13px;font-weight:600;color:var(--text3);margin:0 0 8px;letter-spacing:.04em}
 .hist-list{display:grid;gap:8px}
+.hist-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .hist-list button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);font-size:14.5px;line-height:1.55;transition:border-color .15s,background .15s}
 .hist-list button:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--bg))}
 .hist-list small{font-size:12px;color:var(--text3)}
 .hist-empty{color:var(--text2);font-size:14px;line-height:1.7}
 .hist-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px;font-size:12.5px;color:var(--text3)}
 .starts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:24px 0 18px}
-.start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:var(--bg);transition:background .15s,border-color .15s,transform .15s}
-.start:focus-visible,.start:active{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
-@media (hover:hover){.start:hover{background:var(--primary);color:var(--on-primary);border-color:var(--primary);transform:translateY(-1px)}.start:hover span{color:inherit}}
-.start:focus-visible span,.start:active span{color:inherit}
+/* 首页入口：像书的目录一样用细线分隔的文字行，不用方框和色块 */
+.start{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:12px 4px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;transition:color .15s,border-color .15s}
+.start:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.start:active{color:var(--accent)}
+@media (hover:hover){.start:hover{color:var(--accent);border-color:var(--accent)}}
 .start b{font-size:15px;font-weight:600}
 .start span{font-size:12px;color:var(--text3)}
 .or{display:flex;align-items:center;gap:12px;margin:0 0 14px;font-size:12px;color:var(--text3)}
@@ -644,7 +699,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <p class="home-scope">目前收录的是<b>中央红军主力</b>的长征路线：从中央苏区到吴起镇，共 23 处；另有直罗镇、会宁、将台堡三处。其他各路红军的资料还很少。</p>
 <div class="tales" id="tales" role="group" aria-label="从故事开始" hidden></div>
 <div class="starts" role="group" aria-label="开始方式">
-<button type="button" class="start" id="start-history" aria-haspopup="dialog"><b>历史记录</b><span>读过的故事、问过的问题</span></button>
+<button type="button" class="start" id="start-history" aria-haspopup="dialog"><b>目录</b><span>专题、分类和你的足迹</span></button>
 <button type="button" class="start" id="start-browse"><b>自由浏览</b><span>按时间看全部 <span data-count="nodes">__NODE_COUNT__</span> 个节点</span></button>
 <button type="button" class="start" id="start-people" aria-haspopup="dialog"><b>人物档案</b><span>从人物故事认识长征</span></button>
 <button type="button" class="start" id="start-fujian"><b>八闽儿女的长征</b><span>探寻福建与长征的故事</span></button>
@@ -686,7 +741,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <div class="dialog-body"><div class="hist-list" id="claims-list"></div><p class="plan-note">核对结果以回答里附的出处为准；资料没有记载的，小征会如实说明。</p></div>
 </dialog>
 <dialog class="route-dialog" id="history-dialog" aria-labelledby="history-title">
-<div class="dialog-head"><div><h2 id="history-title">历史记录</h2><p>读过的故事、看过的站、问过的问题，点一下就能回去</p></div><button type="button" class="dialog-close" id="history-close" aria-label="关闭">×</button></div>
+<div class="dialog-head"><div><h2 id="history-title">目录</h2><p>按专题或分类找故事；你读过的故事、看过的站、问过的问题也在这里</p></div><button type="button" class="dialog-close" id="history-close" aria-label="关闭">×</button></div>
 <div class="dialog-body" id="history-body"></div>
 </dialog>
 <dialog class="route-dialog" id="people-dialog" aria-labelledby="people-title">
@@ -750,6 +805,27 @@ const sessionId = crypto.randomUUID();
 const $ = id => document.getElementById(id);
 const messages = $('messages'), status = $('status'), input = $('question'), homeQ = $('home-q'), exhibit = $('exhibit');
 const find = id => nodes.find(n => n.id === id);
+// 每站“可以问”的问题：答案就写在这一站正文里的不再推荐（例如正文写着日期，还问“什么时候”）。
+// 判断：问题的关键词有六成以上出现在正文里（或五成以上且共有一段 3 字以上的具体名称），并且正文里有这类答案。
+const QUESTION_WORDS = /是什么时候|什么时候|是什么时间|什么时间|何时|哪一天|哪天|哪一年|哪年|几月|发生在|是什么|什么|哪些|哪几个|哪个|哪里|哪儿|往哪|是谁|谁|吗|呢|了|的|是|有|在|从|和|与|分别/g;
+function answeredInText(q, text) {
+  const t = String(text || '').replace(/\s+/g, ''), core = String(q).replace(/\s+/g, '').replace(/[？?。！!“”"、，,《》]/g, '').replace(QUESTION_WORDS, '');
+  const grams = []; for (let i = 0; i + 2 <= core.length; i++) grams.push(core.slice(i, i + 2));
+  if (!grams.length) return false;
+  const cov = grams.filter(g => t.includes(g)).length / grams.length;
+  let longest = 0; for (const seg of core.split(/中央红军|红[一二四]方面军|红军|中共中央|中革军委|中央/)) for (let a = 0; a < seg.length; a++) for (let b = a + 3; b <= seg.length; b++) if (t.includes(seg.slice(a, b))) longest = Math.max(longest, b - a);
+  // “猴场会议决定了什么行动？”：正文有同一个动词、又有问题开头的地名（“猴场……决定”），就算答案已在正文里
+  const verb = q.match(/(决定|确定|否定|通过|批评|选举|改组)了?(?:什么|哪)/);
+  if (verb && t.includes(verb[1]) && core.length >= 2 && t.includes(core.slice(0, 2))) return true;
+  if (!(cov >= 0.6 || (cov >= 0.5 && longest >= 3))) return false;
+  if (/什么时候|何时|哪天|哪一天|哪一年|哪年|几月|什么时间/.test(q)) return /\d+年|\d+月/.test(t);
+  if (/往哪里|向哪里|去了哪里|去哪|往哪/.test(q)) return /方向|前进|进军|西进|北上|南下|东进|转移|开进|到达/.test(t);
+  const v = q.match(/(决定|确定|否定|发出|占领|攻占|会合|会师|通过|批评|选举|改组)了?(?:什么|哪)/); if (v) return t.includes(v[1]);
+  const w = q.match(/哪(?:些|几个|几处|几座|个)([一-龥]{1,2})/); if (w) return t.includes(w[1]);
+  const who = q.match(/(?:是)?谁(召开|主持|指挥|率领|带领)/); if (who) return t.includes(who[1]);
+  return false;
+}
+const askable = id => { const n = find(id); return (n?.questions || []).filter(q => !answeredInText(q, n.text)); };
 const indexOf = id => nodes.findIndex(n => n.id === id);
 const motion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 const mobile = () => window.matchMedia('(max-width: 900px)').matches;
@@ -762,7 +838,7 @@ let route = [], routeName = '', completed = new Set(), visited = new Set(), view
 let chatHistory = [], busy = false, contextVersion = 0, summaryText = '', planVersion = 0, planning = false;
 const askedByNode = new Map(), suggestionTurns = new Map();
 const normalizeQuestion = text => text.toLowerCase().replace(/[\s，。！？、,.!?；;：:]/g, '');
-function availableQuestions() { const asked = askedByNode.get(selected) || new Set(); const all = (find(selected)?.questions || []).filter(q => !asked.has(normalizeQuestion(q))); if (!all.length) return []; const offset = (suggestionTurns.get(selected) || 0) % all.length; return all.slice(offset).concat(all.slice(0, offset)).slice(0, 2); }
+function availableQuestions() { const asked = askedByNode.get(selected) || new Set(); const all = askable(selected).filter(q => !asked.has(normalizeQuestion(q))); if (!all.length) return []; const offset = (suggestionTurns.get(selected) || 0) % all.length; return all.slice(offset).concat(all.slice(0, offset)).slice(0, 2); }
 function markQuestionAnswered(id, question) { const n = find(id), key = normalizeQuestion(question); if ((n?.questions || []).some(q => normalizeQuestion(q) === key)) { if (!askedByNode.has(id)) askedByNode.set(id, new Set()); askedByNode.get(id).add(key); } suggestionTurns.set(id, (suggestionTurns.get(id) || 0) + 1); }
 function fillSuggestions(box) { box.replaceChildren(); const qs = availableQuestions(); if (!qs.length) { box.append(el('span', '', '本节点的建议问题已看完，你可以自行提问。')); const reset = el('button', 'chip', '重新显示建议问题'); reset.type = 'button'; reset.disabled = busy; reset.addEventListener('click', () => { askedByNode.delete(selected); suggestionTurns.delete(selected); shownKey = null; renderExhibit(); renderChips(); }); box.append(reset); return; } for (const q of qs) { const c = el('button', 'chip', q); c.type = 'button'; c.disabled = busy; c.addEventListener('click', () => askChip(q)); box.append(c); } }
 const stopEls = new Map();
@@ -806,6 +882,8 @@ const GUIDES = (Array.isArray(DATA.guides) ? DATA.guides : []).map(g => {
 }).filter(Boolean);
 // 没有手写“下一个”的故事，按路线上的远近推荐：同一站最先，其次是时间上相邻的站
 const nodePos = id => nodes.findIndex(n => n.id === id);
+// 回答引用了某个故事的原文时，在回答下面给出“读完整的故事”入口（问答 → 故事）
+const GUIDE_BY_STORY = new Map(GUIDES.filter(g => g.story).map(g => [g.story, g]));
 const TRAILS = (Array.isArray(DATA.trails) ? DATA.trails : []).map(t => ({ ...t, items: (t.items || []).map(id => GUIDES.find(g => g.id === id)).filter(Boolean) })).filter(t => t.title && t.items.length >= 3);
 const trailsOf = id => TRAILS.filter(t => t.items.some(g => g.id === id));
 GUIDES.forEach((g, i) => { if (!g.next) g.next = GUIDES.map((x, j) => ({ x, j, d: Math.abs(nodePos(x.node) - nodePos(g.node)) })).filter(o => o.x.id !== g.id).sort((p, q) => p.d - q.d || ((p.j - i + GUIDES.length) % GUIDES.length) - ((q.j - i + GUIDES.length) % GUIDES.length)).slice(0, 4).map(o => o.x.id); });
@@ -855,26 +933,27 @@ function openStoryFromCard(card, id) {
 }
 function taleCard(g, cls) { const b = el('button', cls); b.type = 'button'; b.append(el('small', '', g.tag + (readTales.has(g.id) ? ' · 已读' : '')), el('b', '', g.hook), el('span', '', '《' + g.title + '》 · 听小征讲 →')); b.addEventListener('click', () => { if (b.closest('.story-list')) openStoryFromCard(b, g.id); else openStory(g.id); }); return b; }
 let storyCat = '';
+// 故事分类：首个是“全部”；分类和专题的切换都放在“目录”里，列表页只留一行当前看法
+const STORY_CATS = [['', '全部', '所有能读的故事，挑一个开始。'], ['人物故事', '人物故事', '从一个人的经历讲起：他（她）做了什么，后来怎样。'], ['事件故事', '事件故事', '一场战斗、一次渡河或一次会合是怎样发生的。'], ['会议与决策', '会议与决策', '关键时刻，大家争论什么、最后怎样定下方向。'], ['军民与民族', '军民与民族', '红军与沿途群众、少数民族之间发生的事。']].filter(c => !c[0] || GUIDES.some(g => g.cat === c[0]));
 function openStoryList(push = true) {
   const body = $('story-body'); $('story-page').classList.remove('event'); $('story-back').hidden = true;
   $('story-tag').textContent = '真人真事，皆有出处'; $('story-title').textContent = '长征路上的故事';
-  const CATS = [['', '全部', '所有能读的故事，挑一个开始。'], ['人物故事', '人物故事', '从一个人的经历讲起：他（她）做了什么，后来怎样。'], ['事件故事', '事件故事', '一场战斗、一次渡河或一次会合是怎样发生的。'], ['会议与决策', '会议与决策', '关键时刻，大家争论什么、最后怎样定下方向。'], ['军民与民族', '军民与民族', '红军与沿途群众、少数民族之间发生的事。']];
-  const bar = el('div', 'story-cats'), note = el('p', 'story-cat-note'), list = el('div', 'story-list');
-  const draw = cat => { const row = CATS.find(c => c[0] === cat) || CATS[0]; note.textContent = row[2]; list.replaceChildren(...GUIDES.filter(g => !cat || g.cat === cat).map(g => taleCard(g, 'story-next'))); [...bar.children].forEach((b, i) => b.setAttribute('aria-pressed', CATS[i][0] === cat ? 'true' : 'false')); storyCat = cat; };
-  CATS.forEach(([key, label]) => { const n = key ? GUIDES.filter(g => g.cat === key).length : GUIDES.length; if (key && !n) return; const b = el('button', 'chip', label); b.type = 'button'; b.append(el('small', '', String(n))); b.addEventListener('click', () => { storyTrail = ''; [...tbar.querySelectorAll('.chip')].forEach(x => x.setAttribute('aria-pressed', 'false')); draw(key); }); b.dataset.cat = key; bar.append(b); });
-  CATS.splice(0, CATS.length, ...CATS.filter(c => !c[0] || GUIDES.some(g => g.cat === c[0])));
-  const tbar = el('div', 'story-trails');
-  const drawTrail = id => {
-    const t = TRAILS.find(x => x.id === id); if (!t) { storyTrail = ''; [...tbar.querySelectorAll('.chip')].forEach(b => b.setAttribute('aria-pressed', 'false')); draw(''); return; }
-    storyTrail = id; storyCat = ''; [...bar.children].forEach(b => b.setAttribute('aria-pressed', 'false'));
-    const done = t.items.filter(g => readTales.has(g.id)).length; note.textContent = t.blurb + '　已读 ' + done + ' / ' + t.items.length + '，按故事发生的先后排列。';
+  const head = el('div', 'story-filter'), note = el('p', 'story-cat-note'), list = el('div', 'story-list');
+  const t = storyTrail && TRAILS.find(x => x.id === storyTrail), cat = !t && STORY_CATS.find(c => c[0] === storyCat) || STORY_CATS[0];
+  if (!t) storyTrail = '';
+  if (t) {
+    const done = t.items.filter(g => readTales.has(g.id)).length;
+    head.append(el('b', '', '专题 · ' + t.title)); note.textContent = t.blurb + '　已读 ' + done + ' / ' + t.items.length + '，按故事发生的先后排列。';
     list.replaceChildren(...t.items.map((g, i) => { const c = taleCard(g, 'story-next' + (readTales.has(g.id) ? ' is-read' : '')); c.append(el('i', 'trail-no', String(i + 1))); return c; }));
-    [...tbar.querySelectorAll('.chip')].forEach(b => b.setAttribute('aria-pressed', b.dataset.trail === id ? 'true' : 'false'));
-  };
-  if (TRAILS.length) { tbar.append(el('b', '', '专题')); for (const t of TRAILS) { const b = el('button', 'chip', t.title); b.type = 'button'; b.dataset.trail = t.id; b.append(el('small', '', String(t.items.length))); b.setAttribute('aria-pressed', 'false'); b.addEventListener('click', () => drawTrail(storyTrail === t.id ? '' : t.id)); tbar.append(b); } }
+  } else {
+    storyCat = cat[0]; const items = GUIDES.filter(g => !cat[0] || g.cat === cat[0]);
+    head.append(el('b', '', (cat[0] ? '分类 · ' + cat[1] : '全部故事') + ' · ' + items.length + ' 个')); note.textContent = cat[2];
+    list.replaceChildren(...items.map(g => taleCard(g, 'story-next')));
+  }
+  if (t || cat[0]) { const all = el('button', 'story-filter-link', '看全部'); all.type = 'button'; all.addEventListener('click', () => { storyTrail = ''; storyCat = ''; openStoryList(false); }); head.append(all); }
+  const arc = el('button', 'story-filter-link', '按专题或分类看 →'); arc.type = 'button'; arc.setAttribute('aria-haspopup', 'dialog'); arc.addEventListener('click', openHistory); head.append(arc);
   list.addEventListener('click', () => { openTrail = storyTrail || null; }, true);
-  body.replaceChildren(...(TRAILS.length ? [tbar] : []), bar, note, list);
-  if (storyTrail && TRAILS.some(t => t.id === storyTrail)) drawTrail(storyTrail); else { storyTrail = ''; draw(storyCat); }
+  body.replaceChildren(head, note, list);
   showStoryPage('长征路上的故事', '#stories', push); setReadingStory(null);
 }
 function openStory(id, push = true) {
@@ -883,28 +962,30 @@ function openStory(id, push = true) {
   const body = $('story-body'); $('story-page').classList.toggle('event', g.kind === 'event'); $('story-back').hidden = false;
   $('story-tag').textContent = g.tag + (g.date ? ' · ' + g.date : ''); $('story-title').textContent = g.title;
   body.replaceChildren(el('p', 'story-hook', g.hook));
-  const parts = el('div', 'story-parts'), go = el('div', 'story-go'), more = el('button', 'btn btn-primary', ''), count = el('small'); more.type = 'button'; go.append(more, count); body.append(parts, go);
+  const parts = el('div', 'story-parts'), go = el('div', 'story-go'), more = el('button', 'story-cont', ''); more.type = 'button'; go.append(more); body.append(parts, go);
   let shown = 0;
   const finale = () => {
     go.remove(); readTales.add(g.id); renderTales(); const box = el('div', 'story-more');
-    if (g.note) box.append(el('p', 'tale-note', '（资料说明：' + g.note + '）'));
     if (g.kind !== 'event') { const refs = guideRefs(g.parts[0].sources); for (const m of [...(g.more || []), ...(g.noteSources || [])]) { const u = safeLink(m.url); if (u && ![...refs.querySelectorAll('a')].some(a => a.href === u)) refs.append(srcLink(u, m.title || '查看资料', 'ref')); } box.append(refs); }
-    if ((g.background || []).length) { box.append(el('h3', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); box.append(item); } }
-    if (g.place && find(g.place.node)) { const pl = el('div', 'story-place'); const btn = el('button', 'btn btn-ghost', '在路线上看这一站 →'); btn.type = 'button'; btn.addEventListener('click', () => choose(g.place.node)); pl.append(el('span', '', g.place.text), btn); box.append(pl); }
-    if ((g.whys || []).length) { box.append(el('h3', '', '读到这里，你可能想问')); const w = el('div', 'story-whys'); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(q, { story: g.id }); }); w.append(b); } box.append(w); }
-    let trailNext = null;
-    if (curTrail) {
-      const t = curTrail, at = t.items.findIndex(x => x.id === g.id), rest = t.items.filter(x => x.id !== g.id && !readTales.has(x.id));
-      trailNext = rest.find(x => t.items.indexOf(x) > at) || rest[0] || null;
-      const tb = el('div', 'trail-box'); tb.append(el('h3', '', '专题 · ' + t.title));
-      tb.append(el('p', 'trail-meta', '这是这条线上的第 ' + (at + 1) + ' 篇，共 ' + t.items.length + ' 篇；' + (rest.length ? '还有 ' + rest.length + ' 篇没读。' : '这条线你都读完了。')));
-      const dots = el('div', 'trail-dots'); t.items.forEach(x => dots.append(el('i', x.id === g.id ? 'cur' : readTales.has(x.id) ? 'on' : ''))); tb.append(dots);
-      if (trailNext) { const c = taleCard(trailNext, 'story-next'); c.addEventListener('click', () => { openTrail = t.id; }, true); tb.append(c); }
-      const all = el('button', 'story-all', '看整条专题 →'); all.type = 'button'; all.addEventListener('click', () => { storyTrail = t.id; openStoryList(); }); tb.append(all);
-      box.append(tb);
+    if (g.note) { const nt = el('div', 'tale-note'); nt.append(el('b', '', '关于这段记载'), document.createTextNode(g.note)); box.append(nt); }
+    if ((g.background || []).length) { const fold = el('details', 'story-fold'); fold.append(el('summary', '', '这段故事的前后')); for (const b of g.background) { const item = el('div', 'story-bg'); item.append(el('h3', '', b.label), guideText(b), guideRefs(b.sources)); fold.append(item); } box.append(fold); }
+    if ((g.whys || []).length) { const ak = el('div', 'story-ask'); ak.append(el('h3', '', '在这里问小征')); for (const q of g.whys) { const b = el('button', '', q); b.type = 'button'; b.addEventListener('click', () => { if (busy) return; b.disabled = true; ask(q, { story: g.id }); }); ak.append(b); } box.append(ak); }
+    if (g.id === 'guide_fj_ninghua') box.append(ninghuaCheckEntry());
+    // 继续前行：不回到列表，顺着路线走到下一站。有正在读的专题就沿专题走，否则取路线上往前最近的一个没读过的故事
+    const here = find(g.node), tr = curTrail, at = tr ? tr.items.findIndex(x => x.id === g.id) : -1, restT = tr ? tr.items.filter(x => x.id !== g.id && !readTales.has(x.id)) : [];
+    const fwd = x => ((nodePos(x.node) - nodePos(g.node)) % nodes.length + nodes.length) % nodes.length;
+    const nextG = (tr && (restT.find(x => tr.items.indexOf(x) > at) || restT[0])) || GUIDES.filter(x => x.id !== g.id).sort((p, q) => (readTales.has(p.id) - readTales.has(q.id)) || fwd(p) - fwd(q))[0];
+    if (nextG) {
+      const nn = find(nextG.node), onTrail = tr && tr.items.includes(nextG), on = el('section', 'onward');
+      const now = el('p', 'onward-now', (here ? here.name + (here.date ? ' · ' + here.date : '') : g.title)); now.prepend(el('i'));
+      const go2 = el('button', 'onward-go'); go2.type = 'button';
+      const lab = el('small', '', (onTrail ? '沿「' + tr.title + '」 · ' : '') + (nn ? (nn.id === (here && here.id) ? '同在 ' + nn.name : '下一站 · ' + nn.name + (nn.date ? ' · ' + nn.date : '')) : '下一站')); lab.prepend(el('i'));
+      go2.append(lab, el('b', '', nextG.hook), el('span', '', '《' + nextG.title + '》 · 继续前行 →'));
+      go2.addEventListener('click', () => { if (onTrail) openTrail = tr.id; openStory(nextG.id); });
+      on.append(now, go2);
+      if (g.place && find(g.place.node)) { const pl = el('button', 'onward-map', '在路线上看这一站'); pl.type = 'button'; pl.addEventListener('click', () => choose(g.place.node)); on.append(pl); }
+      box.append(on);
     }
-    const nexts = (g.next || []).map(n => GUIDES.find(x => x.id === n)).filter(Boolean), nx = nexts.find(x => !readTales.has(x.id) && x !== trailNext) || nexts.find(x => x !== trailNext) || (trailNext ? null : nexts[0]);
-    if (nx) { box.append(el('h3', '', '再听一个')); box.append(taleCard(nx, 'story-next')); const all = el('button', 'story-all', '全部 ' + GUIDES.length + ' 个故事 →'); all.type = 'button'; all.addEventListener('click', () => openStoryList()); box.append(all); }
     body.append(box); box.scrollIntoView({ behavior: motion(), block: 'nearest' });
   };
   const reveal = () => {
@@ -912,7 +993,7 @@ function openStory(id, push = true) {
     if (part.label || part.date) { const h = el('h3'); if (part.date) h.append(el('em', '', part.date)); h.append(document.createTextNode(part.label || '')); item.append(h); }
     item.append(guideText(part)); if (g.kind === 'event') item.append(guideRefs(part.sources)); parts.append(item);
     if (shown > 1) item.scrollIntoView({ behavior: motion(), block: 'nearest' });
-    if (shown >= g.parts.length) finale(); else { more.textContent = shown === g.parts.length - 1 && g.kind !== 'event' ? '后来呢？' : '接着往下看'; count.textContent = shown + ' / ' + g.parts.length; }
+    if (shown >= g.parts.length) finale(); else { more.textContent = shown === g.parts.length - 1 && g.kind !== 'event' ? '后来呢？' : '接着往下看'; }
   };
   more.addEventListener('click', reveal); reveal();
   const fresh = currentStory !== g.id; showStoryPage(g.title, '#story-' + g.id, push); setReadingStory(g.id);
@@ -1147,13 +1228,15 @@ $('claims-dialog').addEventListener('click', e => { if (e.target === e.currentTa
 renderTry();
 function openHistory() {
   const body = $('history-body'), has = hist.stories.length || hist.stops.length || hist.asks.length || route.length || viewed.size || messages.querySelector('.msg.user'); body.replaceChildren();
-  const sec = (title, items) => { if (!items.length) return; const box = el('div', 'hist-sec'), list = el('div', 'hist-list'); box.append(el('h3', '', title)); for (const it of items) list.append(it); box.append(list); body.append(box); };
+  const sec = (title, items, cls) => { if (!items.length) return; const box = el('div', 'hist-sec'), list = el('div', 'hist-list' + (cls ? ' ' + cls : '')); box.append(el('h3', '', title)); for (const it of items) list.append(it); box.append(list); body.append(box); };
   const item = (main, sub, fn) => { const b = el('button', ''); b.type = 'button'; b.append(document.createTextNode(main)); if (sub) b.append(el('small', '', sub)); b.addEventListener('click', () => { closeDialog('history-dialog'); fn(); }); return b; };
   if (route.length || viewed.size || messages.querySelector('.msg.user')) sec('继续这次参观', [item(route.length ? routeName + (finished ? ' · 已完成' : ' · 当前在「' + (find(selected)?.name || '') + '」') : '自由浏览 · 当前在「' + (find(selected)?.name || '') + '」', '', () => choose(selected))]);
+  sec('按专题读', TRAILS.map(t => { const done = t.items.filter(g => readTales.has(g.id)).length; return item(t.title, t.items.length + ' 篇' + (done ? ' · 已读 ' + done : ''), () => { storyTrail = t.id; storyCat = ''; openStoryList(); }); }), 'hist-grid');
+  sec('按分类读', STORY_CATS.map(c => item(c[1], (c[0] ? GUIDES.filter(g => g.cat === c[0]).length : GUIDES.length) + ' 个', () => { storyTrail = ''; storyCat = c[0]; openStoryList(); })), 'hist-grid');
   sec('读过的故事', hist.stories.map(id => GUIDES.find(g => g.id === id)).filter(Boolean).map(g => item(g.title, g.tag, () => openStory(g.id))));
   sec('看过的站', hist.stops.map(find).filter(Boolean).map(n => item(n.name, n.date, () => choose(n.id))));
   sec('问过的问题', hist.asks.map(a => item(a.q, '', () => ask(a.q, { fromHome: true }))));
-  if (!has) body.append(el('p', 'hist-empty', '还没有记录。读一个故事、看一站或问小征一个问题，这里就会记下来。'));
+  if (!has) body.append(el('p', 'hist-empty', '你的足迹：还没有记录。读一个故事、看一站或问小征一个问题，这里就会记下来。'));
   const foot = el('div', 'hist-foot'); foot.append(el('span', '', '记录只保存在这台设备的浏览器里，不会上传。'));
   const clear = el('button', 'btn btn-ghost', '清除'); clear.type = 'button'; clear.addEventListener('click', () => { hist.stories = []; hist.stops = []; hist.asks = []; readTales.clear(); try { localStorage.removeItem(HIST_KEY); } catch {} renderTales(); openHistory(); }); foot.append(clear); body.append(foot);
   const d = $('history-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
@@ -1173,6 +1256,7 @@ $('people-dialog').addEventListener('click', e => { if (e.target === e.currentTa
 let topicKind = '', currentStory = null;
 function setReadingStory(id) {
   if (currentStory === id) return;
+  closeEvidenceCard();
   currentStory = id;
   chatHistory = [];
   lastSearch = null;
@@ -1238,11 +1322,17 @@ function openFujianStory(hash, push = true) {
   detail.replaceChildren(text);
   const note = publicNote(story.note, true);
   if (note) detail.append(el('p', 'plan-note', '（资料说明：' + note + '）'));
-  appendStorySources(detail, story);
+  const footer = el('footer', 'fujian-story-footer');
+  const sources = el('div', 'fujian-story-sources');
+  appendStorySources(sources, story);
+  if (sources.childElementCount) footer.append(sources);
+  const actions = el('div', 'fujian-story-actions');
+  footer.append(actions);
   const askStory = el('button', 'btn btn-primary', '向小征提问');
   askStory.type = 'button';
   askStory.addEventListener('click', () => { setPane('chat'); input.focus(); });
-  detail.append(askStory);
+  actions.append(askStory);
+  if (story.id === NINGHUA_SOURCE) actions.append(ninghuaCheckEntry());
   if (story.kind !== 'source_comparison') {
     const go = el('button', 'btn btn-ghost', '查看关联节点：' + find(story.node).name + ' →');
     go.type = 'button';
@@ -1258,8 +1348,9 @@ function openFujianStory(hash, push = true) {
         }
       });
     });
-    detail.append(go);
+    actions.append(go);
   }
+  detail.append(footer);
   detail.hidden = false;
   showFujian(story.title, '#' + hash, push);
   setReadingStory(story.id);
@@ -1398,7 +1489,7 @@ function renderExhibit() {
     for (const t of tales) { const c = el('article', 'story-card'); c.id = 'story-' + t.id; const h = el('h4', '', t.title); h.append(el('small', '', t.date)); const tag = draftTag(t); if (tag) h.append(tag); c.append(h, el('p', '', t.text)); const note = publicNote(t.note, true); if (note) c.append(el('p', 'story-note', '（资料说明：' + note + '）')); appendStorySources(c, t); box.append(c); }
     parts.push(box);
   }
-  if ((n.questions || []).length) {
+  if (askable(n.id).length) {
     const ask = el('div', 'ask-here'); ask.append(el('span', '', '关于这一站，可以问：'));
     const choices = el('span', 'chips'); fillSuggestions(choices); ask.append(choices);
     parts.push(ask);
@@ -1685,6 +1776,84 @@ function relatedCards(ids, readingFujian) {
   });
   return box;
 }
+const NINGHUA_SOURCE = 'story_fj_ninghua_grain';
+const NINGHUA_QUESTION = '这 1300 名妇女后来都参加长征了吗？';
+let activeEvidenceCard = null, evidenceSerial = 0;
+function ninghuaCheckEntry() {
+  const button = el('button', 'btn btn-ghost evidence-story-entry', NINGHUA_QUESTION);
+  button.type = 'button';
+  button.addEventListener('click', () => askChip(NINGHUA_QUESTION));
+  return button;
+}
+function closeEvidenceCard(restoreFocus = false) {
+  if (!activeEvidenceCard) return;
+  const {card, marker} = activeEvidenceCard;
+  activeEvidenceCard = null;
+  card.remove();
+  marker.setAttribute('aria-expanded', 'false');
+  marker.removeAttribute('aria-controls');
+  if (restoreFocus && marker.isConnected) marker.focus();
+}
+function renderEvidenceAnswer(answer, sources, focus, version) {
+  if (focus?.sourceId !== NINGHUA_SOURCE || typeof focus.summary !== 'string' || typeof focus.scope !== 'string' || [focus.summary, focus.scope].join('\n') !== answer) return null;
+  const source = sources.find(s => s.id === NINGHUA_SOURCE || (Array.isArray(s.ids) && s.ids.includes(NINGHUA_SOURCE)));
+  const story = STORIES.find(s => s.id === NINGHUA_SOURCE && s.reviewed === true);
+  const url = story && safeLink(story.url);
+  if (!url || !source || safeLink(source.url) !== url) return null;
+  const text = el('div', 'msg-text evidence-answer'), inline = el('div', 'evidence-inline');
+  const cardId = 'answer-evidence-' + (++evidenceSerial);
+  const blocks = [
+    {label:'资料摘要', conclusion:focus.summary, content:story.brief || story.text},
+    {label:'资料边界', conclusion:focus.scope, content:story.note}
+  ];
+  blocks.forEach((block, index) => {
+    const mark = el('button', 'evidence-marker', String(index + 1));
+    mark.type = 'button';
+    mark.setAttribute('aria-label', '查看依据 ' + (index + 1) + '：' + block.label);
+    mark.setAttribute('aria-expanded', 'false');
+    const line = el('div', '', block.conclusion);
+    line.append(mark); text.append(line);
+    mark.addEventListener('click', () => {
+      if (activeEvidenceCard?.marker === mark) { closeEvidenceCard(true); return; }
+      closeEvidenceCard();
+      const inStory = version === contextVersion && (currentStory === NINGHUA_SOURCE || currentStory === 'guide_fj_ninghua');
+      const desktop = inStory && !mobile();
+      const card = el('section', 'evidence-card'); card.id = cardId;
+      card.setAttribute('aria-labelledby', cardId + '-title');
+      const head = el('div', 'evidence-card-head'), heading = el('h2', '', '史料对照'); heading.id = cardId + '-title';
+      const close = el('button', 'btn btn-text', '收起'); close.type = 'button';
+      close.addEventListener('click', () => closeEvidenceCard(true));
+      head.append(heading, close); card.append(head, el('p', '', story.source));
+      let selectedSection;
+      blocks.forEach((item, at) => {
+        const section = el('div', 'evidence-card-section' + (at === index ? ' active' : ''));
+        const copy = el('p');
+        for (const part of item.content.split(/(1934 年 1 月 30 日至 2 月 2 日|1300 名妇女|挑运粮食支援前线)/)) {
+          if (at === index && at === 0 && /^(1934 年 1 月 30 日至 2 月 2 日|1300 名妇女|挑运粮食支援前线)$/.test(part)) copy.append(el('mark', '', part));
+          else copy.append(document.createTextNode(part));
+        }
+        section.append(el('h3', '', (at + 1) + ' · ' + item.label), copy); card.append(section);
+        if (at === index) selectedSection = section;
+      });
+      const actions = el('div', 'evidence-card-actions');
+      actions.append(srcLink(url, '打开县志来源', 'ref'));
+      if (inStory && !desktop) {
+        const back = el('button', 'btn btn-text', '继续读故事'); back.type = 'button';
+        back.addEventListener('click', () => { closeEvidenceCard(); setPane('read'); $(topicKind === 'fujian' ? 'fujian-title' : 'story-title').focus(); });
+        actions.append(back);
+      }
+      card.append(actions);
+      if (desktop) $(topicKind === 'fujian' ? 'fujian-detail' : 'story-body').prepend(card);
+      else inline.append(card);
+      activeEvidenceCard = {card, marker:mark};
+      mark.setAttribute('aria-expanded', 'true'); mark.setAttribute('aria-controls', cardId);
+      selectedSection.tabIndex = -1;
+      selectedSection.focus({preventScroll:true});
+      selectedSection.scrollIntoView({block:'nearest', behavior:motion()});
+    });
+  });
+  return [text, inline];
+}
 function addMessage(who, text, sources = [], opts = {}) {
   const mine = who === '你'; const row = el('div', 'msg ' + (mine ? 'user' : 'bot') + (opts.error ? ' error' : ''));
   const body = el('div', 'msg-body');
@@ -1692,8 +1861,12 @@ function addMessage(who, text, sources = [], opts = {}) {
   else { const head = el('div', 'msg-head'); const s = el('span', 'seal', '征'); s.setAttribute('aria-hidden', 'true'); head.append(s, el('span', '', who)); row.append(head); }
   if (opts.node) body.append(el('span', 'asked-at', '提问时的节点：' + opts.node));
   if (opts.steps && opts.steps.length) body.append(stepList(opts.steps));
-  body.append(el('div', 'msg-text', text));
-  if (opts.related && opts.related.length) body.append(relatedCards(opts.related, opts.readingFujian));
+  const evidenceAnswer = !mine && renderEvidenceAnswer(text, sources, opts.evidenceFocus, opts.evidenceVersion);
+  if (evidenceAnswer) body.append(...evidenceAnswer);
+  else body.append(el('div', 'msg-text', text));
+  // 故事优先：回答用到的故事放在前面；有故事入口时，地点卡片只留一张
+  if (opts.storyLinks && opts.storyLinks.length) { const box = el('div', 'related story-links'); box.append(el('div', 'related-label', '回答里用到了' + (opts.storyLinks.length > 1 ? '这些' : '这个') + '故事，可以读完整的')); for (const g of opts.storyLinks) box.append(taleCard(g, 'story-next')); body.append(box); }
+  if (opts.related && opts.related.length) body.append(relatedCards(opts.storyLinks && opts.storyLinks.length ? opts.related.slice(0, 1) : opts.related, opts.readingFujian));
   if (opts.web) {
     // 网络来源：与已核对资料分开标注，统一提示未经核对、可能有误；不再区分权威和非权威
     const box = el('div', 'webrefs'); box.append(el('div', 'trust web', '网络来源 · 未经人工核对，可能有误，引用前请打开原文确认'));
@@ -1702,7 +1875,7 @@ function addMessage(who, text, sources = [], opts = {}) {
   } else if (!mine && sources.some(s => s.excerpt)) body.append(el('div', 'trust ok', '依据：已人工核对的资料'));
   const refs = el('div', 'refs'); for (const s of sources) { const u = safeLink(s.url); if (u) refs.append(srcLink(u, s.title || '查看资料', 'ref')); } if (refs.childNodes.length) body.append(refs);
   const ex = sources.filter(s => typeof s.excerpt === 'string' && s.excerpt.trim());
-  if (ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); body.append(d); }
+  if (!evidenceAnswer && ex.length) { const d = el('details', 'evidence'); d.append(el('summary', '', '查看本次依据摘要（整理内容）')); for (const s of ex) d.append(el('p', '', s.title + '：' + s.excerpt)); body.append(d); }
   const follow = (opts.followups || []).filter(q => typeof q === 'string' && q.trim()).slice(0, 2);
   if (opts.webAsk) {
     const row3 = el('div', 'webask-row'), b = el('button', 'btn btn-ghost webask', '想了解更多？试试联网搜索');
@@ -1726,7 +1899,18 @@ function addMessage(who, text, sources = [], opts = {}) {
   return row;
 }
 function stepItem(s, live) { const li = el('li', (s.kind === 'act' || s.kind === 'web' ? 'act' : s.kind === 'verify' ? (s.ok ? 'ok' : 'bad') : '') + (live ? ' live' : '')); li.append(el('b', '', String(s.text || '').slice(0, 80))); if (s.detail) li.append(document.createTextNode(' · ' + String(s.detail).slice(0, 80))); return li; }
-function stepList(steps) { const ul = el('ul', 'steps'); ul.setAttribute('aria-label', '小征的处理过程'); for (const s of steps) if (s && typeof s === 'object') ul.append(stepItem(s)); return ul; }
+// 相邻两步如果是同一件事（例如连续两次“查阅「湘江」的资料”），只显示一行，条数取较大的一次（两次可能有重复，不相加）；不改服务端返回的数据
+function mergeSteps(steps) {
+  const out = [];
+  for (const s of steps) {
+    if (!s || typeof s !== 'object') continue;
+    const prev = out[out.length - 1], n = /^(\d+) 条$/.exec(String(s.detail || '')), pn = prev && /^(\d+) 条$/.exec(String(prev.detail || ''));
+    if (prev && prev.kind === s.kind && prev.text === s.text && prev.ok === s.ok && (n && pn || !s.detail && !prev.detail)) { if (n) prev.detail = Math.max(Number(pn[1]), Number(n[1])) + ' 条'; continue; }
+    out.push({ ...s });
+  }
+  return out;
+}
+function stepList(steps) { const ul = el('ul', 'steps'); ul.setAttribute('aria-label', '小征的处理过程'); for (const s of mergeSteps(steps)) ul.append(stepItem(s)); return ul; }
 // 流式请求：服务端逐行返回处理步骤，最后一行是结果。不支持流式读取时退回普通请求。
 async function askStream(payload, onStep) {
   if (!window.ReadableStream || !window.TextDecoder) return fetchJSON('/api/chat', payload);
@@ -1758,11 +1942,24 @@ async function fetchJSON(path, payload) { const controller = new AbortController
 
 function askChip(q) { if (busy) return; if (input.value.trim()) { if (view !== 'session') setView('session'); if (mobile()) setPane('chat'); status.textContent = '输入框已有未发送的问题，请先处理后再使用建议问题。'; input.focus(); return; } ask(q); }
 let lastSearch = null;
+// 道谢、告别、问“你会不会答错”这类不是史实的话，模型偶尔会当成史实题而回“资料不足”；这里直接答，不走模型
+const LOCAL_REPLIES = [
+  [/^(谢谢|多谢|感谢|谢啦|谢了|太感谢了)(你|您|小征)?[。！!~\s]*$/, '不客气！想接着听故事、问问题，或者去下一站看看，都可以直接说。'],
+  [/^(再见|拜拜|下次见|bye)[。！!~\s]*$/i, '再见！下次想听长征故事，随时来找我。'],
+  [/^(好的?|嗯|嗯嗯|明白了?|知道了|好吧|行|ok|okay|懂了)[。！!~\s]*$/i, '好的。想接着看哪一段，随时说。'],
+  [/^(你|小征)(的)?(回答|说的|讲的)?(会不会|是不是会|会)(出错|答错|错)(吗)?[？?。\s]*$|^(你|小征)(的)?(回答|说的|讲的)?(靠谱|可靠|可信|准确)(吗|不|么)[？?。\s]*$/, '有可能出错。我只依据本站收录的资料作答，每条回答都附出处，并做引用和数字的规则检查；但那不等于人工史实核验，重要的说法请点开出处对照原文。联网搜索来的内容没有经过核对，更要留意。']
+];
 // “联网搜索看看”这类只有搜索意图、没有话题的话，搜的是上一个真正的问题，而不是这句话本身
 const WEB_INTENT = /^(请|帮我|麻烦|那|再)?\s*(联网|上网|网上|在网上|网络)\s*(搜索|搜一下|搜|查找|查一下|查)?\s*(一下|看看|下|吧)?[。！!？?\s]*$/;
+// “具体点呢”“然后呢”这类没有话题的追问：原话照发，由服务端按已签名的上文接上主题（见 server.js 的 followUpAnchor）。
+// 页面只做一件事：这类追问不覆盖“上一个问题”，所以接着点“联网搜索”，搜的仍是真正的主题。
+const FOLLOW_UP_FILLER = /所以|那么|那|然后|后来|接着|之后|为什么|为啥|怎么样|怎么|怎样|如何|具体|详细|细致|展开|再说说|说说|讲讲|说一下|讲一下|一点|一些|还有|别的|其他|更多|结果|原因|意思|什么|结局|最后|回事|这样|这么|呢|吗|啊|吧|嘛|呀|了|的|是|要|会|还|再|多|点|些|说|讲/g; // 与服务端一致：去掉虚词后什么都不剩的短问题算无话题追问
+const VAGUE = /^(那|请|能不能|可以|能)?(再|多)?(具体|详细|细致|展开)(一?点|些|说说|讲讲|说一下|讲一下|说说看)?(呢|吧|嘛|啊)?[。！!？?\s]*$|^(再|多)(说|讲)(一?点|一些|说|讲)?(呢|吧)?[。！!？?\s]*$|^(然后|后来|接着|之后)呢?[。！!？?\s]*$|^(为什么|为啥|怎么会这样|怎么回事)呢?[。！!？?\s]*$/;
 async function ask(question, opts = {}) {
   if (busy || !question) return;
-  let apiQuestion = question;
+  let apiQuestion = question, vague = false;
+  const localHit = !opts.webOnly && question.length <= 16 ? LOCAL_REPLIES.find(([re]) => re.test(question)) : null;
+  if (!opts.webOnly && question.length <= 12 && (VAGUE.test(question) || !question.replace(/[。！!？?，,、\s~～…]/g, '').replace(FOLLOW_UP_FILLER, ''))) vague = true;
   if (!opts.webOnly && WEB_INTENT.test(question)) {
     if (lastSearch?.version !== contextVersion) { addMessage('你', question); addMessage('小征', '请先在当前页面问一个问题，我再帮你联网搜索。'); return; }
     apiQuestion = lastSearch.question;
@@ -1772,25 +1969,27 @@ async function ask(question, opts = {}) {
   if (view !== 'session') { if (opts.fromHome) setChatOnly(true); else viewed.add(selected); setView('session'); if (!chatOnly) syncHash(); }
   if (mobile()) setPane('chat');
   addMessage('你', opts.webOnly && apiQuestion === question ? '联网搜索：' + question : question);
-  if (!opts.webOnly && !/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { remember('asks', { q: question, node: selected }); }
+  if (!opts.webOnly && !vague && !localHit && !/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { remember('asks', { q: question, node: selected }); }
   if (/^(继续|下一站|下一个|跳过|跳过当前站)[。！!\s]*$/.test(question)) { if (!route.length) { addMessage('小征', '请先回到首页选一条参观路线。'); return; } advance(question.startsWith('跳过')); return; }
+  if (localHit) { addMessage('小征', localHit[1]); return; }
   const jump = question.match(/^(?:带我去|前往|切换到|看看)(.{1,12}?)[。！!\s]*$/);
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id, { keepPane: true }); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
   busy = true; shownKey = null; renderExhibit(); renderChips(); document.querySelectorAll('.side-q').forEach(x => { x.disabled = true; }); $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); status.textContent = '小征正在查阅资料并思考…';
-  const questionNode = selected, requestVersion = contextVersion, prior = (opts.webHistory || chatHistory).slice(-3);
+  const questionNode = selected, requestVersion = contextVersion, prior = (opts.webHistory || chatHistory).slice(-5);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
   const free = chatOnly || topicMode;
   const readingFujian = topicKind === 'fujian' && currentStory !== null;
   const build = () => JSON.stringify({ question: apiQuestion, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
   let payload = build();
-  while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
-  const searchContext = { question: apiQuestion, version: requestVersion, history: prior.slice() };
-  if (!opts.webOnly) lastSearch = searchContext;
+  while (new TextEncoder().encode(payload).length > 22000 && prior.length) { prior.shift(); payload = build(); }
+  const searchContext = vague && lastSearch?.version === requestVersion ? lastSearch : { question: apiQuestion, version: requestVersion, history: prior.slice() };
+  if (!opts.webOnly && !vague) lastSearch = searchContext;
   const typing = showTyping();
   try {
     const liveSteps = []; const data = await askStream(JSON.parse(payload), s => { liveSteps.push(s); typing.addStep(s); }); typing.remove();
     if (typeof data.answer !== 'string' || !data.answer.trim()) throw new Error('暂未获得回答，请换个问法试试。');
     const srcIds = (Array.isArray(data.sources) ? data.sources : []).flatMap(x => x.ids || [x.id]);
+    const storyLinks = data.type === 'history' && !data.web && !readingFujian ? [...new Set(srcIds.map(id => GUIDE_BY_STORY.get(id)).filter(g => g && g.id !== currentStory))].slice(0, 2) : [];
     const related = free ? [...new Set(srcIds.filter(id => !readingFujian || !STORIES.some(s => s.id === id && s.kind === 'source_comparison')).map(nodeOfSource).filter(Boolean))].slice(0, 3) : [];
     if (related.length) lastRelated = related[0];
     if (free) {
@@ -1798,8 +1997,8 @@ async function ask(question, opts = {}) {
       if (matched.length) matched.forEach(n => markQuestionAnswered(n.id, question)); else markQuestionAnswered(questionNode, question);
       for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide();
     } else markQuestionAnswered(questionNode, question);
-    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, readingFujian, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? searchContext : null });
-    if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
+    addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { storyLinks, steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, readingFujian, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? searchContext : null, evidenceFocus: data.evidenceFocus, evidenceVersion: requestVersion });
+    if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-5); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     if (ttsOn) speak(data.answer);
     if (requestVersion === contextVersion) runAction(data.action);

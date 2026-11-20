@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import worker from './worker/index.js';
 import { nodes } from './src/data.js';
@@ -64,7 +65,7 @@ assert.match(html,/"map":\{"nodes"/);
 assert.equal((await worker.fetch(new Request('http://localhost/api/chat',{method:'POST',headers:{'content-type':'text/plain'},body:'{}'}),env)).status,415);
 assert.equal((await worker.fetch(make({question:'',node:'zunyi'}),{})).status,400);
 assert.equal((await worker.fetch(make({question:'x',node:'bad'}),{})).status,400);
-assert.equal((await worker.fetch(make('x'.repeat(12001)),{})).status,413);
+assert.equal((await worker.fetch(make('x'.repeat(24001)),{})).status,413);
 assert.equal((await worker.fetch(make({question:'x',node:'zunyi'},{origin:'https://other.example'}),{})).status,403);
 assert.equal((await worker.fetch(make({question:'x',node:'zunyi'}),{})).status,503);
 let original=globalThis.fetch;let seen;
@@ -398,6 +399,7 @@ body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node
 assert.equal(log.at(-1).model,'deepseek-flash');assert.equal(log.at(-1).tools[0].type,'deepseek_web_search');assert.deepEqual(body.sources,[]);assert.equal(body.web.sources.length,2);assert.equal(body.web.sources[0].trusted,true);assert.equal(body.web.sources[1].trusted,false);assert.doesNotMatch(body.answer,/https?:|\]\(/);assert.ok(body.steps.some(x=>x.kind==='web'));
 log=script([b=>b.model==='deepseek-flash'?webReply('没有出处的回答。',[]):none.clone()]);
 body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true,web:'auto'}),env)).json();assert.equal(body.web,undefined);assert.match(body.answer,/资料/);
+assert.equal(log.filter(x=>x.model==='deepseek-flash').length,1);
 log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇女连有多少人',node:'start',free:true}),env)).json();assert.equal(log.every(x=>x.model!=='deepseek-flash'),true);assert.equal(body.web,undefined);
 // 联网结果去掉模型自己补的因果推测，保留同句事实、来源和未经人工核对标记。
 const webCase={question:'请联网查找遵义会议召开的日期和地点。',node:'zunyi',free:true,web:'only'};
@@ -410,6 +412,85 @@ assert.doesNotMatch(body.answer,/门牌调整|可能是/);
 assert.equal(body.web.sources[0].url,webUrl);
 assert.match(body.steps.at(-1).detail,/未经人工核对/);
 assert.match(log[0].messages[0].content,/只有网页明确提出原因/);
+// 用户主动联网时，直接问题也有一次补查机会；两次均没有出处则不展示正文。
+for(const urls of [[webUrl],[]]){
+  log=script([webReply('第一轮无出处。',[]),webReply('第二轮搜索结果。',urls)]);
+  body=await (await worker.fetch(make(webCase),env)).json();
+  assert.equal(log.length,2);
+  assert.equal(log[1].messages.at(-1).content,webCase.question);
+  assert.match(log[1].messages[0].content,/实际检索并返回能打开的网页出处/);
+  assert.ok(body.steps.some(step=>step.text==='首次联网结果缺少出处，再查一次'));
+  assert.doesNotMatch(body.answer,/第一轮无出处/);
+  if(urls.length){
+    assert.equal(body.answer,'第二轮搜索结果。');
+    assert.equal(body.web.sources[0].url,webUrl);
+  }else{
+    assert.match(body.answer,/没有查到可靠的网页出处/);
+    assert.equal(body.web,undefined);
+  }
+}
+// 并列网页写法不能推断成差异的成因，且必须留下后面的资料边界。
+{
+  const compare={...webCase,question:'请联网核查遵义会议会址门牌号为什么有不同写法，并附出处。'};
+  const prefix='遵义会议会址门牌号存在不同写法';
+  const gap='网页未解释门牌号数字差异的具体原因。';
+  for(const claim of ['主要是历史路名混用所致','原因在于行政区划调整','源于编号方式变更']){
+    log=script([webReply(prefix+'，'+claim+'，'+gap,[webUrl])]);
+    body=await (await worker.fetch(make(compare),env)).json();
+    assert.equal(body.answer,prefix+'。'+gap);
+    assert.equal(body.web.sources[0].url,webUrl);
+  }
+  for(const answer of ['纪念馆文章明确指出，主要是门牌调整所致。','网页没有说明门牌差异是否源于编号调整。']){
+    log=script([webReply(answer,[webUrl])]);
+    body=await (await worker.fetch(make(compare),env)).json();
+    assert.equal(body.answer,answer);
+  }
+  log=script([webReply('第二项措施主要是为了改善交通条件。',[webUrl])]);
+  body=await (await worker.fetch(make({...webCase,question:'请联网查找这项措施的历史背景。'}),env)).json();
+  assert.equal(body.answer,'第二项措施主要是为了改善交通条件。');
+}
+// 比较网页记载时保留出处与差异，删除模型自行给出的采信结论。
+{
+  const compare={...webCase,question:'两个网页上的门牌号不同，哪个说法有依据？'};
+  const first='纪念馆官网写“子尹路96号”。';
+  const second='另有网页写“红旗路80号”';
+  const gap='且未说明门牌号差异的原因。';
+  const ranking='若观众看到的是“80号”说法，与权威网页记载的“96号”不符，应以纪念馆官网及主流媒体记载的96号为准。';
+  log=script([webReply(first+second+'，但多属较低权威性来源，'+gap+ranking,[webUrl])]);
+  body=await (await worker.fetch(make(compare),env)).json();
+  assert.equal(body.answer,first+second+'。未说明门牌号差异的原因。');
+  assert.equal(body.web.sources[0].url,webUrl);
+  const navigation='纪念馆公告明确指出：参观入口应以当天公告为准。';
+  log=script([webReply(navigation,[webUrl])]);
+  body=await (await worker.fetch(make(compare),env)).json();
+  assert.equal(body.answer,navigation);
+}
+// 独立出处清单由服务端链接区生成。仅与被删除清单重叠的注释不应跟进正文。
+{
+  const fact='遵义会议在贵州遵义召开。';
+  const appendix='以下网页可打开查证：甲报、乙报以及只有名字的丙报。';
+  const appendixUrl='https://www.dangjian.cn/appendix-only';
+  const citation=(url,start_index,end_index)=>({type:'url_citation',url_citation:{url,start_index,end_index}});
+  const response=(content,annotations)=>Response.json({choices:[{message:{content,annotations}}]});
+  log=script([response(fact+appendix,[citation(webUrl,0,fact.length-1),citation(appendixUrl,fact.length-1,fact.length+appendix.length)])]);
+  body=await (await worker.fetch(make(webCase),env)).json();
+  assert.equal(body.answer,fact);
+  assert.deepEqual(body.web.sources.map(source=>source.url),[webUrl]);
+  for(const heading of ['**参考来源：**','网页清单：','来源如下：']){
+    log=script([response(fact+'\n'+heading+'甲报、丙报。',[{type:'url_citation',url_citation:{url:webUrl}}])]);
+    body=await (await worker.fetch(make(webCase),env)).json();
+    assert.equal(body.answer,fact);
+    assert.deepEqual(body.web.sources.map(source=>source.url),[webUrl]);
+  }
+  log=script([webReply('所查到的甲报、丙报等网页均记载，遵义会议在贵州遵义召开。',[webUrl])]);
+  body=await (await worker.fetch(make(webCase),env)).json();
+  assert.equal(body.answer,'搜索到的网页记载，遵义会议在贵州遵义召开。');
+  assert.deepEqual(body.web.sources.map(source=>source.url),[webUrl]);
+  log=script([response(fact+appendix,[citation(appendixUrl,fact.length,fact.length+appendix.length)])]);
+  body=await (await worker.fetch(make(webCase),env)).json();
+  assert.equal(body.web,undefined);
+  assert.doesNotMatch(body.answer,/甲报|丙报|遵义会议在贵州遵义召开/);
+}
 log=script([webReply('该网页作者明确指出：可能是门牌调整所致。两篇报道的统计方法尚不确定。',[webUrl])]);
 body=await (await worker.fetch(make(webCase),env)).json();
 assert.match(body.answer,/作者明确指出：可能是门牌调整所致/);
@@ -418,6 +499,22 @@ log=script([webReply('可能是门牌调整所致。',[webUrl])]);
 body=await (await worker.fetch(make(webCase),env)).json();
 assert.equal(body.web,undefined);
 assert.doesNotMatch(body.answer,/门牌调整/);
+// 联网结果展示给观众，但后续馆内问答只沿用问题作为线索。
+{
+  const firstQuestion='遵义会议召开的地点在哪里？';
+  const unverified='模拟网页中的待核对表述';
+  log=script([webReply(unverified,[webUrl])]);
+  const first=await (await worker.fetch(make({...webCase,question:firstQuestion}),env)).json();
+  assert.equal(first.answer,unverified);
+  assert.ok(first.historyToken);
+  assert.equal(first.web.sources[0].url,webUrl);
+  log=script([reply({type:'history',answer:'遵义会议在贵州遵义召开。',sources:['zunyi']})]);
+  const second=await (await worker.fetch(make({question:'那它具体在哪里召开的？',node:'zunyi',historyTokens:[first.historyToken]}),env)).json();
+  assert.equal(log[0].messages[1].content,firstQuestion);
+  assert.doesNotMatch(JSON.stringify(log[0].messages),new RegExp(unverified));
+  assert.doesNotMatch(JSON.stringify(log[0].messages),/www\.guizhou\.gov\.cn\/test/);
+  assert.deepEqual(second.sources.flatMap(source=>source.ids),['zunyi']);
+}
 // 同一问题的馆内来源上下文只用于联网消歧，上轮回答不会被当成网上依据。
 {
   const story='story_fj_yang_chengwu', firstQuestion='杨成武和谁一起指挥？';
@@ -490,6 +587,47 @@ log=script([none,none]);body=await (await worker.fetch(make({question:'宁化妇
   assert.match(log[0].messages[0].content,/刚读完故事《十七块弹片》/);assert.match(log[0].messages[0].content,/\[story_he_zizhen\][^\n]*钟赤兵/);assert.deepEqual(body.sources.flatMap(s=>s.ids),['story_he_zizhen']);
   log=script([reply({type:'chat',answer:'你好。',sources:[]})]);
   await (await worker.fetch(make({question:'你好',node:'start',free:true,story:'no_such_story'}),env)).json();assert.doesNotMatch(log[0].messages[0].content,/刚读完故事/);
+}
+// 普通故事也按篇章隔离；同一篇继续对话时保留上文和出处。
+{
+  const firstQuestion='贺子珍为什么冲出去？';
+  const guideRequest=(story,historyTokens=[],question=firstQuestion,web)=>make({question,node:'start',free:true,story,historyTokens,web});
+  const first='guide_he_zizhen', next='guide_banjie_pidai';
+  log=script([reply({type:'history',answer:'贺子珍冲出去替伤员遮挡。',sources:['story_he_zizhen']})]);
+  const issued=await worker.fetch(guideRequest(first),env);
+  assert.equal(issued.status,200);
+  const token=(await issued.json()).historyToken;
+  assert.ok(token);
+  const followup=await worker.fetch(guideRequest(first,[token],'她当时在做什么？'),env);
+  assert.equal(followup.status,200);
+  assert.equal(log.at(-1).messages[1].content,firstQuestion);
+  const attempts=log.length;
+  for(const [story,web] of [[next,undefined],[null,undefined],[next,'only']]){
+    const rejected=await worker.fetch(guideRequest(story,[token],'那后来呢？',web),env);
+    assert.equal(rejected.status,400);
+    assert.equal((await rejected.json()).code,'HISTORY_INVALID');
+  }
+  assert.equal(log.length,attempts);
+}
+// 宁化故事核对入口只给已经核对通过的两句返回明确的资料映射。
+{
+  const sourceId='story_fj_ninghua_grain', question='这 1300 名妇女后来都参加长征了吗？';
+  log=script([reply({type:'chat',answer:'测试答复。',sources:[]})]);
+  for(const story of [sourceId,'guide_fj_ninghua']){
+    res=await worker.fetch(make({question,node:'start',free:true,story}),env);
+    body=await res.json();
+    assert.equal(res.status,200);
+    assert.deepEqual(body.sources.flatMap(source=>source.ids),[sourceId]);
+    assert.equal(body.evidenceFocus.sourceId,sourceId);
+    assert.equal(body.answer,[body.evidenceFocus.summary,body.evidenceFocus.scope].join('\n'));
+    assert.match(body.evidenceFocus.summary,/1300名妇女挑粮支前/);
+    assert.match(body.evidenceFocus.scope,/没有交代/);
+    assert.ok(body.historyToken);
+  }
+  assert.equal(log.length,0);
+  body=await (await worker.fetch(make({question:'她们后来去了哪里？',node:'start',free:true,story:sourceId}),env)).json();
+  assert.equal(body.evidenceFocus,undefined);
+  assert.equal(log.length,1);
 }
 // 八闽故事正文作为已取出的史料，对话签名按故事隔离。
 {
@@ -641,6 +779,157 @@ body=await (await worker.fetch(make({question:'福建参加长征的人数是多
 assert.equal(log.length,2);assert.match(body.answer,/近万/);
 
 // 完整评估第 03 题的真实误答：数字存在于出处，但不能当作单场结果。重答仍错时保留有效句子。
+// Claude 实测发现，用户的错误数字被明确否定时，不能删掉纠正句。
+{
+  const question='湘江战役红军损失了多少人？是不是只剩2万人？';
+  const rest='渡过湘江后，中央红军兵力减至3万余人。资料没有给出单场伤亡人数。';
+  const makeReply=answer=>reply({type:'history',answer,sources:['xiangjiang_lines']});
+  for(const correction of ['资料记载的不是“只剩2万人”。','“只剩2万人”与资料不符。','资料记载的并非仅剩下2万人。']){
+    log=script([makeReply(correction+rest)]);
+    body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+    assert.equal(log.length,1);
+    assert.equal(body.answer,correction+rest);
+  }
+  for(const claim of ['资料显示湘江战役结束后“只剩2万人”。','湘江战役结束后只剩2万人。']){
+    const correction='“只剩2万人”这一说法与资料不符。';
+    log=script([makeReply(claim),makeReply(correction+rest)]);
+    body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+    assert.equal(log.length,2);
+    assert.equal(body.answer,correction+rest);
+  }
+}
+// 出发兵力单项查证直接引用资料，不覆盖还询问路线的复合问题。
+{
+  log=script([]);
+  for(const question of ['中央红军长征出发时是不是有10万人？','红一方面军出发的时候是否有十万人？','中央红军长征出发时是不是有8.6万余人？']){
+    body=await (await worker.fetch(make({question,node:'start',free:true}),env)).json();
+    assert.equal(log.length,0);
+    assert.match(body.answer,/长征出发时为8\.6万余人/);
+    assert.ok(body.sources.flatMap(s=>s.ids).includes('yudu_army'));
+  }
+  const answer='中央红军长征出发时为8.6万余人。';
+  log=script([reply({type:'history',answer,sources:['yudu_army']})]);
+  body=await (await worker.fetch(make({question:'中央红军长征出发时是不是有10万人，分别从哪里出发？',node:'yudu'}),env)).json();
+  assert.equal(log.length,1,'包含第二个问题时须保留通常的检索和问答流程');
+  assert.equal(body.answer,answer);
+}
+
+// 逐项核对：重复用户兵力数字并明确说明缺少记载，不能导致已查实的两点被删除。
+{
+  const question='核对：1935年10月，红一方面军到达吴起镇，随后在直罗镇打了胜仗，兵力约3万。';
+  const facts='1935年10月19日，红军陕甘支队到达吴起镇；11月21日至24日，红一方面军在直罗镇取得胜利。';
+  const ids=['wuqi','zhiluozhen'];
+  const ask=()=>worker.fetch(make({question,node:'wuqi'}),env).then(res=>res.json());
+  for(const gap of [
+    '兵力约3万，资料里没有依据。','“兵力约3万”这一说法，资料未记载。',
+    '关于“兵力约3万”：资料里没有吴起镇时兵力的记载。','第三点“兵力约3万”资料里没有提到，无法核实。'
+  ]){
+    const answer=facts+gap;
+    log=script([reply({type:'history',answer,sources:ids}),reply({type:'history',answer,sources:ids})]);
+    body=await ask();
+    assert.equal(log.length,1,'资料边界中的用户原数字不应触发重答：'+gap);
+    assert.equal(body.answer,answer);
+  }
+  for(const invalid of [
+    '前两点与资料一致。红一方面军兵力约3万，资料没有记载伤亡。',
+    '前两点与资料一致。兵力约4万，资料没有记载。',
+    '前两点与资料一致。1935年11月21日到达吴起镇，1935年10月19日在直罗镇取得胜利。'
+  ]){
+    log=script([reply({type:'history',answer:invalid,sources:ids}),reply({type:'history',answer:invalid,sources:ids})]);
+    body=await ask();
+    assert.equal(log.length,2);
+    assert.match(body.answer,/10月19日[^。]{0,35}吴起镇/);
+    assert.match(body.answer,/11月21日至24日[^。]{0,35}直罗镇/);
+    assert.match(body.answer,/资料(?:未|没有)[^。]+兵力/);
+  }
+  for(const incomplete of [facts,'你提到的三点中，前两点与资料一致，第三点资料里没有依据。']){
+    log=script([reply({type:'history',answer:incomplete,sources:ids})]);
+    body=await ask();
+    assert.match(body.answer,/10月19日[^。]{0,35}吴起镇/);
+    assert.match(body.answer,/11月21日至24日[^。]{0,35}直罗镇/);
+    assert.match(body.answer,/资料(?:未|没有)[^。]+兵力/);
+  }
+}
+
+{
+  const question='湘江一仗打完红军是不是就剩两万人了？';
+  const ids=['xiangjiang_lines'];
+  const fact='渡过湘江后，中央红军兵力减至3万余人。';
+  for(const correction of ['不是就剩两万人。','“就剩两万人”这一说法与资料不符。']){
+    log=script([reply({type:'history',answer:correction+fact,sources:ids})]);
+    body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+    assert.equal(log.length,1);
+    assert.equal(body.answer,correction+fact);
+  }
+  for(const wrong of ['湘江战役后就剩两万人。','不是就剩十万人。']){
+    log=script([reply({type:'history',answer:wrong,sources:ids}),reply({type:'history',answer:fact,sources:ids})]);
+    body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+    assert.equal(log.length,2);
+    assert.equal(body.answer,fact);
+  }
+  const wrong=reply({type:'history',answer:'湘江战役后就剩两万人。',sources:ids});
+  log=script([wrong,reply({type:'history',answer:'湘江战役后就剩两万人。',sources:ids})]);
+  body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+  assert.equal(log.length,2);
+  assert.match(body.answer,/“就剩两万人”与资料不符/);
+  assert.match(body.answer,/渡过湘江后[^。]+3万余人/);
+  assert.doesNotMatch(body.answer,/伤亡/);
+}
+
+// Claude 联测原稿的两个反例：累计兵力的明确说明和前三道封锁线的原资料日期都应保留。
+{
+  const question='湘江战役红军损失了多少人？是不是只剩2万人？';
+  const ids=['xiangjiang','xiangjiang_lines','xiangjiang_detail'];
+  const answers=[
+    '资料记载的不是“只剩2万人”。湘江战役中，中央红军在国民党湘军和桂军夹击下付出极大牺牲、遭受重大损失；从长征出发时的8.6万余人减至3万余人。这是从出发到渡过湘江后的累计兵力变化，不是单场战役的损失数字。资料没有给出湘江战役单独的伤亡人数。',
+    '资料记载的是：1934年10月下旬至12月初，中央红军连续突破国民党军三道封锁线，在突破第四道封锁线的湘江战役中遭受重大损失，由出发时的8.6万余人减至3万余人。这是从出发到渡过湘江后的累计兵力变化，不是单场战役的损失数字。“只剩2万人”与资料不符。湘江战役单独的伤亡人数，资料没有给出。'
+  ];
+  for(const answer of answers){
+    log=script([reply({type:'history',answer,sources:ids})]);
+    body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+    assert.equal(log.length,1);
+    assert.equal(body.answer,answer);
+    assert.ok(!body.steps.some(step=>step.text==='按现有资料分别说明两种口径'));
+  }
+  const wrong='湘江战役于1934年10月发生。';
+  log=script([reply({type:'history',answer:wrong,sources:['xiangjiang_lines']})]);
+  body=await (await worker.fetch(make({question:'湘江战役发生在1934年10月吗？',node:'xiangjiang'}),env)).json();
+  assert.equal(log.length,2);
+  assert.doesNotMatch(body.answer,/湘江战役于1934年10月发生/);
+  const contradiction='湘江战役导致中央红军从长征出发时的8.6万余人减至3万余人。这是从出发到渡过湘江后的累计兵力变化，不是单场战役的损失数字。';
+  log=script([reply({type:'history',answer:contradiction,sources:ids})]);
+  body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+  assert.equal(log.length,2);
+  assert.doesNotMatch(body.answer,/湘江战役导致/);
+}
+// 对已知可分开的两个口径，模型连续答错时也要保留有依据的纠正。
+{
+  const sourceIds=['xiangjiang','xiangjiang_lines'];
+  const bad=reply({type:'history',answer:'湘江战役损失了6万人，战役后只剩2万人。',sources:sourceIds});
+  log=script([bad]);
+  const question='湘江战役红军损失了多少人？是不是只剩2万人？';
+  body=await (await worker.fetch(make({question,node:'start',free:true}),env)).json();
+  assert.equal(log.length,2);
+  assert.match(body.answer,/2万人.{0,12}与资料不符/);
+  assert.match(body.answer,/渡过湘江后.{0,25}3万余人/);
+  assert.match(body.answer,/未列出.{0,22}伤亡人数/);
+  assert.doesNotMatch(body.answer,/6万/);
+  assert.deepEqual(body.sources.flatMap(source=>source.ids).sort(),sourceIds);
+  assert.ok(body.steps.some(step=>step.text==='按现有资料分别说明两种口径'));
+  log=script([bad]);
+  body=await (await worker.fetch(make({question:'湘江之战后仅剩下2万人？单场伤亡人数是多少？',node:'start',free:true}),env)).json();
+  assert.match(body.answer,/仅剩下2万人.{0,12}与资料不符/);
+  assert.match(body.answer,/未列出.{0,22}伤亡人数/);
+  const onlyStrength='资料记载的不是“只剩2万人”。渡过湘江后，中央红军兵力减至3万余人。';
+  log=script([reply({type:'history',answer:onlyStrength,sources:['xiangjiang_lines']})]);
+  body=await (await worker.fetch(make({question,node:'xiangjiang'}),env)).json();
+  assert.match(body.answer,/未列出.{0,22}伤亡人数/);
+  assert.ok(body.steps.some(step=>step.text==='按现有资料分别说明两种口径'));
+  log=script([bad]);
+  body=await (await worker.fetch(make({question:'湘江战役红军损失了多少人？',node:'xiangjiang'}),env)).json();
+  assert.match(body.answer,/资料不足/);
+  assert.doesNotMatch(body.answer,/3万/);
+}
 const battleQuery='湘江之战是什么时间，结果如何？';
 const badBattle='1934年11月27日至12月1日，红军突破湘江封锁，付出重大代价。湘江战役中红军遭受重大损失，由出发时的8.6万余人减至3万余人。';
 const goodBattle='1934年11月27日至12月1日，中央红军进行湘江之战，突破封锁但付出重大代价。';
@@ -653,6 +942,54 @@ for(const final of [goodBattle,badBattle]){
   assert.match(body.answer,/11月27日.*12月1日.*突破.*代价/);
   assert.doesNotMatch(body.answer,/8\.6|3万/);
 }
+// 纠错调用遇到上游故障时，仍用相同的句级核对恢复初稿。
+for(const failure of [new Response('',{status:503}),new Response('invalid JSON'),()=>{throw new Error('upstream disconnected');}]){
+  log=script([battleReply(badBattle),failure]);
+  res=await worker.fetch(make({question:battleQuery,node:'xiangjiang'}),env);
+  body=await res.json();
+  assert.equal(res.status,200);
+  assert.equal(log.length,2);
+  assert.match(body.answer,/11月27日.*12月1日.*突破.*代价/);
+  assert.doesNotMatch(body.answer,/8\.6|3万/);
+  assert.ok(body.sources.some(source=>source.ids.includes('xiangjiang')));
+  assert.ok(body.steps.some(step=>step.text==='删去未能核对的内容'));
+}
+// 删掉一个对比项后，不把残余回答伪装成完整对比。
+{
+  const question='强渡大渡河和飞夺泸定桥有什么区别？';
+  const bad='强渡大渡河时有180名勇士先行渡河。';
+  const other='1935年5月29日，中央红军夺取泸定桥。';
+  const draft=bad+'\n\n要注意，这是出发以后发生的事。也就是说，他们随即完成了这一步。'+'但'+other;
+  log=script([toolReply([toolCall('read_materials',{ids:['luding']})]),reply({type:'history',answer:draft,sources:['dadu','luding']})]);
+  const request=()=>make({question,node:'dadu'});
+  body=await (await worker.fetch(request(),env)).json();
+  assert.match(body.answer,new RegExp('^'+other));
+  assert.match(body.answer,/强渡大渡河的细节未能核对/);
+  assert.doesNotMatch(body.answer,/180|要注意|也就是说|但1935/);
+  assert.match(body.steps.find(step=>step.text==='删去未能核对的内容').detail,/上下文不完整/);
+  const full='强渡大渡河：1935年5月24日夜，中央红军先头部队袭占安顺场渡口；5月25日晨，红军乘船强渡大渡河。'+other;
+  log=script([toolReply([toolCall('read_materials',{ids:['luding']})]),reply({type:'history',answer:full,sources:['dadu','luding']})]);
+  body=await (await worker.fetch(request(),env)).json();
+  assert.equal(log.length,2);
+  assert.equal(body.answer,full);
+  const misdated='1935年5月24日，红军乘船强渡大渡河。';
+  log=script([reply({type:'history',answer:misdated,sources:['dadu']}),reply({type:'history',answer:'1935年5月25日晨，红军乘船强渡大渡河。',sources:['dadu']})]);
+  body=await (await worker.fetch(make({question:'强渡大渡河发生在什么时候？',node:'dadu'}),env)).json();
+  assert.equal(log.length,2);
+  assert.match(body.answer,/5月25日/);
+  const covered='1935年5月25日晨，红军在安顺场强渡大渡河。';
+  log=script([toolReply([toolCall('read_materials',{ids:['luding']})]),reply({type:'history',answer:covered+bad+'但'+other,sources:['dadu','luding']})]);
+  body=await (await worker.fetch(request(),env)).json();
+  assert.equal(body.answer,covered+other);
+}
+// 初稿全部无法核对时，重答故障不能使问题表述通过。
+log=script([battleReply('湘江战役中红军遭受重大损失，由出发时的8.6万余人减至3万余人。'),new Response('',{status:503})]);
+res=await worker.fetch(make({question:battleQuery,node:'xiangjiang'}),env);
+body=await res.json();
+assert.equal(res.status,200);
+assert.match(body.answer,/资料不足/);
+assert.doesNotMatch(body.answer,/8\.6|3万/);
+assert.deepEqual(body.sources,[]);
 log=script([battleReply('从长征出发时到渡过湘江后，中央红军由出发时的8.6万余人减至3万余人。')]);
 body=await (await worker.fetch(make({question:'能说明湘江之战相关的长征初期兵力变化吗？',node:'xiangjiang'}),env)).json();
 assert.equal(log.length,1);assert.match(body.answer,/8\.6万.*3万/);
@@ -760,6 +1097,200 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
   for(const [q,expected] of CASES)for(const id of expected)assert.ok(ids.has(id),'检索查询「'+q+'」标注的资料 ID 不存在：'+id);
   const r=await evaluate();
   assert.ok(r.hit8>=0.95,'检索前 8 条命中率下降到 '+r.hit8);assert.ok(r.hit3>=0.9,'检索前 3 条命中率下降到 '+r.hit3);
+}
+// —— 无话题追问（“具体点呢”“然后呢”）：服务端只接最近一次实质提问（P-03、P-17 的服务端版本）——
+{
+  const tokenOf=t=>JSON.parse(Buffer.from(t.split('.')[0],'base64url').toString());
+  const askOk=async b=>{const r=await worker.fetch(make(b),env);assert.equal(r.status,200);return r.json();};
+  let outbound=[];
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);outbound.push(b);const q=b.messages.at(-1).content;
+    if(/追问|正在读/.test(q))return reply({type:'history',answer:'红三十四师担任全军总后卫，掩护中央机关和主力抢渡湘江。',sources:['story_chen_shuxiang']});
+    if(/半条被子/.test(q))return reply({type:'history',answer:'三位女红军把被子剪成两半，把一半留给徐解秀。',sources:['story_banbei_beizi']});
+    if(/红三十四师/.test(q))return reply({type:'history',answer:'红三十四师担任全军总后卫。',sources:['story_chen_shuxiang']});
+    return reply({type:'history',answer:'湘江之战发生在1934年11月27日至12月1日。',sources:['xiangjiang']});};
+  const base={node:'xiangjiang',free:true};
+  const a1=await askOk({...base,question:'湘江战役是怎么打的？'});
+  const a2=await askOk({...base,question:'“半条被子”是什么故事？',historyTokens:[a1.historyToken]});
+  const a3=await askOk({...base,question:'红三十四师后卫是怎么被截断的？',historyTokens:[a1.historyToken,a2.historyToken]});
+  outbound=[];
+  const f1=await askOk({...base,question:'具体点呢',historyTokens:[a1.historyToken,a2.historyToken,a3.historyToken]});
+  let sent=outbound[0].messages;
+  assert.match(sent.at(-1).content,/^具体点呢\n（这是接着上一个问题「红三十四师后卫是怎么被截断的？」的追问/,'追问要带上最近一次实质提问');
+  assert.doesNotMatch(JSON.stringify(sent.slice(1,-1)),/半条被子|湘江战役是怎么打的/,'更早的其他话题不再带给模型');
+  assert.doesNotMatch(sent[0].content.split('已取出的资料：')[1],/\[story_banbei_beizi\]/,'更早话题的资料不再预先取出');
+  assert.equal(tokenOf(f1.historyToken).question,'具体点呢','签名保留原话');
+  assert.equal(tokenOf(f1.historyToken).topic,'红三十四师后卫是怎么被截断的？','签名记下所接的主题');
+  // 连续三次追问，最初的问题被挤出三条窗口后，仍能从追问记录里接上主题
+  const f2=await askOk({...base,question:'再具体点',historyTokens:[a2.historyToken,a3.historyToken,f1.historyToken]});
+  const f3=await askOk({...base,question:'然后呢',historyTokens:[a3.historyToken,f1.historyToken,f2.historyToken]});
+  outbound=[];
+  await askOk({...base,question:'后来呢？',historyTokens:[f1.historyToken,f2.historyToken,f3.historyToken]});
+  assert.match(outbound[0].messages.at(-1).content,/「红三十四师后卫是怎么被截断的？」的追问/,'窗口里只剩追问时沿用记下的主题');
+  // 问候不算主题
+  globalThis.fetch=async(url,options)=>{outbound.push(JSON.parse(options.body));return reply({type:'chat',answer:'你好！',sources:[]})};
+  const hi=await askOk({...base,question:'你好'});
+  outbound=[];
+  const noTopic=await askOk({...base,question:'具体点呢',historyTokens:[hi.historyToken]});
+  assert.equal(outbound.length,0,'接不上主题时不调用模型去猜');assert.equal(noTopic.type,'chat');assert.match(noTopic.answer,/说完整/);assert.ok(noTopic.historyToken);
+  // 没有任何上文、也不在读故事
+  outbound=[];
+  const bare=await askOk({...base,question:'然后呢'});assert.equal(outbound.length,0);assert.match(bare.answer,/说完整/);
+  // 在读故事时没有上文：按这篇故事理解
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);outbound.push(b);return reply({type:'history',answer:'哈达铺的报纸带来了陕北红军的消息。',sources:['story_hadapu_newspapers']})};
+  outbound=[];
+  const inStory=await askOk({question:'后来呢',node:'hadapu',story:'guide_hadapu'});
+  assert.match(outbound[0].messages.at(-1).content,/^后来呢\n（观众正在读《[^》]+》，这是对这篇故事的追问。）/);assert.equal(inStory.type,'history');
+  // 同一故事内：上一问是“这个故事是真的吗？”，追问接它（P-17）
+  outbound=[];
+  const p17=await askOk({question:'具体点呢',node:'hadapu',story:'guide_hadapu',historyTokens:[inStory.historyToken]});
+  assert.match(outbound[0].messages.at(-1).content,/「后来呢」的追问|正在读/);assert.equal(p17.sources[0].id,'story_hadapu_newspapers');
+  // 换故事后带旧记录：沿用原有的“记录失效”处理
+  let r=await worker.fetch(make({question:'具体点呢',node:'hadapu',story:'guide_mao_lamp',historyTokens:[inStory.historyToken]}),env);
+  assert.equal(r.status,400);assert.equal((await r.json()).code,'HISTORY_INVALID');
+  // 上一问里的数字只用于理解，不能让本轮肯定它：上一问“是不是只剩2万人”，追问的回答若写“只剩2万人”仍要拦下
+  globalThis.fetch=async(url,options)=>{outbound.push(JSON.parse(options.body));return reply({type:'history',answer:'湘江战役后红军只剩2万人。',sources:['xiangjiang']})};
+  const n1=await askOk({...base,question:'湘江战役红军损失了多少人？是不是只剩2万人？'});
+  const n2=await askOk({...base,question:'具体点呢',historyTokens:[n1.historyToken]});
+  assert.doesNotMatch(n2.answer,/只剩2万人/,'追问不能借上一问的数字过关');
+  // 带了伪造主题的记录：按记录失效处理
+  const forged=(()=>{const [p,sig]=f1.historyToken.split('.');const obj=tokenOf(f1.historyToken);obj.topic='伪造的主题';return Buffer.from(JSON.stringify(obj)).toString('base64url')+'.'+sig;})();
+  r=await worker.fetch(make({...base,question:'具体点呢',historyTokens:[forged]}),env);assert.equal(r.status,400);
+  // 不是无话题追问的问题照常处理，不加提示
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);outbound.push(b);return reply({type:'history',answer:'湘江之战发生在1934年11月27日至12月1日。',sources:['xiangjiang']})};
+  outbound=[];
+  await askOk({...base,question:'湘江战役是哪一年？',historyTokens:[a3.historyToken]});
+  assert.equal(outbound[0].messages.at(-1).content,'湘江战役是哪一年？');
+  assert.match(JSON.stringify(outbound[0].messages),/红三十四师后卫是怎么被截断的/,'普通问题仍带完整上文');
+}
+// —— 重答提示：被拦下的日期如果原样出现在别的资料里，提示去哪条取；普通数字不提示 ——
+{
+  const calls=[];
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);calls.push(b);
+    return reply(calls.length===1?{type:'history',answer:'1935年3月10日，林彪、聂荣臻致电中央，建议进攻打鼓新场。',sources:['chishui_gouba']}
+      :{type:'history',answer:'1935年3月，中共中央在苟坝召开会议，决定放弃攻打打鼓新场。',sources:['chishui_gouba']});};
+  const r=await worker.fetch(make({question:'苟坝会议为什么决定不打打鼓新场？',node:'chishui',free:true}),env);assert.equal(r.status,200);
+  assert.equal(calls.length,2);
+  const fix=calls[1].messages.at(-1).content;
+  assert.match(fix,/“1935年3月10日”见于资料 [^；）]*story_mao_lamp/,'重答提示要指出日期出自哪条资料');
+  // 普通数字（非日期）不提示来源
+  calls.length=0;
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);calls.push(b);return reply({type:'history',answer:'湘江战役后红军只剩2万人。',sources:['xiangjiang']});};
+  await worker.fetch(make({question:'湘江战役后还剩多少人？',node:'xiangjiang',free:true}),env);
+  assert.ok(calls.length>=2);assert.doesNotMatch(calls[1].messages.at(-1).content,/见于资料/,'普通数字不提示来源');
+}
+// —— 日期与事件：模型把“3月10日致电建议进攻打鼓新场”和“在苟坝开会讨论”并成一句时，日期仍归打鼓新场的提议 ——
+{
+  const ok=(answer,sources)=>{const calls=[];globalThis.fetch=async(url,options)=>{calls.push(1);return reply({type:'history',answer,sources})};return calls;};
+  let calls=ok('1935年3月10日，林彪、聂荣臻致电中央建议进攻打鼓新场，张闻天在苟坝召集会议讨论。',['chishui_gouba','story_mao_lamp']);
+  let body=await (await worker.fetch(make({question:'苟坝会议为什么决定不打打鼓新场？',node:'chishui',free:true}),env)).json();
+  assert.equal(calls.length,1,'合并句里的日期有据，不应重答');assert.match(body.answer,/3月10日/);
+  // 反例：把同一日期说成苟坝会议召开的日期，资料没有这样写，仍要拦下
+  calls=ok('1935年3月10日召开苟坝会议。',['story_mao_lamp']);
+  body=await (await worker.fetch(make({question:'苟坝会议是哪天开的？',node:'chishui',free:true}),env)).json();
+  assert.equal(calls.length,2,'日期挪到另一事件仍须重答');assert.doesNotMatch(body.answer,/3月10日召开苟坝会议/);
+}
+// —— 日期写在括号里：只归括号前紧挨的事件（猴场会议的日期不能因为同一小句提到黎平会议就被拒）——
+{
+  const run=async(answer,sources,question)=>{const calls=[];globalThis.fetch=async(url,options)=>{calls.push(1);return reply({type:'history',answer,sources})};
+    const body=await (await worker.fetch(make({question,node:'houchang',free:true}),env)).json();return {calls:calls.length,body};};
+  let r=await run('猴场会议（1934年12月31日晚至1935年1月1日凌晨）重申黎平会议的方针，决定立即强渡乌江、攻占遵义。',['houchang','houchang_liping'],'猴场会议和黎平会议是什么关系？');
+  assert.equal(r.calls,1,'括号里的日期归括号前的猴场会议，不应重答');assert.match(r.body.answer,/1934年12月31日/);
+  // 反例：括号前是另一个会议，日期仍须拦下
+  r=await run('遵义会议（1934年12月31日晚至1935年1月1日凌晨）重申黎平会议的方针。',['houchang','houchang_liping','zunyi'],'遵义会议是什么时候开的？');
+  assert.equal(r.calls,2,'括号前的事件与资料不符仍须重答');assert.doesNotMatch(r.body.answer,/遵义会议（1934年12月31日/);
+}
+// —— 三大主力会师：会宁、将台堡两条资料一起预先取出 ——
+{
+  let seenBody;globalThis.fetch=async(url,options)=>{seenBody=JSON.parse(options.body);return reply({type:'history',answer:'1936年10月9日，红四方面军在甘肃会宁与红一方面军会师；1936年10月22日，红二方面军在将台堡与红一方面军会师。',sources:['huining','jiangtaibao']})};
+  const r=await (await worker.fetch(make({question:'红军三大主力是在哪里会师的？',node:'start',free:true}),env)).json();
+  const pre=seenBody.messages[0].content.split('已取出的资料：')[1];
+  assert.match(pre,/\[huining\]/);assert.match(pre,/\[jiangtaibao\]/);assert.match(r.answer,/10月22日/);
+  globalThis.fetch=async(url,options)=>{seenBody=JSON.parse(options.body);return reply({type:'history',answer:'遵义会议于1935年1月15日至17日召开。',sources:['zunyi']})};
+  await worker.fetch(make({question:'遵义会议是什么时候开的？',node:'start',free:true}),env);
+  assert.doesNotMatch(seenBody.messages[0].content.split('已取出的资料：')[1],/\[jiangtaibao\]/,'无关问题不预取会师资料');
+}
+// —— 日期后紧跟的话与资料原句一致时，不因修饰语里的地名（“在遵义作战时负伤的”）误判日期归属 ——
+{
+  const run=async answer=>{let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer,sources:['jinsha_person_he_zizhen','story_he_zizhen']})};
+    const body=await (await worker.fetch(make({question:'贺子珍身上有多少块弹片？是怎么受的伤？',node:'jinsha'}),env)).json();return {n,body};};
+  let r=await run('1935年4月，红军干部休养连在贵州盘县附近遭敌机轰炸，她为掩护在遵义作战时腿部负伤的团政委钟赤兵，身中17块弹片。');
+  assert.equal(r.n,1,'与资料原句一致的日期不应被拦');assert.match(r.body.answer,/钟赤兵/);
+  // 反例：话一样但月份写错，仍要拦下
+  r=await run('1935年6月，红军干部休养连在贵州盘县附近遭敌机轰炸，她为掩护在遵义作战时腿部负伤的团政委钟赤兵，身中17块弹片。');
+  assert.equal(r.n,2,'月份不符仍须重答');assert.doesNotMatch(r.body.answer,/1935年6月/);
+}
+// —— 引号里原样引用资料的日期不再单独判断；另起一句的“29日”与资料不符仍要拦 ——
+{
+  const run=async(answer,sources,question,node)=>{let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer,sources})};
+    const body=await (await worker.fetch(make({question,node,free:true}),env)).json();return {n,body};};
+  let r=await run('红九军团于9月28日从松毛岭保卫战中撤出，集结在长汀钟屋村（今中复村）。29日上午，在观寿公祠门前大草坪召开告别群众大会。',['story_fj_zhongfu_farewell'],'红九军团是怎样撤出松毛岭的？','start');
+  assert.equal(r.n,2,'继承出来的日期与资料不符仍要拦下');assert.doesNotMatch(r.body.answer,/29日上午/);
+  r=await run('1934年12月12日，中革军委在湖南通道召开紧急会议，会后发出“万万火急”电令，部署“我军明十三号继续西进”。',['tongdao'],'通道会议决定了什么？','tongdao');
+  assert.equal(r.n,1,'引号里原样引用资料的日期不应被拦');
+  r=await run('1934年12月12日，中革军委在湖南通道召开紧急会议，会后电令写“我军明十四号继续西进”。',['tongdao'],'通道会议决定了什么？','tongdao');
+  assert.equal(r.n,2,'引号里的话与资料不一致仍要核对');
+}
+// —— 传言题：资料没写不能说成“没有这回事” ——
+{
+  let n=0;globalThis.fetch=async()=>{n++;return reply(n===1?{type:'history',answer:'资料记载的不是这样。红军并没有“每人背一袋炒面走完全程”这回事。过草地时粮食十分紧缺。',sources:['caodi_food_rations']}
+    :{type:'history',answer:'资料里没有“每人背一袋炒面走完全程”的说法，无法证实。资料记载过草地时粮食十分紧缺。',sources:['caodi_food_rations']})};
+  const body=await (await worker.fetch(make({question:'听说红军长征时每个人都要背着一袋炒面走二万五千里，是真的吗？',node:'start',free:true}),env)).json();
+  assert.equal(n,2,'断言“没有这回事”须重答');assert.doesNotMatch(body.answer,/没有[^。]{0,24}这回事/);
+}
+// —— 日期区间：资料把起止分开写，回答合写成“16日至17日”时，起点和终点各自有据即可 ——
+{
+  const run=async answer=>{let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer,sources:['lazikou']})};
+    const body=await (await worker.fetch(make({question:'腊子口是怎么打下来的？',node:'lazikou'}),env)).json();return {n,body};};
+  let r=await run('1935年9月16日至17日，红一军团第二师第四团夺取天险腊子口。');
+  assert.equal(r.n,1,'起止两天都有据的区间不应被拦');
+  r=await run('1935年9月16日至19日，红一军团第二师第四团夺取天险腊子口。');
+  assert.equal(r.n,2,'终点无据的区间仍须重答');assert.doesNotMatch(r.body.answer,/16日至19日/);
+}
+// —— 更宽的无话题追问（“所以为什么”）、联网时带话题线索、最多 5 轮上下文；节点页不推荐答案已在正文里的问题 ——
+{
+  const tokenOf=t=>JSON.parse(Buffer.from(t.split('.')[0],'base64url').toString());
+  let calls=[];globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);calls.push(b);return reply({type:'history',answer:'为了执行黎平会议确定的方针，政治局决定立即强渡乌江、攻占遵义。',sources:['houchang']})};
+  const base={node:'houchang',free:true};
+  const q1=await (await worker.fetch(make({...base,question:'为什么要强渡乌江？'}),env)).json();
+  calls=[];
+  const q2=await (await worker.fetch(make({...base,question:'所以为什么',historyTokens:[q1.historyToken]}),env)).json();
+  assert.match(calls[0].messages.at(-1).content,/^所以为什么\n（这是接着上一个问题「为什么要强渡乌江？」的追问/,'“所以为什么”应接上一问');
+  assert.equal(tokenOf(q2.historyToken).topic,'为什么要强渡乌江？');
+  // 联网：无话题追问和没提事件地名的短问题都带上一条实质提问作线索；自带话题的照原样搜
+  let log=script([webReply('网页资料。',[webUrl])]);
+  await worker.fetch(make({...base,question:'所以为什么',historyTokens:[q1.historyToken,q2.historyToken],web:'only'}),env);
+  let input=log.at(-1).messages.at(-1).content;assert.match(input,/话题线索/);assert.match(input,/为什么要强渡乌江/);assert.doesNotMatch(input,/"上一条相关提问":"所以为什么"/);
+  log=script([webReply('网页资料。',[webUrl])]);
+  await worker.fetch(make({...base,question:'所以为什么要渡四次',historyTokens:[q1.historyToken],web:'only'}),env);
+  assert.match(log.at(-1).messages.at(-1).content,/话题线索/);
+  log=script([webReply('网页资料。',[webUrl])]);
+  await worker.fetch(make({...base,question:'遵义会议什么时候召开？',historyTokens:[q1.historyToken],web:'only'}),env);
+  assert.equal(log.at(-1).messages.at(-1).content,'遵义会议什么时候召开？','自带话题的问题照原样搜');
+  // 有实际内容的问题不算无话题追问
+  calls=[];globalThis.fetch=async(url,options)=>{calls.push(JSON.parse(options.body));return reply({type:'history',answer:'夹金山海拔4000多米。',sources:['jiajin']})};
+  await worker.fetch(make({...base,question:'为什么要过雪山',historyTokens:[q1.historyToken]}),env);
+  assert.equal(calls[0].messages.at(-1).content,'为什么要过雪山');
+  // 最多 5 轮签名记录，6 轮按记录失效处理
+  const five=Array(5).fill(q1.historyToken);
+  assert.equal((await worker.fetch(make({...base,question:'猴场会议决定了什么行动？',historyTokens:five}),env)).status,200);
+  assert.equal((await worker.fetch(make({...base,question:'猴场会议决定了什么行动？',historyTokens:[...five,q1.historyToken]}),env)).status,400);
+  // 节点页“可以问”：答案已写在正文里的不推荐，正文没写的保留（取页面里的同一份判断）
+  const page=readFileSync(new URL('./src/page.html',import.meta.url),'utf8');
+  const answeredInText=new Function(page.match(/const QUESTION_WORDS[\s\S]*?\nconst askable/)[0].replace(/\nconst askable$/,'')+';return answeredInText;')();
+  const wj=nodes.find(n=>n.id==='wujiang'),wq=nodes.find(n=>n.id==='wuqi'),hn=nodes.find(n=>n.id==='huining');
+  assert.equal(answeredInText('中央红军什么时候强渡乌江？',wj.text),true);assert.equal(answeredInText('红军从哪些渡口强渡乌江？',wj.text),true);
+  assert.equal(answeredInText('强渡乌江之后红军占领了哪里？',wj.text),false);
+  assert.equal(answeredInText('红二十五军何时开始长征？',wq.text),false);assert.equal(answeredInText('红四方面军何时开始长征？',hn.text),false);
+  for(const n of nodes)assert.ok((n.questions||[]).filter(q=>!answeredInText(q,n.text)).length>=2,n.id+' 至少留 2 个值得问的问题');
+}
+// —— 大渡河两个阶段写在同一句里：24日袭占渡口、25日强渡，各按自己的小句判断 ——
+{
+  const run=async answer=>{let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer,sources:['dadu','dadu_boatmen','dadu_boats']})};
+    const body=await (await worker.fetch(make({question:'强渡大渡河是怎么回事？',node:'dadu'}),env)).json();return {n,body};};
+  let r=await run('强渡大渡河在安顺场：5月24日夜先头部队袭占安顺场渡口，25日晨孙继先挑选17名勇士乘木船强渡，控制北岸渡口。');
+  assert.equal(r.n,1,'同一句里的两个阶段应各自核对通过');
+  r=await run('强渡大渡河在安顺场：5月25日夜先头部队袭占安顺场渡口，24日晨孙继先挑选17名勇士乘木船强渡，控制北岸渡口。');
+  assert.equal(r.n,2,'两个阶段的日期调换仍须拦下');
 }
 globalThis.fetch=original;console.log('API and evidence tests passed');
 
