@@ -805,6 +805,27 @@ const sessionId = crypto.randomUUID();
 const $ = id => document.getElementById(id);
 const messages = $('messages'), status = $('status'), input = $('question'), homeQ = $('home-q'), exhibit = $('exhibit');
 const find = id => nodes.find(n => n.id === id);
+// 每站“可以问”的问题：答案就写在这一站正文里的不再推荐（例如正文写着日期，还问“什么时候”）。
+// 判断：问题的关键词有六成以上出现在正文里（或五成以上且共有一段 3 字以上的具体名称），并且正文里有这类答案。
+const QUESTION_WORDS = /是什么时候|什么时候|是什么时间|什么时间|何时|哪一天|哪天|哪一年|哪年|几月|发生在|是什么|什么|哪些|哪几个|哪个|哪里|哪儿|往哪|是谁|谁|吗|呢|了|的|是|有|在|从|和|与|分别/g;
+function answeredInText(q, text) {
+  const t = String(text || '').replace(/\s+/g, ''), core = String(q).replace(/\s+/g, '').replace(/[？?。！!“”"、，,《》]/g, '').replace(QUESTION_WORDS, '');
+  const grams = []; for (let i = 0; i + 2 <= core.length; i++) grams.push(core.slice(i, i + 2));
+  if (!grams.length) return false;
+  const cov = grams.filter(g => t.includes(g)).length / grams.length;
+  let longest = 0; for (const seg of core.split(/中央红军|红[一二四]方面军|红军|中共中央|中革军委|中央/)) for (let a = 0; a < seg.length; a++) for (let b = a + 3; b <= seg.length; b++) if (t.includes(seg.slice(a, b))) longest = Math.max(longest, b - a);
+  // “猴场会议决定了什么行动？”：正文有同一个动词、又有问题开头的地名（“猴场……决定”），就算答案已在正文里
+  const verb = q.match(/(决定|确定|否定|通过|批评|选举|改组)了?(?:什么|哪)/);
+  if (verb && t.includes(verb[1]) && core.length >= 2 && t.includes(core.slice(0, 2))) return true;
+  if (!(cov >= 0.6 || (cov >= 0.5 && longest >= 3))) return false;
+  if (/什么时候|何时|哪天|哪一天|哪一年|哪年|几月|什么时间/.test(q)) return /\d+年|\d+月/.test(t);
+  if (/往哪里|向哪里|去了哪里|去哪|往哪/.test(q)) return /方向|前进|进军|西进|北上|南下|东进|转移|开进|到达/.test(t);
+  const v = q.match(/(决定|确定|否定|发出|占领|攻占|会合|会师|通过|批评|选举|改组)了?(?:什么|哪)/); if (v) return t.includes(v[1]);
+  const w = q.match(/哪(?:些|几个|几处|几座|个)([一-龥]{1,2})/); if (w) return t.includes(w[1]);
+  const who = q.match(/(?:是)?谁(召开|主持|指挥|率领|带领)/); if (who) return t.includes(who[1]);
+  return false;
+}
+const askable = id => { const n = find(id); return (n?.questions || []).filter(q => !answeredInText(q, n.text)); };
 const indexOf = id => nodes.findIndex(n => n.id === id);
 const motion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 const mobile = () => window.matchMedia('(max-width: 900px)').matches;
@@ -817,7 +838,7 @@ let route = [], routeName = '', completed = new Set(), visited = new Set(), view
 let chatHistory = [], busy = false, contextVersion = 0, summaryText = '', planVersion = 0, planning = false;
 const askedByNode = new Map(), suggestionTurns = new Map();
 const normalizeQuestion = text => text.toLowerCase().replace(/[\s，。！？、,.!?；;：:]/g, '');
-function availableQuestions() { const asked = askedByNode.get(selected) || new Set(); const all = (find(selected)?.questions || []).filter(q => !asked.has(normalizeQuestion(q))); if (!all.length) return []; const offset = (suggestionTurns.get(selected) || 0) % all.length; return all.slice(offset).concat(all.slice(0, offset)).slice(0, 2); }
+function availableQuestions() { const asked = askedByNode.get(selected) || new Set(); const all = askable(selected).filter(q => !asked.has(normalizeQuestion(q))); if (!all.length) return []; const offset = (suggestionTurns.get(selected) || 0) % all.length; return all.slice(offset).concat(all.slice(0, offset)).slice(0, 2); }
 function markQuestionAnswered(id, question) { const n = find(id), key = normalizeQuestion(question); if ((n?.questions || []).some(q => normalizeQuestion(q) === key)) { if (!askedByNode.has(id)) askedByNode.set(id, new Set()); askedByNode.get(id).add(key); } suggestionTurns.set(id, (suggestionTurns.get(id) || 0) + 1); }
 function fillSuggestions(box) { box.replaceChildren(); const qs = availableQuestions(); if (!qs.length) { box.append(el('span', '', '本节点的建议问题已看完，你可以自行提问。')); const reset = el('button', 'chip', '重新显示建议问题'); reset.type = 'button'; reset.disabled = busy; reset.addEventListener('click', () => { askedByNode.delete(selected); suggestionTurns.delete(selected); shownKey = null; renderExhibit(); renderChips(); }); box.append(reset); return; } for (const q of qs) { const c = el('button', 'chip', q); c.type = 'button'; c.disabled = busy; c.addEventListener('click', () => askChip(q)); box.append(c); } }
 const stopEls = new Map();
@@ -1468,7 +1489,7 @@ function renderExhibit() {
     for (const t of tales) { const c = el('article', 'story-card'); c.id = 'story-' + t.id; const h = el('h4', '', t.title); h.append(el('small', '', t.date)); const tag = draftTag(t); if (tag) h.append(tag); c.append(h, el('p', '', t.text)); const note = publicNote(t.note, true); if (note) c.append(el('p', 'story-note', '（资料说明：' + note + '）')); appendStorySources(c, t); box.append(c); }
     parts.push(box);
   }
-  if ((n.questions || []).length) {
+  if (askable(n.id).length) {
     const ask = el('div', 'ask-here'); ask.append(el('span', '', '关于这一站，可以问：'));
     const choices = el('span', 'chips'); fillSuggestions(choices); ask.append(choices);
     parts.push(ask);
@@ -1932,12 +1953,13 @@ const LOCAL_REPLIES = [
 const WEB_INTENT = /^(请|帮我|麻烦|那|再)?\s*(联网|上网|网上|在网上|网络)\s*(搜索|搜一下|搜|查找|查一下|查)?\s*(一下|看看|下|吧)?[。！!？?\s]*$/;
 // “具体点呢”“然后呢”这类没有话题的追问：原话照发，由服务端按已签名的上文接上主题（见 server.js 的 followUpAnchor）。
 // 页面只做一件事：这类追问不覆盖“上一个问题”，所以接着点“联网搜索”，搜的仍是真正的主题。
+const FOLLOW_UP_FILLER = /所以|那么|那|然后|后来|接着|之后|为什么|为啥|怎么样|怎么|怎样|如何|具体|详细|细致|展开|再说说|说说|讲讲|说一下|讲一下|一点|一些|还有|别的|其他|更多|结果|原因|意思|什么|结局|最后|回事|这样|这么|呢|吗|啊|吧|嘛|呀|了|的|是|要|会|还|再|多|点|些|说|讲/g; // 与服务端一致：去掉虚词后什么都不剩的短问题算无话题追问
 const VAGUE = /^(那|请|能不能|可以|能)?(再|多)?(具体|详细|细致|展开)(一?点|些|说说|讲讲|说一下|讲一下|说说看)?(呢|吧|嘛|啊)?[。！!？?\s]*$|^(再|多)(说|讲)(一?点|一些|说|讲)?(呢|吧)?[。！!？?\s]*$|^(然后|后来|接着|之后)呢?[。！!？?\s]*$|^(为什么|为啥|怎么会这样|怎么回事)呢?[。！!？?\s]*$/;
 async function ask(question, opts = {}) {
   if (busy || !question) return;
   let apiQuestion = question, vague = false;
   const localHit = !opts.webOnly && question.length <= 16 ? LOCAL_REPLIES.find(([re]) => re.test(question)) : null;
-  if (!opts.webOnly && question.length <= 12 && VAGUE.test(question)) vague = true;
+  if (!opts.webOnly && question.length <= 12 && (VAGUE.test(question) || !question.replace(/[。！!？?，,、\s~～…]/g, '').replace(FOLLOW_UP_FILLER, ''))) vague = true;
   if (!opts.webOnly && WEB_INTENT.test(question)) {
     if (lastSearch?.version !== contextVersion) { addMessage('你', question); addMessage('小征', '请先在当前页面问一个问题，我再帮你联网搜索。'); return; }
     apiQuestion = lastSearch.question;
@@ -1953,13 +1975,13 @@ async function ask(question, opts = {}) {
   const jump = question.match(/^(?:带我去|前往|切换到|看看)(.{1,12}?)[。！!\s]*$/);
   if (jump) { const t = nodes.find(n => n.name === jump[1]); if (t) { choose(t.id, { keepPane: true }); addMessage('小征', '现在来到「' + t.name + '」。' + t.text, [{ title: t.source, url: t.url }]); return; } }
   busy = true; shownKey = null; renderExhibit(); renderChips(); document.querySelectorAll('.side-q').forEach(x => { x.disabled = true; }); $('send').disabled = true; $('send').setAttribute('aria-busy', 'true'); status.textContent = '小征正在查阅资料并思考…';
-  const questionNode = selected, requestVersion = contextVersion, prior = (opts.webHistory || chatHistory).slice(-3);
+  const questionNode = selected, requestVersion = contextVersion, prior = (opts.webHistory || chatHistory).slice(-5);
   const tour = route.length ? { route, visited: [...visited] } : undefined;
   const free = chatOnly || topicMode;
   const readingFujian = topicKind === 'fujian' && currentStory !== null;
   const build = () => JSON.stringify({ question: apiQuestion, node: questionNode, sessionId, historyTokens: prior, tour, web: opts.webOnly ? 'only' : 'auto', ...(opts.story || (topicMode && currentStory) ? { story: opts.story || currentStory } : {}), ...(free ? { free: true } : {}) });
   let payload = build();
-  while (new TextEncoder().encode(payload).length > 10000 && prior.length) { prior.shift(); payload = build(); }
+  while (new TextEncoder().encode(payload).length > 22000 && prior.length) { prior.shift(); payload = build(); }
   const searchContext = vague && lastSearch?.version === requestVersion ? lastSearch : { question: apiQuestion, version: requestVersion, history: prior.slice() };
   if (!opts.webOnly && !vague) lastSearch = searchContext;
   const typing = showTyping();
@@ -1976,7 +1998,7 @@ async function ask(question, opts = {}) {
       for (const id of related) if (!mentioned.includes(id)) mentioned.push(id); sideOffset += 1; renderSide();
     } else markQuestionAnswered(questionNode, question);
     addMessage('小征', data.answer, Array.isArray(data.sources) ? data.sources : [], { storyLinks, steps: Array.isArray(data.steps) && data.steps.length ? data.steps : liveSteps, related, readingFujian, node: !free && (data.type === 'history' || !data.type) ? find(questionNode)?.name || '未知' : null, followups: Array.isArray(data.followups) ? data.followups : [], web: data.web && Array.isArray(data.web.sources) ? data.web.sources : null, webAsk: data.canWeb === true ? searchContext : null, evidenceFocus: data.evidenceFocus, evidenceVersion: requestVersion });
-    if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-3); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
+    if (requestVersion === contextVersion) { if (typeof data.historyToken === 'string' && data.historyToken) { chatHistory.push(data.historyToken); chatHistory = chatHistory.slice(-5); status.textContent = ''; } else status.textContent = '本次回答未保存为后续对话上下文。'; }
     else status.textContent = '节点已切换；上条回答未加入当前节点的对话上下文。';
     if (ttsOn) speak(data.answer);
     if (requestVersion === contextVersion) runAction(data.action);

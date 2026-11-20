@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import worker from './worker/index.js';
 import { nodes } from './src/data.js';
@@ -64,7 +65,7 @@ assert.match(html,/"map":\{"nodes"/);
 assert.equal((await worker.fetch(new Request('http://localhost/api/chat',{method:'POST',headers:{'content-type':'text/plain'},body:'{}'}),env)).status,415);
 assert.equal((await worker.fetch(make({question:'',node:'zunyi'}),{})).status,400);
 assert.equal((await worker.fetch(make({question:'x',node:'bad'}),{})).status,400);
-assert.equal((await worker.fetch(make('x'.repeat(12001)),{})).status,413);
+assert.equal((await worker.fetch(make('x'.repeat(24001)),{})).status,413);
 assert.equal((await worker.fetch(make({question:'x',node:'zunyi'},{origin:'https://other.example'}),{})).status,403);
 assert.equal((await worker.fetch(make({question:'x',node:'zunyi'}),{})).status,503);
 let original=globalThis.fetch;let seen;
@@ -1244,6 +1245,52 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
   assert.equal(r.n,1,'起止两天都有据的区间不应被拦');
   r=await run('1935年9月16日至19日，红一军团第二师第四团夺取天险腊子口。');
   assert.equal(r.n,2,'终点无据的区间仍须重答');assert.doesNotMatch(r.body.answer,/16日至19日/);
+}
+// —— 更宽的无话题追问（“所以为什么”）、联网时带话题线索、最多 5 轮上下文；节点页不推荐答案已在正文里的问题 ——
+{
+  const tokenOf=t=>JSON.parse(Buffer.from(t.split('.')[0],'base64url').toString());
+  let calls=[];globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);calls.push(b);return reply({type:'history',answer:'为了执行黎平会议确定的方针，政治局决定立即强渡乌江、攻占遵义。',sources:['houchang']})};
+  const base={node:'houchang',free:true};
+  const q1=await (await worker.fetch(make({...base,question:'为什么要强渡乌江？'}),env)).json();
+  calls=[];
+  const q2=await (await worker.fetch(make({...base,question:'所以为什么',historyTokens:[q1.historyToken]}),env)).json();
+  assert.match(calls[0].messages.at(-1).content,/^所以为什么\n（这是接着上一个问题「为什么要强渡乌江？」的追问/,'“所以为什么”应接上一问');
+  assert.equal(tokenOf(q2.historyToken).topic,'为什么要强渡乌江？');
+  // 联网：无话题追问和没提事件地名的短问题都带上一条实质提问作线索；自带话题的照原样搜
+  let log=script([webReply('网页资料。',[webUrl])]);
+  await worker.fetch(make({...base,question:'所以为什么',historyTokens:[q1.historyToken,q2.historyToken],web:'only'}),env);
+  let input=log.at(-1).messages.at(-1).content;assert.match(input,/话题线索/);assert.match(input,/为什么要强渡乌江/);assert.doesNotMatch(input,/"上一条相关提问":"所以为什么"/);
+  log=script([webReply('网页资料。',[webUrl])]);
+  await worker.fetch(make({...base,question:'所以为什么要渡四次',historyTokens:[q1.historyToken],web:'only'}),env);
+  assert.match(log.at(-1).messages.at(-1).content,/话题线索/);
+  log=script([webReply('网页资料。',[webUrl])]);
+  await worker.fetch(make({...base,question:'遵义会议什么时候召开？',historyTokens:[q1.historyToken],web:'only'}),env);
+  assert.equal(log.at(-1).messages.at(-1).content,'遵义会议什么时候召开？','自带话题的问题照原样搜');
+  // 有实际内容的问题不算无话题追问
+  calls=[];globalThis.fetch=async(url,options)=>{calls.push(JSON.parse(options.body));return reply({type:'history',answer:'夹金山海拔4000多米。',sources:['jiajin']})};
+  await worker.fetch(make({...base,question:'为什么要过雪山',historyTokens:[q1.historyToken]}),env);
+  assert.equal(calls[0].messages.at(-1).content,'为什么要过雪山');
+  // 最多 5 轮签名记录，6 轮按记录失效处理
+  const five=Array(5).fill(q1.historyToken);
+  assert.equal((await worker.fetch(make({...base,question:'猴场会议决定了什么行动？',historyTokens:five}),env)).status,200);
+  assert.equal((await worker.fetch(make({...base,question:'猴场会议决定了什么行动？',historyTokens:[...five,q1.historyToken]}),env)).status,400);
+  // 节点页“可以问”：答案已写在正文里的不推荐，正文没写的保留（取页面里的同一份判断）
+  const page=readFileSync(new URL('./src/page.html',import.meta.url),'utf8');
+  const answeredInText=new Function(page.match(/const QUESTION_WORDS[\s\S]*?\nconst askable/)[0].replace(/\nconst askable$/,'')+';return answeredInText;')();
+  const wj=nodes.find(n=>n.id==='wujiang'),wq=nodes.find(n=>n.id==='wuqi'),hn=nodes.find(n=>n.id==='huining');
+  assert.equal(answeredInText('中央红军什么时候强渡乌江？',wj.text),true);assert.equal(answeredInText('红军从哪些渡口强渡乌江？',wj.text),true);
+  assert.equal(answeredInText('强渡乌江之后红军占领了哪里？',wj.text),false);
+  assert.equal(answeredInText('红二十五军何时开始长征？',wq.text),false);assert.equal(answeredInText('红四方面军何时开始长征？',hn.text),false);
+  for(const n of nodes)assert.ok((n.questions||[]).filter(q=>!answeredInText(q,n.text)).length>=2,n.id+' 至少留 2 个值得问的问题');
+}
+// —— 大渡河两个阶段写在同一句里：24日袭占渡口、25日强渡，各按自己的小句判断 ——
+{
+  const run=async answer=>{let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer,sources:['dadu','dadu_boatmen','dadu_boats']})};
+    const body=await (await worker.fetch(make({question:'强渡大渡河是怎么回事？',node:'dadu'}),env)).json();return {n,body};};
+  let r=await run('强渡大渡河在安顺场：5月24日夜先头部队袭占安顺场渡口，25日晨孙继先挑选17名勇士乘木船强渡，控制北岸渡口。');
+  assert.equal(r.n,1,'同一句里的两个阶段应各自核对通过');
+  r=await run('强渡大渡河在安顺场：5月25日夜先头部队袭占安顺场渡口，24日晨孙继先挑选17名勇士乘木船强渡，控制北岸渡口。');
+  assert.equal(r.n,2,'两个阶段的日期调换仍须拦下');
 }
 globalThis.fetch=original;console.log('API and evidence tests passed');
 

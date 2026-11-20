@@ -2,7 +2,7 @@ import { nodes } from './data.js';
 import { stories } from './stories.js';
 import { storyGuides } from './story-guides.js';
 const json = (value, status = 200) => Response.json(value, {status, headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
-const MAX_BODY = 12000;
+const MAX_BODY = 24000; // 可带最近 5 轮签名对话记录（每条约 3.4 KB）
 const SESSION_RE=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const encode64 = bytes => btoa(Array.from(bytes, b=>String.fromCharCode(b)).join('')).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 function decode64(value){if(!/^[A-Za-z0-9_-]+$/.test(value))throw new Error('invalid token');const binary=atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4));return Uint8Array.from(binary,c=>c.charCodeAt(0));}
@@ -14,7 +14,9 @@ async function readToken(key,token,sessionId,node,storyId){try{if(typeof token!=
 // 原话照样用于界面、签名和事实核对；接上的主题只作理解和检索线索，不是新的出处。
 const BARE_FOLLOW_UP=/^(?:那|请|能不能|可以|能)?(?:再|多)?(?:具体|详细|细致|展开)(?:一?点|些|说说|讲讲|说一下|讲一下|说说看)?(?:呢|吧|嘛|啊)?[。！!？?\s]*$|^(?:那|再|多)?(?:说|讲)(?:一?点|一些|说|讲)?(?:呢|吧)?[。！!？?\s]*$|^(?:那)?(?:然后|后来|接着|之后)呢?[。！!？?\s]*$|^(?:为什么|为啥|怎么会这样|怎么回事)呢?[。！!？?\s]*$/;
 const SMALL_TALK=/^(?:你好|您好|嗨|哈喽|hi|hello|早上好|晚上好|谢谢|多谢|感谢|好的|嗯|明白了?|知道了|再见|拜拜|你是谁|你能做什么|你会什么)[呀啊！!。~，,\s]*(?:你|您|小征)?[呀啊！!。~\s]*$/i;
-const isBareFollowUp=q=>typeof q==='string'&&q.trim().length<=12&&BARE_FOLLOW_UP.test(q.trim());
+// 去掉“所以、那、为什么、怎么、具体、呢、吗”这类虚词后什么都不剩的短问题，也算无话题追问（“所以为什么”“结果呢”“什么意思”）。
+const FOLLOW_UP_FILLER=/所以|那么|那|然后|后来|接着|之后|为什么|为啥|怎么样|怎么|怎样|如何|具体|详细|细致|展开|再说说|说说|讲讲|说一下|讲一下|一点|一些|还有|别的|其他|更多|结果|原因|意思|什么|结局|最后|回事|这样|这么|呢|吗|啊|吧|嘛|呀|了|的|是|要|会|还|再|多|点|些|说|讲/g;
+const isBareFollowUp=q=>{const t=typeof q==='string'?q.trim():'';if(!t||t.length>12)return false;return BARE_FOLLOW_UP.test(t)||!t.replace(/[。！!？?，,、\s~～…]/g,'').replace(FOLLOW_UP_FILLER,'');};
 // 从新到旧找：遇到实质提问就以它为主题；遇到带主题的追问记录（主题已被挤出三条窗口）就沿用它记下的主题。
 function followUpAnchor(entries){
   for(let i=entries.length-1;i>=0;i--){
@@ -132,9 +134,11 @@ function trimWebInferences(text,question){
   }).join('').trim();
 }
 const WEB_REFERENCE=/(?:^|[，。！？、；,\s])(?:那|这)(?:个|一|件|段|次|位|条|里|时|些|另一|后来|接下来|什么|怎么)|(?:^|[^其])(?:他|她)(?:们)?(?:是|有|和|在|的|曾|又|负责|后来|当时|为什么|怎么|做|担任|参加|去|到|哪)|后来呢|接着呢|另一位|上一(?:个|条)?问题/;
-function webQuestion(question,{storyTitle,nodeName,history}){
-  if(!WEB_REFERENCE.test(question))return question;
-  const previous=[...history].reverse().find(message=>message.role==='user'&&message.content.trim()!==question.trim())?.content;
+function webQuestion(question,{storyTitle,nodeName,history,lastTopic}){
+  // 指代词、无话题追问，以及没提任何事件或地名的短问题（“所以为什么要渡四次”）都带上话题线索，否则联网会把它当成一个全新的问题去搜；“遵义会议什么时候召开？”这类自带话题的照原样搜。
+  const elliptical=question.trim().length<=16&&!eventKeys(question).length&&!nodes.some(n=>question.includes(n.name));
+  if(!WEB_REFERENCE.test(question)&&!isBareFollowUp(question)&&!elliptical)return question;
+  const previous=lastTopic||[...history].reverse().find(message=>message.role==='user'&&message.content.trim()!==question.trim())?.content;
   const topic={};
   if(storyTitle)topic['当前篇目']=storyTitle;
   else if(nodeName)topic['当前讲解站']=nodeName;
@@ -522,7 +526,10 @@ function dateSupported(claim,source){
     if(claimActions.length&&(!sourceActions.length||!claimActions.every(action=>sourceActions.includes(action))))return false;
   }
   if(claimedEvents.includes('dadu')&&sourceEvents.includes('dadu')){
-    const stage=({context})=>{
+    // 先看日期所在的小句（回答常把“24日夜袭占渡口，25日晨……强渡”写在同一句里），小句看不出来再看整句。
+    const local=text=>/(?:袭占|攻占|抢占)[^，。；]{0,14}(?:安顺场|渡口)/.test(text)?'landing':/强渡|渡过|渡河|过河/.test(text)?'crossing':null;
+    const stage=({context,localContext})=>{
+      const own=local(localContext);if(own)return own;
       if(/(?:袭占|攻占|抢占)[^。；]{0,14}安顺场/.test(context))return 'landing';
       if(/强渡(?:了)?大渡河|渡过(?:了)?大渡河/.test(context))return 'crossing';
       return null;
@@ -788,7 +795,7 @@ export default {async fetch(request, env) {
   if (!nodes.some(n=>n.id===data.node)) return json({error:'请先选择一个历史节点。'},400);
   if(!env.DEEPSEEK_API_KEY||!env.HISTORY_SIGNING_KEY) return json({error:'助手的模型尚未配置。你仍可浏览节点和史料。'},503);
   if(typeof data.sessionId!=='string'||!SESSION_RE.test(data.sessionId))return json({error:'对话会话无效，请刷新页面后重试。',code:'SESSION_INVALID'},400);
-  if(data.historyTokens!==undefined&&(!Array.isArray(data.historyTokens)||data.historyTokens.length>3))return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);
+  if(data.historyTokens!==undefined&&(!Array.isArray(data.historyTokens)||data.historyTokens.length>5))return json({error:'对话记录已失效，请重新提问。',code:'HISTORY_INVALID'},400);
   // story 仍接受已有导览 ID；八闽专题只接受服务器登记且已审核的故事 ID。
   const fujianStory=typeof data.story==='string'&&data.story.startsWith('story_fj_')
     ?stories.find(t=>t.id===data.story&&t.reviewed===true&&NODE_IDS.includes(t.node))||null:null;
@@ -801,7 +808,7 @@ export default {async fetch(request, env) {
     entries.push(entry);
   }
   // 无话题追问只带“主题那一轮”及其后的追问，其余更早的对话和它们的资料不再预先放进来。
-  const bareFollowUp=isBareFollowUp(data.question),anchor=bareFollowUp?followUpAnchor(entries):null;
+  const bareFollowUp=isBareFollowUp(data.question),anchor=bareFollowUp?followUpAnchor(entries):null,lastTopic=followUpAnchor(entries)?.topic||null;
   for(const entry of anchor?entries.slice(anchor.index):entries){
     entry.sources.forEach(id=>recalled.add(id));
     // 旧签名也可能包含网络答复。无馆内出处时只沿用观众自己的提问。
@@ -869,7 +876,8 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       step({kind:'web',text:data.web==='only'?'联网查找':'资料库里没有查到，联网查找'});
       clearTimeout(timer);const t=setTimeout(()=>controller.abort(),40000);
       try{
-        const found=await webLookup(env,anchor?anchor.topic+'（追问：'+question+'）':question,{
+        const found=await webLookup(env,question,{
+          lastTopic,
           storyTitle:fujianStory?.title||guideTitle,
           nodeName:free?null:current.name,
           history,
