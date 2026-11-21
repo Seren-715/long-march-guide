@@ -28,7 +28,8 @@ async function run(browser, n) {
     await p.waitForTimeout(800);
     log.push({ label, sent: g.req.question, ms: g.ms, type: done?.type, answer: done?.answer || done?.error || g.err,
       sources: (done?.sources || []).map(s => ({ title: s.title, ids: s.ids || [s.id] })),
-      steps: (done?.steps || []).map(s => s.text + (s.detail ? ' · ' + s.detail : '')), action: done?.action || null });
+      steps: (done?.steps || []).map(s => s.text + (s.detail ? ' · ' + s.detail : '')), action: done?.action || null,
+      web: (done?.web?.sources || []).map(s => s.title) });
   };
   await p.goto(BASE + '/#stories'); await p.waitForTimeout(1500);
   await p.click('.story-list .story-next:has-text("四渡赤水")'); await p.waitForTimeout(1200);
@@ -36,16 +37,19 @@ async function run(browser, n) {
   const onward = await p.$eval('.onward', e => e.innerText.replace(/\n+/g, ' | ')).catch(() => null);
   await call('故事页·在这里问小征', () => p.click('.story-ask button:has-text("苟坝会议为什么决定不打打鼓新场")'));
   await call('追问·具体点呢', async () => { await p.fill('#question', '具体点呢'); await p.keyboard.press('Enter'); });
+  await call('联网·回答下方按钮', () => p.locator('#messages .msg.bot').last().locator('.webask').click());
   await p.click('#go-home'); await p.waitForTimeout(1200); await p.click('#try-claim'); await p.waitForTimeout(500);
   await call('核对一句话·林彪', () => p.click('#claims-list button:has-text("林彪亲自带头冲过了泸定桥")'));
   await call('页面操作·带我去', async () => { await p.fill('#question', '带我去飞夺泸定桥那一站'); await p.keyboard.press('Enter'); });
   const where = await p.evaluate(() => location.hash);
+  await call('任务规划·十分钟', async () => { await p.fill('#question', '我只有十分钟，想看最惊险的战斗，帮我安排一下'); await p.keyboard.press('Enter'); });
+  const planned = await p.evaluate(() => location.hash);
   await p.click('#go-home'); await p.waitForTimeout(1200); await p.click('#start-fujian'); await p.waitForTimeout(1200);
   await call('八闽专题·福建人数', async () => { await p.fill('#question', '福建籍参加长征的红军有多少？不同资料为什么数字不同？'); await p.keyboard.press('Enter'); });
   await p.click('#go-home'); await p.waitForTimeout(1200); await p.click('#try-claim'); await p.waitForTimeout(500);
   await call('核对一句话·宁化', () => p.click('#claims-list button:has-text("宁化的1300名妇女")'));
   await ctx.close();
-  return { run: n, onward, where, errors, log };
+  return { run: n, onward, where, planned, errors, log };
 }
 
 (async () => {
@@ -55,12 +59,15 @@ async function run(browser, n) {
   if (OUT) fs.writeFileSync(OUT, JSON.stringify({ base: BASE, at: new Date().toISOString(), runs: all }, null, 1));
   let bad = 0;
   for (const a of all) {
-    console.log(`== 第 ${a.run} 轮 · 继续前行：${a.onward || '（没找到）'} · 带我去之后：${a.where} · 页面报错：${a.errors.join('|') || '无'}`);
+    console.log(`== 第 ${a.run} 轮 · 继续前行：${a.onward || '（没找到）'} · 带我去之后：${a.where} · 规划之后：${a.planned} · 页面报错：${a.errors.join('|') || '无'}`);
     if (a.errors.length || a.where !== '#luding' || !a.onward) bad++;
     for (const l of a.log) {
       const ids = (l.sources || []).flatMap(s => s.ids).join('、');
-      console.log(` - ${l.label} · ${l.ms ?? '-'}ms · ${l.type || l.error} · 出处：${ids || '无'}`);
-      if (l.error || !ids || /资料不足|未能核对/.test(l.answer || '')) bad++;
+      const extra = l.web?.length ? ` · 网页 ${l.web.length} 个` : l.action ? ` · 操作 ${JSON.stringify(l.action)}` : '';
+      console.log(` - ${l.label} · ${l.ms ?? '-'}ms · ${l.type || l.error} · 出处：${ids || '无'}${extra}`);
+      // 联网一步看网页来源，规划一步看有没有排出路线，其余步骤要有馆内出处
+      const ok = l.label.startsWith('联网') ? l.web?.length : l.label.startsWith('任务规划') ? l.action?.type === 'plan' : ids && !/资料不足|未能核对/.test(l.answer || '');
+      if (l.error || !ok) bad++;
     }
   }
   console.log(bad ? `有 ${bad} 处需要人工查看` : '全部步骤得到带出处的回答');

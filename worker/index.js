@@ -1050,7 +1050,10 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         if(!parsed||typeof parsed.answer!=='string'||!parsed.answer.trim()){
           if(corrected)break;corrected=true;
           // 告诉模型上一条格式不对，而不是原样再发一次
-          if(content.trim())messages.push({role:'assistant',content},{role:'user',content:'系统校验：上一条回复不是规定格式的 JSON。请只输出一个 JSON 对象（字段 type、answer、sources、followups），不要附加其他文字。'});
+          // DeepSeek 的 JSON 模式偶尔只回一串空格（实测：plan_route 之后在节点页连续出现）；空回复也要明确提示，不能原样重发
+          const formatHint='请只输出一个 JSON 对象（字段 type、answer、sources、followups），不要附加其他文字。';
+          if(content.trim())messages.push({role:'assistant',content},{role:'user',content:'系统校验：上一条回复不是规定格式的 JSON。'+formatHint});
+          else messages.push({role:'user',content:'系统校验：上一条回复是空的。'+formatHint});
           continue;
         }
         result=checkReply(parsed,question,state.current,state.loaded);

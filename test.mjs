@@ -1054,6 +1054,10 @@ log=script([toolReply([toolCall('plan_route',{nodes:['lazikou','xiangjiang','lud
 res=await worker.fetch(make({question:'我只有十分钟，想看最惊险的战斗',node:'start',free:true}),env);body=await res.json();
 assert.equal(res.status,200,'路线已安排时格式异常不应报错');assert.deepEqual(body.action,{type:'plan',route:['xiangjiang','luding','lazikou'],title:'险战速览'});assert.match(body.answer,/路线已经安排好/);
 assert.match(log.at(-1).messages.at(-1).content,/不是规定格式的 JSON/,'重试时要提示格式');
+// 安排完路线后模型只回一串空格（DeepSeek JSON 模式偶发）：要提示“上一条回复是空的”，拿到正常说明
+log=script([toolReply([toolCall('plan_route',{nodes:['lazikou','xiangjiang'],title:'险战'})]),reply('     '),reply({type:'chat',answer:'排好了，从湘江开始。',sources:[]})]);
+body=await (await worker.fetch(make({question:'我只有十分钟',node:'luding'}),env)).json();
+assert.equal(body.answer,'排好了，从湘江开始。');assert.match(log.at(-1).messages.at(-1).content,/上一条回复是空的/,'空回复要提示格式');
 log=script([toolReply([toolCall('plan_route',{nodes:['zunyi']})]),reply({type:'chat',answer:'请多选几站。',sources:[]})]);
 body=await (await worker.fetch(make({question:'排路线',node:'start',free:true}),env)).json();assert.equal(body.action,null);
 log=script([toolReply([toolCall('open_stop',{node:'luding'}),toolCall('start_route',{route:'full'},'c2')]),reply({type:'chat',answer:'这就带你去。',sources:[]})]);
