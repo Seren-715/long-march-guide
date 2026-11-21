@@ -573,10 +573,9 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .try-label{color:var(--text3)}
 .try-chips{display:contents}
 .try-chips button{min-height:28px;padding:3px 11px;border:1px solid var(--border);border-radius:999px;font-size:12.5px;color:var(--text2);background:var(--bg);transition:background .15s,color .15s,border-color .15s}
-.try-chips button:hover,.try-claim:hover{background:var(--hover);color:var(--text);border-color:var(--accent-line)}
+.try-chips button:hover{background:var(--hover);color:var(--text);border-color:var(--accent-line)}
 .try-shuffle{width:24px;height:24px;border-radius:50%;color:var(--text3);font-size:14px;line-height:1}
 .try-shuffle:hover{color:var(--accent)}
-.try-claim{min-height:28px;padding:3px 12px;border:1px solid var(--accent-line);border-radius:999px;font-size:12.5px;color:var(--accent);background:color-mix(in srgb,var(--accent) 5%,var(--bg));margin-left:4px}
 .story-trails{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px}
 .story-trails>b{font-size:12.5px;font-weight:600;color:var(--text3);margin-right:2px}
 .story-trails .chip{text-align:center}
@@ -715,7 +714,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <form class="composer" id="home-form">
 <label class="sr-only" for="home-q">向小征提问</label>
 <textarea id="home-q" rows="1" maxlength="500" placeholder="想听哪一段，问一个问题，或贴一句话让我核对…" enterkeyhint="send"></textarea>
-<div class="composer-bar"><div class="try-row" id="try-row" hidden><span class="try-label">试试：</span><span class="try-chips" id="try-chips"></span><button type="button" class="try-shuffle" id="try-shuffle" aria-label="换一批示例问题" title="换一批">↻</button><button type="button" class="try-claim" id="try-claim" aria-haspopup="dialog">核对一句话</button></div><span class="ctx-pill" title="提问会围绕这个节点"><i></i><span id="ctx-text"></span></span><span class="spacer"></span><button type="submit" class="send-round" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div>
+<div class="composer-bar"><div class="try-row" id="try-row" hidden><span class="try-label">试试：</span><span class="try-chips" id="try-chips"></span><button type="button" class="try-shuffle" id="try-shuffle" aria-label="换一批示例问题" title="换一批">↻</button></div><span class="ctx-pill" title="提问会围绕这个节点"><i></i><span id="ctx-text"></span></span><span class="spacer"></span><button type="submit" class="send-round" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div>
 </form>
 
 
@@ -743,10 +742,6 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <dialog class="route-dialog" id="about-dialog" aria-labelledby="about-dialog-title">
 <div class="dialog-head"><div><h2 id="about-dialog-title">资料说明</h2></div><button type="button" class="dialog-close" id="about-dialog-close" aria-label="关闭">×</button></div>
 <div class="dialog-body" id="about-dialog-content"></div>
-</dialog>
-<dialog class="route-dialog" id="claims-dialog" aria-labelledby="claims-title">
-<div class="dialog-head"><div><h2 id="claims-title">常见说法，对不对？</h2><p>选一句，让小征对着资料核对；也可以在输入框里贴你听到的说法</p></div><button type="button" class="dialog-close" id="claims-close" aria-label="关闭">×</button></div>
-<div class="dialog-body"><div class="hist-list" id="claims-list"></div><p class="plan-note">核对结果以回答里附的出处为准；资料没有记载的，小征会如实说明。</p></div>
 </dialog>
 <dialog class="route-dialog" id="history-dialog" aria-labelledby="history-title">
 <div class="dialog-head"><div><h2 id="history-title">目录</h2><p>按专题或分类找故事；你读过的故事、看过的站、问过的问题也在这里</p></div><button type="button" class="dialog-close" id="history-close" aria-label="关闭">×</button></div>
@@ -1231,25 +1226,16 @@ function openPerson(person, push = true) {
   showPeoplePage(person.name, '#' + personHash(person), push); setReadingStory(null);
 }
 function closeDialog(id) { const d = $(id); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
-/* ---------- 开场引导：示例问题、说法核对 ---------- */
-const STARTERS = DATA.starters && Array.isArray(DATA.starters.questions) ? DATA.starters.questions : [], CLAIMS = DATA.starters && Array.isArray(DATA.starters.claims) ? DATA.starters.claims : [];
+/* ---------- 开场引导：示例问题 ---------- */
+const STARTERS = DATA.starters && Array.isArray(DATA.starters.questions) ? DATA.starters.questions : [];
 let starterAt = STARTERS.length ? Math.floor(Math.random() * STARTERS.length) : 0;
 const askFromAnywhere = q => ask(q, view !== 'session' ? { fromHome: true } : {});
 function renderTry() {
-  const row = $('try-row'); if (!row) return; row.hidden = !STARTERS.length && !CLAIMS.length; const box = $('try-chips'); box.replaceChildren();
+  const row = $('try-row'); if (!row) return; row.hidden = !STARTERS.length; const box = $('try-chips'); box.replaceChildren();
   for (let i = 0; i < Math.min(2, STARTERS.length); i++) { const t = STARTERS[(starterAt + i) % STARTERS.length], b = el('button', '', t.label); b.type = 'button'; b.title = t.q; b.addEventListener('click', () => { if (!busy) askFromAnywhere(t.q); }); box.append(b); }
-  $('try-shuffle').hidden = STARTERS.length < 3; $('try-claim').hidden = !CLAIMS.length;
-}
-function openClaims() {
-  const list = $('claims-list'); list.replaceChildren();
-  for (const c of CLAIMS) { const b = el('button', '', '“' + c.claim + '”'); b.type = 'button'; b.append(el('small', '', '让小征核对 · ' + c.tag)); b.addEventListener('click', () => { closeDialog('claims-dialog'); if (!busy) askFromAnywhere('请核对这个说法：' + c.claim); }); list.append(b); }
-  const d = $('claims-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
-  requestAnimationFrame(() => list.querySelector('button')?.focus());
+  $('try-shuffle').hidden = STARTERS.length < 3;
 }
 $('try-shuffle').addEventListener('click', () => { starterAt = (starterAt + 2) % Math.max(1, STARTERS.length); renderTry(); });
-$('try-claim').addEventListener('click', openClaims);
-$('claims-close').addEventListener('click', () => closeDialog('claims-dialog'));
-$('claims-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeDialog('claims-dialog'); });
 renderTry();
 function openHistory() {
   const body = $('history-body'), has = hist.stories.length || hist.stops.length || hist.asks.length || route.length || viewed.size || messages.querySelector('.msg.user'); body.replaceChildren();
@@ -2039,7 +2025,7 @@ async function ask(question, opts = {}) {
 $('chat-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = input.value.trim(); if (!q) return; input.value = ''; autosize(input); updateCount(); ask(q); });
 $('home-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = homeQ.value.trim(); if (!q) { homeQ.focus(); return; } homeQ.value = ''; autosize(homeQ); ask(q, { fromHome: true }); });
 
-addMessage('小征', '你好，我是小征，给你讲长征路上的真人真事。想听故事、想问问题，或者有拿不准的说法想核对，都可以告诉我；我讲的内容都附出处，方便你核对原文。目前收录的是中央红军主力长征路线的资料。', [], { quiet: true, followups: STARTERS.slice(0, 2).map(t => t.q), actions: [{ label: '听一个故事', run: () => openStoryList() }, { label: '核对一句话', run: openClaims }] });
+addMessage('小征', '你好，我是小征，给你讲长征路上的真人真事。想听故事、想问问题，或者有拿不准的说法想核对，都可以告诉我；我讲的内容都附出处，方便你核对原文。目前收录的是中央红军主力长征路线的资料。', [], { quiet: true, followups: STARTERS.slice(0, 2).map(t => t.q), actions: [{ label: '听一个故事', run: () => openStoryList() }] });
 restorePage(initialHash);
 })();
 </script>
