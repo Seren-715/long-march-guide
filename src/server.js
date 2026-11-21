@@ -325,7 +325,7 @@ function runTool(name,args,state){
     const route=NODE_IDS.filter(id=>picked.includes(id));
     const title=String(args.title||'').replace(/[<>\n]/g,'').trim().slice(0,12)||'小征为你安排的路线';
     state.action??={type:'plan',route,title};
-    return {step:{kind:'act',text:`规划路线：${route.map(nodeName).join(' → ')}`},result:`已按时间顺序排好：${route.map(nodeName).join(' → ')}。页面将在回答后开始参观。请用一两句话说明为什么这样安排，只讲与观众偏好的关系，不陈述资料之外的史实。`};
+    return {step:{kind:'act',text:`规划路线：${route.map(nodeName).join(' → ')}`},result:`已按时间顺序排好：${route.map(nodeName).join(' → ')}。页面将在回答后从第一站「${nodeName(route[0])}」开始参观（不是当前所在的站）。请用一两句话说明为什么这样安排，只讲与观众偏好的关系，不陈述资料之外的史实。`};
   }
   return {result:'没有这个工具。'};
 }
