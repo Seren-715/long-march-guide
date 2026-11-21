@@ -642,7 +642,10 @@ function unsupportedNumbers(answer,ids,question){
   // 资料没写年份、由所属节点补出的年份（见 dateFacts 的 anchor）也算资料里有的数字。
   for(const id of ids){const e=evidence.find(x=>x.id===id);for(const f of dateFacts(e.text,true,nodeAnchor(e.node)))if(f.valid&&!f.yearOmitted)allowed.add('N:'+f.y);}
   // 不能把“近2.6万”作为“精确26000人”的来源；同值换单位须保留近似性质。
-  const citedCounts=citedTexts.flatMap(countFacts),claimedCounts=countFacts(maskDates(claims,dateFacts(claims)));
+  // 资料写“称 18 勇士”“17 位同志”，回答写“18人”“17人”也算有据。
+  const personCounts=text=>[...normalizeNumerals(text).matchAll(/(?<![\d.．])(\d+)\s*(?:位|个|名)?\s*(?:勇士|壮士|英雄|战士|突击队员|船工|同志)/g)].map(m=>({raw:m[0],value:Number(m[1]),qualifier:'exact'}));
+  for(const c of citedTexts.flatMap(personCounts))allowed.add('A:'+c.value);
+  const citedCounts=[...citedTexts.flatMap(countFacts),...citedTexts.flatMap(personCounts)],claimedCounts=countFacts(maskDates(claims,dateFacts(claims)));
   const badPrecision=claimedCounts.filter(c=>!citedCounts.some(s=>s.value===c.value
     &&(c.qualifier==='exact'?s.qualifier==='exact':s.qualifier===c.qualifier||s.qualifier==='exact')));
   const describe=key=>{
@@ -743,8 +746,26 @@ function focusTimeAndPlaceAnswer(answer,question){
 }
 
 // 针对验收中已观察到的几类高风险表述做保守拦截；这不是通用事实核验。
+// 回答里有一段话只见于另一站的某条资料、却没有引用它：多半是把别处的事说到了这里
+// （全面测试 E1.4：把黎平会议“决定在适当时候召开政治局扩大会议”说成遵义会议的事）。
+// 只看 7 字片段；含数字、事件名、部队番号、“红军/中央红/主力/长征”或“原因、意义、资料”等分析用语的片段是通用说法，不算；同一站其他资料的措辞相近也不算。
+const EVIDENCE_FLAT=evidence.map(e=>({id:e.id,node:e.node,text:squash(normalizeNumerals(e.text))}));
+function borrowedFrom(answer,ids,question){
+  const a=squash(normalizeNumerals(answer)).replace(/[“”"「」『』‘’]/g,''),q=squash(normalizeNumerals(question||''));
+  const cited=EVIDENCE_FLAT.filter(e=>ids.includes(e.id)),citedText=cited.map(e=>e.text).join('|'),citedNodes=new Set(cited.map(e=>e.node));
+  const hits=new Map();
+  for(let i=0;i+7<=a.length;i++){
+    const w=a.slice(i,i+7);
+    if(/[。！？；，、：:,.!?;\d]/.test(w)||/红军|中央红|主力|长征|方面军|军团|红[一二三四五六七八九十]|原因|意义|作用|影响|情况|过程|问题|结果|资料|记载/.test(w)||eventKeys(w).length||citedText.includes(w)||q.includes(w))continue;
+    const owners=EVIDENCE_FLAT.filter(e=>e.text.includes(w));
+    if(owners.length!==1||citedNodes.has(owners[0].node))continue;
+    if(!hits.has(owners[0].id))hits.set(owners[0].id,{id:owners[0].id,node:owners[0].node,phrase:w});
+  }
+  return [...hits.values()];
+}
 function observedRisks(answer,ids,question){
   const compact=squash(answer), q=squash(question), issues=[];
+  for(const b of borrowedFrom(answer,ids,question))issues.push(`“${b.phrase}”这类说法只见于未引用的资料 ${b.id}（${nodeName(b.node)}），不要把别处的事放到这里；确需提及就先用 read_materials 取出这条资料，核对它讲的是哪件事并列入 sources，否则删去这句`);
   const cited=ids.map(id=>evidence.find(e=>e.id===id)?.text||'').join('');
   const casualties=compact.replace(/损失(?:\d+|[零〇一二两三四五六七八九十百千万]+)门(?:大炮|炮)/g,'');
   if ((/草地/.test(compact)||/草地/.test(q)) && /(?:损失|伤亡|牺牲|死亡).{0,24}(?:主要|因为|由于|导致)/.test(casualties) && (!ids.includes('caodi_losses')||/主要/.test(casualties)) && !/(?:资料|记载).{0,12}(?:未说明|没有说明|不足)/.test(compact)) issues.push('请引用直接说明伤亡原因的资料，不要推断主要原因');
@@ -937,7 +958,7 @@ ${fujianStory?'观众正在阅读八闽儿女专题，没有正在参观的节�
 - "history"：与长征相关的史实、原因、意义、比较、总结等问题；问候、感谢里同时提出了这类问题的，也按 history 回答其中的历史部分。只依据已取出的资料作答，逐项回答用户提出的各个问题；用户明确问到的某一项在资料中没有依据时，简短说明这一项资料里没有具体提到，不得遗漏也不得编造；用户没有问到的内容，不要主动提“资料没有记载”“其他细节资料中没有”“资料有限”之类的话，直接讲资料里有的即可，结尾也不要加这类声明。尽量沿用资料原文的说法；资料未说明的事实必须明确说不知道，不得猜测或编造，可以同时给出资料里相关的事实。如果已取出的资料对同一事实有分歧，应明确说明不同来源各自的说法，分别列出支持的资料 ID，不要先把其中一种写成确定事实、之后再补充存在分歧；问题没有要求具体争议细节时，可以不提该细节。不要自行推算时间间隔、数量或比例，不要做资料之外的评价、假设或推测。sources 必须列出回答中每一项事实所依据的资料 ID；不可用没有支持该事实的资料代替。严格保留时间、部队、事件及人数的适用范围，不把长征初期的兵力变化写成单场战役的伤亡数字。回答中的日期、数量等数字必须原样出自所引资料。用户问题中的数字即使出现过，也不算证据；纠正错误前提时优先直接写有据可查的正确数字，不要把用户提供的错误数字重复当作事实。
 - "chat"：单纯的问候、感谢、询问你是谁或本站怎么用。简短友好地回应，可介绍你能讲解的内容和操作方式；不陈述任何史实（包括时间、人物、事件和评价），sources 为空。不需要调用工具。
 - "off_topic"：与长征学习无关。礼貌说明你只讲解长征，并建议一个可以问的方向；sources 为空。不需要调用工具。
-三、查证说法：观众贴出一句关于长征的说法并问对不对、是否属实时，type 为 history；先取出相关资料，再逐项说明：哪些与资料一致，哪些与资料不符（给出资料中的说法），哪些资料里没有提到；并列出 sources。不要因为说法里有错误就整句否定，也不要替资料补充它没有的内容。说法里资料根本没有提到的内容（例如“每人背一袋炒面”），不能用“不是”“并非”“没有这回事”去否定，只能说资料里没有这一说法、无法证实，再给出资料里相关的记载；“资料记载的不是这样”只用于资料里确有相反记载的情形。若观众的说法或提问里带着与资料不符的前提（例如把资料中记载的另一件事当成了参加长征的人数），先直接指出“资料记载的不是这样”，说明资料实际记载的是什么（时间、事情），再说明资料没有涉及的部分；不要只回答一句“无法判断”。
+三、查证说法：观众贴出一句关于长征的说法并问对不对、是否属实时，type 为 history；先取出相关资料，再逐项说明：哪些与资料一致，哪些与资料不符（给出资料中的说法），哪些资料里没有提到；并列出 sources。不要因为说法里有错误就整句否定，也不要替资料补充它没有的内容。说法里资料根本没有提到的内容（例如“每人背一袋炒面”），不能用“不是”“并非”“没有这回事”去否定，只能说资料里没有这一说法、无法证实，再给出资料里相关的记载；“资料记载的不是这样”只用于资料里确有相反记载的情形。观众用的称呼、名号资料里没有（例如“铁血十八勇士”），先说明资料里没有这个叫法，再讲资料里对应的史实。若观众的说法或提问里带着与资料不符的前提（例如把资料中记载的另一件事当成了参加长征的人数），先直接指出“资料记载的不是这样”，说明资料实际记载的是什么（时间、事情），再说明资料没有涉及的部分；不要只回答一句“无法判断”。
 四、页面操作：观众表达想看、想去、想切换到某一站时（例如“我想看看飞夺泸定桥那段”“带我去遵义”“切到草地”“去腊子口看看”）调用 open_stop，节点取与该事件对应的节点；要求下一站/继续或跳过本站时调用 tour_control；要求开始预设路线时调用 start_route；观众说出兴趣或时间、想让你安排参观时（例如“我只有十分钟，想看最惊险的战斗”）调用 plan_route。只是询问史实（例如“飞夺泸定桥是什么时候”“遵义会议解决了什么”）时不操作页面。
 五、讲故事：资料中名称以“故事·”开头的是长征中的真人真事。观众想听故事时（例如“讲个故事吧”），直接讲一个，type 为 history，不要反问观众想听哪个；优先讲当前节点的故事（目录里标了每个节点有哪些故事），当前节点没有故事时用 read_stop 取相邻节点的故事；按资料原意讲述，不添加资料没有的情节、对话或心理描写，并列出该故事的资料 ID。
 六、followups：给出 0—2 个不超过 25 字、能由资料回答的追问建议。
@@ -1057,13 +1078,13 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       if(result.badNumbers.length||result.badTitles.length||result.risks.length){
         // 两次回答分别按完整句子核查：保留更完整的合格内容，不拼接不同版本。
         const candidates=[result,firstFailed].filter(Boolean).map(candidate=>{
-          if(candidate.risks.some(risk=>risk!==XIANGJIANG_SCOPE_ISSUE))return null; // 前提纠正等跨句约束不可拆开。
+          if(candidate.risks.some(risk=>risk!==XIANGJIANG_SCOPE_ISSUE&&!risk.includes('这类说法只见于未引用的资料')))return null; // 前提纠正等跨句约束不可拆开。
           const parts=candidate.answer.split(/(?<=[。！？!?\n])/).filter(Boolean);
           const kept=[];
           let gap=false, disconnected=0;
           for(const part of parts){
             if(unsupportedNumbers(part,candidate.ids,question).length||unsupportedTitles(part,candidate.ids,question).length
-              ||mixesXiangjiangStrengthWithBattle(squash(part),squash(question),candidate.ids)){
+              ||mixesXiangjiangStrengthWithBattle(squash(part),squash(question),candidate.ids)||borrowedFrom(part,candidate.ids,question).length){
               gap=true;
               continue;
             }
@@ -1102,7 +1123,12 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
           }
           return {...candidate,answer,removed:parts.length-kept.length,disconnected,retainedLength};
         }).filter(Boolean).sort((a,b)=>b.retainedLength-a.retainedLength);
-        if(candidates.length){result=candidates[0];step({kind:'verify',text:'删去未能核对的内容',detail:`${result.removed} 句${result.disconnected?`（含 ${result.disconnected} 句上下文不完整）`:''}`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
+        // 两稿都只差湘江兵力的表述、资料已取出时，改用资料原文的说法，不转去联网（全面测试 X1）。
+        const scopeOnly=[result,firstFailed].filter(Boolean).every(c=>c.risks.length&&c.risks.every(r=>r===XIANGJIANG_SCOPE_ISSUE)&&!c.badNumbers.length&&!c.badTitles.length);
+        const scopeFallback=!candidates.length&&scopeOnly&&/湘江/.test(question)&&/人数|多少人|兵力|剩|还有多少/.test(question)&&state.loaded.has('xiangjiang_lines')
+          ?checkReply({type:'history',answer:XIANGJIANG_INTERVAL_ANSWER,sources:['xiangjiang_lines']},question,state.current,state.loaded):null;
+        if(scopeFallback&&!scopeFallback.badNumbers.length&&!scopeFallback.badTitles.length&&!scopeFallback.risks.length){result=scopeFallback;step({kind:'verify',text:'改用资料原文说明兵力变化',detail:'从长征出发到渡过湘江后',ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
+        else if(candidates.length){result=candidates[0];step({kind:'verify',text:'删去未能核对的内容',detail:`${result.removed} 句${result.disconnected?`（含 ${result.disconnected} 句上下文不完整）`:''}`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
         else{const issues=[result.badNumbers.length?'日期或数字':'',result.badTitles.length?'书名':'',result.risks.length?'相关事实表述':''].filter(Boolean);result.answer=`现有资料不足以可靠回答这个问题：${issues.join('、')||'具体事实'}未能核对，请换个问法或查阅节点资料。`;result.ids=[];step({kind:'verify',text:'仍未通过核对，改为如实说明资料不足',ok:false});}
         result.badNumbers=[];result.badTitles=[];result.risks=[];
       }
