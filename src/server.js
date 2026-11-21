@@ -369,7 +369,7 @@ function validCalendarDay(y,m,d){
 }
 const HISTORICAL_EVENTS=[
   ['zunyi',/遵义/],['xiangjiang',/湘江/],['three-blockade-lines',/(?:前)?[三3]道封锁线/],['luding',/泸定桥/],
-  ['chishui',/赤水/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
+  ['chishui',/赤水|(?<![第大])[一二三四]渡(?![口河乌金长])/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
   ['liping',/黎平/],['gouba',/苟坝/],['dagu',/打鼓新场/],['dadu',/大渡河|安顺场/],
   ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
   ['lazikou',/腊子口/],['wuqi',/吴起镇/],['zhiluozhen',/直罗镇/],['jiajin',/夹金山/],
@@ -465,7 +465,9 @@ function dateFacts(text,allowPreviousSentence=false,anchor=null){
   for(const [i,d] of out.entries()){
     const stops=['。','！','？','；',';','\n'].map(c=>source.indexOf(c,d.end)).filter(x=>x>=0);
     const next=out[i+1]&&out[i+1].start>=d.end?out[i+1].start:Infinity;
-    d.span=withoutQuotes(source.slice(d.start,Math.min(next,...stops,source.length)));
+    // “随后、此后、接着、然后”引出的是下一件事（“2月18日至21日东渡，随后……攻占娄山关”）。
+    const rest=source.slice(d.end,Math.min(next,...stops,source.length)),turn=rest.search(/随后|此后|接着|然后/);
+    d.span=withoutQuotes(source.slice(d.start,turn<0?d.end+rest.length:d.end+turn));
   }
   return out;
 }
@@ -551,6 +553,10 @@ function dateSupported(claim,source){
     if(local.length)return local;
     const own=eventKeys(d.span||'');
     if(own.length===1)return own;
+    // 日期前用冒号引出的标签（“二渡：2月18日至21日东渡”）
+    const whole0=d.context.slice(0,Math.max(0,d.context.indexOf(d.raw)));
+    const head=whole0.slice(Math.max(...['，',',','。','；',';','\n'].map(c=>whole0.lastIndexOf(c)))+1);
+    if(/[：:]\s*$/.test(head)&&!own.length){const named=eventKeys(head);if(named.length===1)return named;}
     const whole=eventKeys(d.context);
     if(!whole.length&&d.inheritedEvents)return d.inheritedEvents;
     if(whole.length<=1)return whole;
