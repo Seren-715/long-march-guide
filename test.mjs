@@ -1237,6 +1237,51 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
   const body=await (await worker.fetch(make({question:'听说红军长征时每个人都要背着一袋炒面走二万五千里，是真的吗？',node:'start',free:true}),env)).json();
   assert.equal(n,2,'断言“没有这回事”须重答');assert.doesNotMatch(body.answer,/没有[^。]{0,24}这回事/);
 }
+// —— Codex 040/043 反例与 Claude 补充：日期要绑在它修饰的那件事上 ——
+{
+  const cases=[
+    // 原句一致只缩小候选，日期前面挂错的事件仍要拦
+    ['jinsha',['jinsha_person_he_zizhen'],false,'遵义会议在1935年4月，红军干部休养连在贵州盘县附近遭敌机轰炸。'],
+    // 引号只包住日期，不算引用原文
+    ['chishui',['chishui_detail'],false,'遵义会议于“1935年1月29日”召开。'],
+    // 原句后面用“同月”接上另一件事；整段原文引文被说成另一件事的日期（Codex 051）
+    ['jinsha',['jinsha_person_he_zizhen'],false,'1935年4月，红军干部休养连在贵州盘县附近遭敌机轰炸，同月召开遵义会议。'],
+    ['chishui',['chishui_detail'],false,'遵义会议的日期是“1935年1月29日，红军首次渡过赤水河”。'],
+    ['chishui',['chishui_detail'],true,'资料原文是“1935 年 1 月 29 日，红军首次渡过赤水河”。'],
+    // 电令原话挂到别的会议上
+    ['zunyi',['tongdao'],false,'1935年1月，遵义会议发出“万万火急”电令，部署“我军明十三号继续西进”。'],
+    // 区间两端须来自同一段起止记述；四次渡河各有序次
+    ['chishui',['chishui_detail'],false,'1935年1月29日至3月22日，红军第一次渡过赤水河。'],
+    ['chishui',['chishui_detail'],false,'1935年1月29日至2月21日，红军渡过赤水河。'],
+    ['chishui',['chishui_detail'],true,'1935年1月29日，红军第一次渡过赤水河。'],
+    ['chishui',['chishui_detail'],false,'1935年3月22日，红军第一次渡过赤水河。'],
+    ['chishui',['chishui_detail'],false,'1935年1月29日，红军第四次渡过赤水河。'],
+    ['chishui',['chishui_detail'],true,'1935年3月21日至22日，红军第四次渡过赤水河。'],
+    ['chishui',['chishui_detail'],true,'1935年2月18日至21日，红军二渡赤水。'],
+    ['chishui',['chishui_detail'],false,'1935年2月18日至21日，红军三渡赤水。'],
+    ['chishui',['chishui_detail'],true,'1935年3月21日至22日，红军四渡赤水，跳出敌军包围。'],
+    ['chishui',['chishui'],true,'1935年1月下旬至3月，中央红军四渡赤水河。'],
+    // 红四团：资料只写“5 月 26 日……。27 日拂晓……出发……29 日……赶到”，年份取所属节点，日期按行动分段
+    ['luding',['story_lin_biao_luding'],true,'1935年5月27日拂晓，红四团从安顺场出发，沿大渡河西岸飞奔，29日早晨6点按时赶到泸定桥。'],
+    ['luding',['story_lin_biao_luding'],false,'1935年5月29日拂晓，红四团从安顺场出发，27日早晨6点赶到泸定桥。'],
+    ['luding',['story_lin_biao_luding'],false,'1935年5月27日，红四团赶到泸定桥。'],
+    ['luding',['story_lin_biao_luding'],false,'1936年5月27日拂晓，红四团从安顺场出发。'],
+    ['luding',['story_22_yongshi'],true,'1935年5月27日，红四团接到命令向泸定桥进发，29日清晨赶到桥西岸。'],
+  ];
+  for(const [node,sources,keep,answer] of cases){
+    let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer,sources})};
+    const body=await (await worker.fetch(make({question:'请核对这件事的日期。',node}),env)).json();
+    if(keep){assert.equal(n,1,'应保留：'+answer);assert.equal(body.answer,answer);}
+    else{assert.ok(n>=2,'应拦下：'+answer);assert.notEqual(body.answer,answer);}
+  }
+}
+// —— 传言题：“无法认定这是谣言”留有余地，不算断言 ——
+{
+  let n=0;const answer='资料里没有“每人背一袋炒面走完全程”的说法，无法认定这是谣言，也无法证实。资料记载过草地时粮食十分紧缺。';
+  globalThis.fetch=async()=>{n++;return reply({type:'history',answer,sources:['caodi_food_rations']})};
+  const body=await (await worker.fetch(make({question:'听说红军长征时每个人都要背着一袋炒面走二万五千里，是真的吗？',node:'start',free:true}),env)).json();
+  assert.equal(n,1,'留有余地的说法不应重答');assert.equal(body.answer,answer);
+}
 // —— 日期区间：资料把起止分开写，回答合写成“16日至17日”时，起点和终点各自有据即可 ——
 {
   const run=async answer=>{let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer,sources:['lazikou']})};
@@ -1376,4 +1421,58 @@ globalThis.fetch=original;
 // 同一资料前文明确唯一年份，后续句的月日应与该年份绑定。
 attempts=0;globalThis.fetch=async()=>{attempts++;return reply({type:'history',answer:'中央红军1935年6月翻越夹金山：6月12日先头部队翻越，6月18日所有部队全部翻越。',sources:['jiajin']})};
 body=await (await worker.fetch(make({question:'红军什么时候翻越夹金山？',node:'jiajin'}),env)).json();assert.equal(attempts,1);assert.match(body.answer,/6月12日/);
+// —— Codex 040 第 1 项：问候插在中间、同一话题的追问链、窗口滚动、签名记录里的回答类型 ——
+{
+  const tokenOf=t=>JSON.parse(Buffer.from(t.split('.')[0],'base64url').toString());
+  const askOk=async b=>{const r=await worker.fetch(make(b),env);assert.equal(r.status,200);return r.json();};
+  let outbound=[];
+  globalThis.fetch=async(url,options)=>{const b=JSON.parse(options.body);outbound.push(b);const q=b.messages.at(-1).content;
+    if(/^你是谁|^你叫什么|^你喜欢/.test(q))return reply({type:/^你是谁|^你喜欢/.test(q)?'chat':'history',answer:'我是小征，长征路上的讲解员。',sources:[]});
+    if(/红三十四师/.test(q))return reply({type:'history',answer:'红三十四师担任全军总后卫。',sources:['story_chen_shuxiang']});
+    return reply({type:'history',answer:'哈达铺的报纸让中央了解到陕北有红军和根据地。',sources:['hadapu']});};
+  const base={node:'hadapu',free:true};
+  const q1=await askOk({...base,question:'哈达铺的报纸为什么重要？'});
+  const hi=await askOk({...base,question:'你是谁？',historyTokens:[q1.historyToken]});
+  assert.equal(tokenOf(hi.historyToken).type,'chat','签名记下回答类型');assert.equal(tokenOf(q1.historyToken).type,'history');
+  // 问候插在中间：仍接原问题，闲聊那一轮不带给模型
+  outbound=[];
+  const f1=await askOk({...base,question:'具体点呢',historyTokens:[q1.historyToken,hi.historyToken]});
+  assert.match(outbound[0].messages.at(-1).content,/「哈达铺的报纸为什么重要？」的追问/,'问候不能当成主题');
+  assert.doesNotMatch(JSON.stringify(outbound[0].messages.slice(1,-1)),/你是谁/,'闲聊那一轮不带给模型');
+  // 规则认不出的闲聊，靠签名里记下的回答类型（chat）跳过
+  const like=await askOk({...base,question:'你喜欢什么颜色？',historyTokens:[q1.historyToken]});
+  outbound=[];
+  await askOk({...base,question:'具体点呢',historyTokens:[q1.historyToken,like.historyToken]});
+  assert.match(outbound[0].messages.at(-1).content,/「哈达铺的报纸为什么重要？」的追问/,'答成闲聊的那一轮不能当成主题');
+  assert.equal(tokenOf(f1.historyToken).topic,'哈达铺的报纸为什么重要？');
+  // 问号等写法的问候即使模型答成 history，也不算主题
+  const name=await askOk({...base,question:'你叫什么名字？',historyTokens:[q1.historyToken,hi.historyToken,f1.historyToken]});
+  outbound=[];
+  await askOk({...base,question:'然后呢',historyTokens:[q1.historyToken,hi.historyToken,f1.historyToken,name.historyToken]});
+  assert.match(outbound[0].messages.at(-1).content,/「哈达铺的报纸为什么重要？」的追问/,'“你叫什么名字？”不能当成主题');
+  // 完整窗口：多次签名追问之后，原问题还在窗口里就一并带上
+  const f2=await askOk({...base,question:'再具体点',historyTokens:[q1.historyToken,f1.historyToken]});
+  outbound=[];
+  await askOk({...base,question:'后来呢？',historyTokens:[q1.historyToken,f1.historyToken,f2.historyToken]});
+  const users=outbound[0].messages.slice(1,-1).filter(m=>m.role==='user').map(m=>m.content);
+  assert.deepEqual(users,['哈达铺的报纸为什么重要？','具体点呢','再具体点'],'同一话题的原问题和追问都要保留');
+  // 窗口滚动：原问题已被挤出 5 条窗口，只剩追问时沿用记下的主题
+  const chain=[f1,f2];
+  for(const q of ['然后呢','结果呢','接着呢']){const prev=chain.slice(-5).map(x=>x.historyToken);chain.push(await askOk({...base,question:q,historyTokens:prev}));}
+  outbound=[];
+  await askOk({...base,question:'所以为什么',historyTokens:chain.slice(-5).map(x=>x.historyToken)});
+  assert.match(outbound[0].messages.at(-1).content,/「哈达铺的报纸为什么重要？」的追问/,'窗口滚动后仍接原主题');
+  // 换了话题：只接新话题，旧话题的追问不再带上
+  const q2=await askOk({...base,question:'红三十四师后卫是怎么被截断的？',historyTokens:[q1.historyToken,f1.historyToken]});
+  outbound=[];
+  await askOk({...base,question:'具体点呢',historyTokens:[q1.historyToken,f1.historyToken,q2.historyToken]});
+  assert.match(outbound[0].messages.at(-1).content,/「红三十四师后卫是怎么被截断的？」的追问/);
+  assert.doesNotMatch(JSON.stringify(outbound[0].messages.slice(1,-1)),/哈达铺/,'旧话题不再带给模型');
+  // 旧格式签名（没有 type 字段）照常读取；不认识的 type 拒绝
+  const sign=async entry=>{const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(env.HISTORY_SIGNING_KEY),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+    const payload=Buffer.from(JSON.stringify(entry)).toString('base64url');return payload+'.'+Buffer.from(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(payload))).toString('base64url');};
+  const old={...tokenOf(q1.historyToken)};delete old.type;
+  let r=await worker.fetch(make({...base,question:'具体点呢',historyTokens:[await sign(old)]}),env);assert.equal(r.status,200,'旧格式签名应可读');
+  r=await worker.fetch(make({...base,question:'具体点呢',historyTokens:[await sign({...old,type:'admin'})]}),env);assert.equal(r.status,400,'不认识的 type 应拒绝');
+}
 globalThis.fetch=original;

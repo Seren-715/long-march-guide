@@ -8,21 +8,36 @@ const encode64 = bytes => btoa(Array.from(bytes, b=>String.fromCharCode(b)).join
 function decode64(value){if(!/^[A-Za-z0-9_-]+$/.test(value))throw new Error('invalid token');const binary=atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4));return Uint8Array.from(binary,c=>c.charCodeAt(0));}
 async function signingKey(secret){return crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
 async function issueToken(key,entry){const payload=encode64(new TextEncoder().encode(JSON.stringify(entry)));const signature=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(payload));return payload+'.'+encode64(new Uint8Array(signature));}
-async function readToken(key,token,sessionId,node,storyId){try{if(typeof token!=='string'||token.length>7000)return null;const parts=token.split('.');if(parts.length!==2)return null;const valid=await crypto.subtle.verify('HMAC',key,decode64(parts[1]),new TextEncoder().encode(parts[0]));if(!valid)return null;const entry=JSON.parse(new TextDecoder().decode(decode64(parts[0])));if(entry.v!==1||entry.sessionId!==sessionId||entry.node!==node||(entry.story??entry.fujianStory??null)!==storyId||!Number.isSafeInteger(entry.at)||entry.at>Date.now()+60000||Date.now()-entry.at>3600000||typeof entry.question!=='string'||entry.question.length>500||typeof entry.answer!=='string'||entry.answer.length>800||(entry.topic!==undefined&&(typeof entry.topic!=='string'||!entry.topic||entry.topic.length>200))||!Array.isArray(entry.sources)||entry.sources.some(id=>typeof id!=='string'||!evidence.some(e=>e.id===id)))return null;return entry;}catch{return null;}}
+async function readToken(key,token,sessionId,node,storyId){try{if(typeof token!=='string'||token.length>7000)return null;const parts=token.split('.');if(parts.length!==2)return null;const valid=await crypto.subtle.verify('HMAC',key,decode64(parts[1]),new TextEncoder().encode(parts[0]));if(!valid)return null;const entry=JSON.parse(new TextDecoder().decode(decode64(parts[0])));if(entry.v!==1||entry.sessionId!==sessionId||entry.node!==node||(entry.story??entry.fujianStory??null)!==storyId||!Number.isSafeInteger(entry.at)||entry.at>Date.now()+60000||Date.now()-entry.at>3600000||typeof entry.question!=='string'||entry.question.length>500||typeof entry.answer!=='string'||entry.answer.length>800||(entry.topic!==undefined&&(typeof entry.topic!=='string'||!entry.topic||entry.topic.length>200))||(entry.type!==undefined&&!TOKEN_TYPES.includes(entry.type))||!Array.isArray(entry.sources)||entry.sources.some(id=>typeof id!=='string'||!evidence.some(e=>e.id===id)))return null;return entry;}catch{return null;}}
 
 // 无话题的追问（“具体点呢”“然后呢”）：只接最近一次实质提问，避免被对话里更早的其他话题带偏。
 // 原话照样用于界面、签名和事实核对；接上的主题只作理解和检索线索，不是新的出处。
 const BARE_FOLLOW_UP=/^(?:那|请|能不能|可以|能)?(?:再|多)?(?:具体|详细|细致|展开)(?:一?点|些|说说|讲讲|说一下|讲一下|说说看)?(?:呢|吧|嘛|啊)?[。！!？?\s]*$|^(?:那|再|多)?(?:说|讲)(?:一?点|一些|说|讲)?(?:呢|吧)?[。！!？?\s]*$|^(?:那)?(?:然后|后来|接着|之后)呢?[。！!？?\s]*$|^(?:为什么|为啥|怎么会这样|怎么回事)呢?[。！!？?\s]*$/;
-const SMALL_TALK=/^(?:你好|您好|嗨|哈喽|hi|hello|早上好|晚上好|谢谢|多谢|感谢|好的|嗯|明白了?|知道了|再见|拜拜|你是谁|你能做什么|你会什么)[呀啊！!。~，,\s]*(?:你|您|小征)?[呀啊！!。~\s]*$/i;
+const SMALL_TALK=/^(?:你好|您好|嗨|哈喽|hi|hello|早上好|晚上好|谢谢|多谢|感谢|好的|嗯|明白了?|知道了|再见|拜拜|在吗|你是谁|你叫什么(?:名字)?|你是什么|你能做什么|你能干什么|你会什么|你会做什么)[呀啊呢吗！!。~～，,？?…\s]*(?:你|您|小征)?[呀啊呢吗！!。~～？?…\s]*$/i;
+// 签名记录里的回答类型；旧记录没有这个字段，照常读取。
+const TOKEN_TYPES=['history','chat','off_topic'];
+const isChatter=e=>SMALL_TALK.test(e.question.trim())||e.type==='chat'||e.type==='off_topic';
 // 去掉“所以、那、为什么、怎么、具体、呢、吗”这类虚词后什么都不剩的短问题，也算无话题追问（“所以为什么”“结果呢”“什么意思”）。
 const FOLLOW_UP_FILLER=/所以|那么|那|然后|后来|接着|之后|为什么|为啥|怎么样|怎么|怎样|如何|具体|详细|细致|展开|再说说|说说|讲讲|说一下|讲一下|一点|一些|还有|别的|其他|更多|结果|原因|意思|什么|结局|最后|回事|这样|这么|呢|吗|啊|吧|嘛|呀|了|的|是|要|会|还|再|多|点|些|说|讲/g;
 const isBareFollowUp=q=>{const t=typeof q==='string'?q.trim():'';if(!t||t.length>12)return false;return BARE_FOLLOW_UP.test(t)||!t.replace(/[。！!？?，,、\s~～…]/g,'').replace(FOLLOW_UP_FILLER,'');};
-// 从新到旧找：遇到实质提问就以它为主题；遇到带主题的追问记录（主题已被挤出三条窗口）就沿用它记下的主题。
+// 从新到旧找：遇到实质提问就以它为主题；遇到带主题的追问记录就沿用它记下的主题，
+// 并继续往前收进同一话题的追问和原问题（原问题还在窗口里时一并带上）。问候、闲聊插在中间不算主题。
 function followUpAnchor(entries){
   for(let i=entries.length-1;i>=0;i--){
     const e=entries[i];
-    if(isBareFollowUp(e.question)){if(e.topic)return {index:i,topic:e.topic};continue;}
-    if(SMALL_TALK.test(e.question.trim()))continue;
+    if(isBareFollowUp(e.question)){
+      if(!e.topic)continue;
+      let index=i;
+      for(let j=i-1;j>=0;j--){
+        const p=entries[j];
+        if(isBareFollowUp(p.question)){if(p.topic&&p.topic!==e.topic)break;index=j;continue;}
+        if(isChatter(p))continue;
+        if(p.question.trim()===e.topic.trim())index=j;
+        break;
+      }
+      return {index,topic:e.topic};
+    }
+    if(isChatter(e))continue;
     return {index:i,topic:e.question};
   }
   return null;
@@ -374,7 +389,17 @@ function clauseAt(text,start,end,minor=false){
   }
   return text.slice(left+1,right);
 }
-function dateFacts(text,allowPreviousSentence=false){
+// 资料所属节点的年月（如 1935.05），用于资料里只写“5 月 26 日”的月日补出年份。
+function nodeAnchor(nodeId){
+  const m=String(nodes.find(n=>n.id===nodeId)?.date||'').match(/^(\d{4})\.(\d{2})(?:—(\d{2}))?/);
+  if(!m)return null;const from=Number(m[2]),to=Number(m[3]||m[2]),months=[];
+  for(let k=from;k<=to;k++)months.push(k);
+  return {y:Number(m[1]),months};
+}
+const CROSSINGS=[[1,/首次|第一次|一渡|初渡/],[2,/第二次|二渡/],[3,/第三次|三渡/],[4,/第四次|四渡(?!赤水)/]];
+const crossingIn=text=>{const found=CROSSINGS.filter(([,re])=>re.test(text)).map(([n])=>n);return found.length===1?found[0]:found.length?NaN:null;};
+const withoutQuotes=text=>String(text).replace(/[“"「『][^”"」』]*[”"」』]/g,'');
+function dateFacts(text,allowPreviousSentence=false,anchor=null){
   const source=normalizeNumerals(text),out=[];
   const add=(match,y,m,d,endM,endD)=>{
     const valid=Number.isInteger(y)&&y>=1&&Number.isInteger(m)&&m>=1&&m<=12
@@ -403,6 +428,16 @@ function dateFacts(text,allowPreviousSentence=false){
       const candidates=out.filter(d=>d.start>previousBoundary&&d.end<=boundary&&!d.yearOmitted).sort((a,b)=>b.start-a.start);
       if(candidates.length&&new Set(candidates.map(d=>`${d.y}-${d.endM||d.m}`)).size===1)prior=candidates[0];
     }
+    // 这一句里第一个日期只写了“27 日”、上一句又没有日期时，沿同一条记述往前找最近的明确年月，且日子不早于它
+    // （“5 月 26 日……。……。27 日拂晓出发”“1935 年 5 月下旬……。据……记述，27 日……”）。
+    if(!prior&&allowPreviousSentence&&!m[1]){
+      const earlier=source.slice(0,Math.max(0,boundary));
+      const previousBoundary=Math.max(earlier.lastIndexOf('。'),earlier.lastIndexOf('！'),earlier.lastIndexOf('？'),earlier.lastIndexOf('\n'));
+      if(!out.some(d=>d.start>previousBoundary&&d.end<=boundary)){
+        const latest=out.filter(d=>d.end<=boundary&&!d.yearOmitted).sort((a,b)=>b.start-a.start)[0];
+        if(latest&&toDateNumber(m[5])>=(latest.endD??latest.d??0))prior=latest;
+      }
+    }
     if(!prior&&!m[1])continue;
     const explicitYears=[...source.slice(boundary+1,m.index).matchAll(new RegExp('('+YEAR_EXPR+')\\s*年','g'))].map(x=>toDateNumber(x[1]));
     let inferredYear=new Set(explicitYears).size===1?explicitYears[0]:null;
@@ -414,6 +449,8 @@ function dateFacts(text,allowPreviousSentence=false){
       if(new Set(years).size===1)inferredYear=years[0];
     }
     const month=m[1]?toDateNumber(m[1]):(prior.endM||prior.m),day=toDateNumber(m[2]||m[5]);
+    // 资料通篇没写年份时，月份落在所属节点的年月内，就用节点的年份。
+    if(!inferredYear&&(!prior||prior.yearOmitted)&&allowPreviousSentence&&anchor?.months.includes(month))inferredYear=anchor.y;
     const endMonth=m[3]?toDateNumber(m[3]):month,endDay=m[4]?toDateNumber(m[4]):null;
     add(m,prior?.y||inferredYear||2000,month,day,endMonth,endDay);
     if((!prior||prior.yearOmitted)&&!inferredYear)out[out.length-1].yearOmitted=true;
@@ -422,7 +459,14 @@ function dateFacts(text,allowPreviousSentence=false){
       if(preceding.length===1)out[out.length-1].inheritedEvents=preceding;
     }
   }
-  return out.sort((a,b)=>a.start-b.start);
+  out.sort((a,b)=>a.start-b.start);
+  // 每个日期管到同一句里下一个日期之前：“27日从安顺场出发，29日赶到泸定桥”。引号里的口号、电文不算这一段的行动。
+  for(const [i,d] of out.entries()){
+    const stops=['。','！','？','；',';','\n'].map(c=>source.indexOf(c,d.end)).filter(x=>x>=0);
+    const next=out[i+1]&&out[i+1].start>=d.end?out[i+1].start:Infinity;
+    d.span=withoutQuotes(source.slice(d.start,Math.min(next,...stops,source.length)));
+  }
+  return out;
 }
 function maskDates(text,facts){
   const chars=[...String(text)];
@@ -504,6 +548,8 @@ function dateSupported(claim,source){
     }
     const local=eventKeys(d.localContext);
     if(local.length)return local;
+    const own=eventKeys(d.span||'');
+    if(own.length===1)return own;
     const whole=eventKeys(d.context);
     if(!whole.length&&d.inheritedEvents)return d.inheritedEvents;
     if(whole.length<=1)return whole;
@@ -515,7 +561,13 @@ function dateSupported(claim,source){
   // 日期后紧跟的一段话（≥10 字）与资料原句一致，说的就是资料里这件事：不再按事件词判断归属（年月日仍在下面核对）。
   // 例：“1935年4月，红军干部休养连在贵州盘县附近遭敌机轰炸，她为掩护在遵义作战时腿部负伤的钟赤兵……”，“遵义”只是修饰语。
   const follow=d=>{const i=d.context.indexOf(d.raw);return i<0?'':squash(d.context.slice(i+d.raw.length)).replace(/^[，,、：:]+/,'');};
-  const claimFollow=follow(claim),sameStatement=claimFollow.length>=10&&follow(source).startsWith(claimFollow.slice(0,10));
+  // 只缩小候选，不替日期前面挂的事件背书：“遵义会议在1935年4月，红军干部休养连……”仍要拦。
+  const lead=d=>{const i=d.context.indexOf(d.raw);return i<0?'':d.context.slice(0,i);};
+  // 原句后面用“同月、当天”接上的另一件事，是另一个日期说法，也不能借原句放行（“……遭敌机轰炸，同月召开遵义会议”）。
+  const tail=d=>{const f=follow(d),k=f.search(/同月|同日|同年|当月|当日|当天|同一天|同一月|这个月|那个月/);return k<0?'':f.slice(k);};
+  const claimFollow=follow(claim),sameStatement=claimFollow.length>=10&&follow(source).startsWith(claimFollow.slice(0,10))
+    &&eventKeys(lead(claim)).every(event=>eventKeys(source.context).includes(event))
+    &&eventKeys(tail(claim)).every(event=>eventKeys(source.context).includes(event));
   const claimedEvents=sameStatement?[]:boundEvents(claim),sourceEvents=sameStatement?[]:boundEvents(source);
   if(claimedEvents===null||sourceEvents===null)return false;
   if(claimedEvents.length&&!claimedEvents.every(event=>sourceEvents.includes(event)))return false;
@@ -537,6 +589,12 @@ function dateSupported(claim,source){
     const claimStage=stage(claim),sourceStage=stage(source);
     if(claimStage&&sourceStage&&claimStage!==sourceStage)return false;
   }
+  // 四渡赤水每一次各有日期：首次、二渡、三渡、四渡不能互借。“四渡赤水”作为整个行动名不算序次。
+  if(claimedEvents.includes('chishui')&&sourceEvents.includes('chishui')){
+    const order=d=>{for(const t of [d.localContext,d.span||'']){const n=crossingIn(withoutQuotes(t));if(n!==null)return n;}return crossingIn(withoutQuotes(d.context));};
+    const a=order(claim),b=order(source);
+    if(a!==null&&b!==null&&a!==b)return false;
+  }
   if(claim.d===null)return claim.m>=source.m&&claim.m<=(source.endM||source.m);
   if(source.d===null)return false;
   const ordinal=(month,day)=>month*32+day;
@@ -544,10 +602,16 @@ function dateSupported(claim,source){
     &&ordinal(claim.endM||claim.m,claim.endD||claim.d)<=ordinal(source.endM||source.m,source.endD||source.d);
 }
 function unsupportedDates(answer,ids){
-  const sources=ids.flatMap(id=>dateFacts(evidence.find(e=>e.id===id).text,true));
+  const sources=ids.flatMap(id=>{const e=evidence.find(x=>x.id===id),text=normalizeNumerals(e.text);
+    return dateFacts(e.text,true,nodeAnchor(e.node)).map((f,i)=>({...f,id,i,text}));});
   // 引号里原样引用所引资料的话（如电令“我军明十三号继续西进”），其中的日期就是资料原文，不再单独判断归属。
   const normalized=normalizeNumerals(answer),cited=squash(normalizeNumerals(ids.map(id=>evidence.find(e=>e.id===id).text).join('|')));
-  const quoted=[...normalized.matchAll(/“([^”]{2,80})”/g)].filter(q=>cited.includes(squash(q[1]))).map(q=>[q.index,q.index+q[0].length]);
+  // 引号只包住一个日期（遵义会议于“1935年1月29日”召开）不算引用原文，外面的谓词照常核对。
+  // 引号只证明引文是原话；引文外面把它说成哪件事（“遵义会议的日期是‘……’”），那件事也须是所引资料讲的。
+  const citedEvents=new Set(ids.flatMap(id=>eventKeys(evidence.find(e=>e.id===id).text)));
+  const quoted=[...normalized.matchAll(/“([^”]{2,80})”/g)].filter(q=>cited.includes(squash(q[1]))
+    &&squash(maskDates(q[1],dateFacts(q[1]))).replace(/[，,。、：:；;！!？?\s]/g,'').length>=4
+    &&eventKeys(withoutQuotes(clauseAt(normalized,q.index,q.index+q[0].length))).every(event=>citedEvents.has(event))).map(q=>[q.index,q.index+q[0].length]);
   return dateFacts(answer).filter(d=>{
     if(quoted.some(([a,b])=>d.start>=a&&d.end<=b))return false;
     let matches=sources.filter(s=>dateSupported(d,s));
@@ -555,7 +619,10 @@ function unsupportedDates(answer,ids){
     if(!matches.length&&d.endD!=null&&(d.endD!==d.d||(d.endM||d.m)!==d.m)){
       const first={...d,endM:d.m,endD:null},last={...d,m:d.endM||d.m,d:d.endD,endM:d.endM||d.m,endD:null};
       const a=sources.filter(s=>dateSupported(first,s)),b=sources.filter(s=>dateSupported(last,s));
-      if(a.length&&b.length)matches=[...a,...b];
+      // 起点和终点须是同一条资料里前后紧接、用“至/到”连起来的两处日期，不能把首渡和四渡拼成一段。
+      const joined=a.filter(x=>b.some(y=>y.id===x.id&&y.i===x.i+1&&/(?:至|到|直到|直至)\s*$/.test(x.text.slice(Math.max(x.end,y.start-6),y.start))
+        &&!/[。！？\n]/.test(x.text.slice(x.end,y.start))));
+      if(joined.length)matches=joined;
     }
     // 无年份的回答不能从多个可能年份中任意选一个。
     return !matches.length||(d.yearOmitted&&new Set(matches.filter(s=>!s.yearOmitted).map(s=>s.y)).size>1);
@@ -565,6 +632,8 @@ function unsupportedNumbers(answer,ids,question){
   const claims=withoutRefutedQuestionFacts(answer,question);
   const citedTexts=ids.map(id=>evidence.find(e=>e.id===id).text);
   const allowed=new Set(citedTexts.flatMap(numbersAllowedIn));
+  // 资料没写年份、由所属节点补出的年份（见 dateFacts 的 anchor）也算资料里有的数字。
+  for(const id of ids){const e=evidence.find(x=>x.id===id);for(const f of dateFacts(e.text,true,nodeAnchor(e.node)))if(f.valid&&!f.yearOmitted)allowed.add('N:'+f.y);}
   // 不能把“近2.6万”作为“精确26000人”的来源；同值换单位须保留近似性质。
   const citedCounts=citedTexts.flatMap(countFacts),claimedCounts=countFacts(maskDates(claims,dateFacts(claims)));
   const badPrecision=claimedCounts.filter(c=>!citedCounts.some(s=>s.value===c.value
@@ -673,7 +742,10 @@ function observedRisks(answer,ids,question){
   const casualties=compact.replace(/损失(?:\d+|[零〇一二两三四五六七八九十百千万]+)门(?:大炮|炮)/g,'');
   if ((/草地/.test(compact)||/草地/.test(q)) && /(?:损失|伤亡|牺牲|死亡).{0,24}(?:主要|因为|由于|导致)/.test(casualties) && (!ids.includes('caodi_losses')||/主要/.test(casualties)) && !/(?:资料|记载).{0,12}(?:未说明|没有说明|不足)/.test(compact)) issues.push('请引用直接说明伤亡原因的资料，不要推断主要原因');
   // 资料没有记载不等于没有这回事：不能把“资料里没有这一说法”说成断然否定（P-06 传言题偶发）。
-  if (compact.split(/[。！？；;\n]/).some(part=>/(?:并|根本|从来|压根)?没有[^，,]{0,24}这回事|纯属(?:虚构|谣传|编造|杜撰)|是(?:谣言|谣传|编造的)/.test(part)&&!/资料|记载|提到|文献|出处/.test(part.replace(/“[^”]*”/g,'')))) issues.push('资料没有记载不等于没有这回事：只能说资料里没有这一说法、无法证实，并给出资料里相关的记载，不要断言“没有这回事”或“是谣言”');
+  // “无法认定这是谣言”“不能说纯属虚构”是留有余地的说法，不算断言。
+  const hedged=/(?:无法|不能|难以|不宜|不应|不好|不可|没法|不必)(?:认定|断定|判定|确定|肯定|说|称)[^，,。；]{0,10}/g;
+  if (compact.split(/[。！？；;\n]/).some(part=>{const bare=part.replace(/“[^”]*”/g,'').replace(hedged,'');
+    return /(?:并|根本|从来|压根)?没有[^，,]{0,24}这回事|纯属(?:虚构|谣传|编造|杜撰)|是(?:谣言|谣传|编造的)/.test(bare)&&!/资料|记载|提到|文献|出处/.test(bare);})) issues.push('资料没有记载不等于没有这回事：只能说资料里没有这一说法、无法证实，并给出资料里相关的记载，不要断言“没有这回事”或“是谣言”');
   if (/1934年11月下旬至12月初/.test(compact) && /三道封锁线/.test(compact)) issues.push('三道封锁线对应的时间是1934年10月下旬至12月初，不能更改时段');
   if (/红二方面军.{0,80}(?:历时|走了|用了|持续|长征)(?:约|近|将近|大约)?两年/.test(compact)) issues.push('红二方面军长征为1935年11月至1936年10月，不能说历时两年；两年是1934年至1936年各路长征的总体时段');
   // 核心会师事实：1936-10-09 会宁为红一与红四方面军，红二方面军在将台堡会师。
@@ -809,7 +881,7 @@ export default {async fetch(request, env) {
   }
   // 无话题追问只带“主题那一轮”及其后的追问，其余更早的对话和它们的资料不再预先放进来。
   const bareFollowUp=isBareFollowUp(data.question),anchor=bareFollowUp?followUpAnchor(entries):null,lastTopic=followUpAnchor(entries)?.topic||null;
-  for(const entry of anchor?entries.slice(anchor.index):entries){
+  for(const entry of anchor?entries.slice(anchor.index).filter(e=>!isChatter(e)):entries){
     entry.sources.forEach(id=>recalled.add(id));
     // 旧签名也可能包含网络答复。无馆内出处时只沿用观众自己的提问。
     history.push({role:'user',content:entry.question},{role:'assistant',content:JSON.stringify({answer:entry.sources.length?entry.answer:'',sources:entry.sources})});
@@ -887,14 +959,14 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         if(!found){step({kind:'verify',text:'联网没有查到可用的网页出处',ok:false});return null;}
         if(found.offTopic)return {status:200,body:{answer:'这个问题和长征关系不大，我只查证长征相关的内容。',sources:[],type:'off_topic',followups:[],steps}};
         step({kind:'verify',text:'整理网络来源',detail:`${found.sources.length} 个网页，未经人工核对`,ok:false});
-        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),...(anchor?{topic:anchor.topic.slice(0,200)}:{}),question,answer:'',sources:[],at:Date.now()});
+        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),...(anchor?{topic:anchor.topic.slice(0,200)}:{}),type:'history',question,answer:'',sources:[],at:Date.now()});
         return {status:200,body:{answer:found.answer,sources:[],web:{sources:found.sources},historyToken,type:'history',followups:[],steps}};
       }catch{step({kind:'verify',text:'联网查找失败',ok:false});return null}finally{clearTimeout(t)}
     };
     try {
       // 无话题的追问既接不上已签名的上文，也不在读某篇故事：请观众把问题说完整，不替他猜。
       if(bareFollowUp&&!anchor&&!readingTitle){
-        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,question,answer:'',sources:[],at:Date.now()});
+        const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,type:'chat',question,answer:'',sources:[],at:Date.now()});
         return {status:200,body:{answer:'你想让我接着讲哪一件事？把问题说完整一点就好，比如“苟坝会议为什么决定不打打鼓新场？”。',sources:[],type:'chat',followups:free?[]:(current.questions||[]).slice(0,2),historyToken,steps}};
       }
       if(useWeb&&data.web==='only'){const out=await lookup();return out||{status:200,body:{answer:'联网没有查到可靠的网页出处，暂时无法回答这个问题。',sources:[],type:'history',followups:[],steps}};}
@@ -1037,7 +1109,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
       const gap=/(?:资料|文献|记载|知识库)[^。]{0,24}(?:没有|未|不足|无法|尚无)|不知道/.test(answer);
       if(useWeb&&!controller.signal.aborted&&type==='history'&&!ids.length&&!action){const out=await lookup();if(out)return out;}
       const canWeb=useWeb&&type==='history'&&ids.length>0&&!action; // 每个有出处的历史回答后都给“想了解更多？试试联网搜索”
-      const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),...(anchor?{topic:anchor.topic.slice(0,200)}:{}),question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
+      const historyToken=await issueToken(key,{v:1,sessionId:data.sessionId,node:data.node,...(historyStory?{story:historyStory}:{}),...(anchor?{topic:anchor.topic.slice(0,200)}:{}),...(TOKEN_TYPES.includes(type)?{type}:{}),question,answer:answer.slice(0,800),sources:ids,at:Date.now()});
       const grouped=new Map();
       for(const id of ids){const e=evidence.find(x=>x.id===id),existing=grouped.get(e.url);if(existing){existing.ids.push(id);existing.excerpt+='\n'+e.text}else grouped.set(e.url,{id,ids:[id],title:e.source,url:e.url,excerpt:e.text});}
       const evidenceFocus=ninghuaCheck&&ids.includes(NINGHUA_EVIDENCE.sourceId)&&answer===documentedAnswer.answer?NINGHUA_EVIDENCE:null;
