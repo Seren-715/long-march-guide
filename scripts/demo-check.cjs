@@ -38,16 +38,16 @@ async function run(browser, n) {
   await call('故事页·在这里问小征', () => p.click('.story-ask button:has-text("苟坝会议为什么决定不打打鼓新场")'));
   await call('追问·具体点呢', async () => { await p.fill('#question', '具体点呢'); await p.keyboard.press('Enter'); });
   await call('联网·回答下方按钮', () => p.locator('#messages .msg.bot').last().locator('.webask').click());
-  await p.click('#go-home'); await p.waitForTimeout(1200); await p.click('#try-claim'); await p.waitForTimeout(500);
-  await call('核对一句话·林彪', () => p.click('#claims-list button:has-text("林彪亲自带头冲过了泸定桥")'));
+  await p.click('#go-home'); await p.waitForTimeout(1200);
+  await call('查证说法·林彪', async () => { await p.fill('#home-q', '听说林彪亲自带头冲过了泸定桥，是真的吗？'); await p.keyboard.press('Enter'); });
   await call('页面操作·带我去', async () => { await p.fill('#question', '带我去飞夺泸定桥那一站'); await p.keyboard.press('Enter'); });
   const where = await p.evaluate(() => location.hash);
   await call('任务规划·十分钟', async () => { await p.fill('#question', '我只有十分钟，想看最惊险的战斗，帮我安排一下'); await p.keyboard.press('Enter'); });
   const planned = await p.evaluate(() => location.hash);
   await p.click('#go-home'); await p.waitForTimeout(1200); await p.click('#start-fujian'); await p.waitForTimeout(1200);
   await call('八闽专题·福建人数', async () => { await p.fill('#question', '福建籍参加长征的红军有多少？不同资料为什么数字不同？'); await p.keyboard.press('Enter'); });
-  await p.click('#go-home'); await p.waitForTimeout(1200); await p.click('#try-claim'); await p.waitForTimeout(500);
-  await call('核对一句话·宁化', () => p.click('#claims-list button:has-text("宁化的1300名妇女")'));
+  await p.click('#go-home'); await p.waitForTimeout(1200);
+  await call('查证说法·宁化', async () => { await p.fill('#home-q', '宁化的1300名妇女后来都参加了长征，对吗？'); await p.keyboard.press('Enter'); });
   await ctx.close();
   return { run: n, onward, where, planned, errors, log };
 }

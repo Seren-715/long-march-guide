@@ -540,7 +540,15 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .section-nav{display:flex;flex-wrap:wrap;gap:6px 10px;padding:10px clamp(14px,3vw,32px);border-bottom:1px solid var(--border2)}
 .section-nav [aria-current="page"]{background:var(--hover);color:var(--primary);font-weight:700}
 .fujian-page{width:min(860px,100%);margin:0 auto;padding:clamp(28px,5vw,64px) clamp(20px,5vw,64px) 80px}
-.fujian-page:has(#fujian-index:not([hidden])){width:min(1200px,100%)}
+.fujian-page:has(#fujian-index:not([hidden])),.fujian-page:has(#people-index:not([hidden])){width:min(1200px,100%)}
+.person-gist{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden;margin:10px 0 0;font-size:13.5px;line-height:1.75;color:var(--text2)}
+#people-count{margin:0 0 16px}
+#people-list .story-next b{font-size:20px;line-height:1.4}
+.person-bio{margin:8px 0 28px}
+.person-bio p{font-size:16px;line-height:1.95;margin:0 0 12px}
+.person-ask{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0 0}
+.person-detail-list{margin-top:4px}
+#people-title:focus:not(:focus-visible),#people-title[tabindex="-1"]:focus{outline:none}
 .fujian-kicker{color:var(--accent);font-size:12px;font-weight:600;letter-spacing:.14em}
 .fujian-page h1{font-family:var(--serif);font-size:clamp(28px,3vw,40px);line-height:1.3;margin:12px 0}
 .fujian-intro{max-width:660px;color:var(--text2);line-height:1.9;margin:0 0 12px}
@@ -565,10 +573,9 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 .try-label{color:var(--text3)}
 .try-chips{display:contents}
 .try-chips button{min-height:28px;padding:3px 11px;border:1px solid var(--border);border-radius:999px;font-size:12.5px;color:var(--text2);background:var(--bg);transition:background .15s,color .15s,border-color .15s}
-.try-chips button:hover,.try-claim:hover{background:var(--hover);color:var(--text);border-color:var(--accent-line)}
+.try-chips button:hover{background:var(--hover);color:var(--text);border-color:var(--accent-line)}
 .try-shuffle{width:24px;height:24px;border-radius:50%;color:var(--text3);font-size:14px;line-height:1}
 .try-shuffle:hover{color:var(--accent)}
-.try-claim{min-height:28px;padding:3px 12px;border:1px solid var(--accent-line);border-radius:999px;font-size:12.5px;color:var(--accent);background:color-mix(in srgb,var(--accent) 5%,var(--bg));margin-left:4px}
 .story-trails{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px}
 .story-trails>b{font-size:12.5px;font-weight:600;color:var(--text3);margin-right:2px}
 .story-trails .chip{text-align:center}
@@ -687,7 +694,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <header class="bar">
 <button type="button" class="brand" id="go-home" aria-label="长征路上，回到首页"><span class="seal" aria-hidden="true">征</span>长征路上</button>
 <div class="bar-mid" id="bar-mid"></div>
-<div class="bar-right"><button type="button" class="btn btn-text" id="return-chat" hidden>返回对话</button><button type="button" class="btn btn-text" id="bar-people" aria-haspopup="dialog">人物</button><button type="button" class="btn btn-text" id="tts-toggle" aria-pressed="false" hidden title="切换节点时自动朗读讲解">语音讲解</button><button type="button" class="btn btn-text" id="bar-about" aria-haspopup="dialog">资料说明</button></div>
+<div class="bar-right"><button type="button" class="btn btn-text" id="return-chat" hidden>返回对话</button><button type="button" class="btn btn-text" id="bar-people">人物</button><button type="button" class="btn btn-text" id="tts-toggle" aria-pressed="false" hidden title="切换节点时自动朗读讲解">语音讲解</button><button type="button" class="btn btn-text" id="bar-about" aria-haspopup="dialog">资料说明</button></div>
 </header>
 
 <main class="home" id="home">
@@ -707,7 +714,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <form class="composer" id="home-form">
 <label class="sr-only" for="home-q">向小征提问</label>
 <textarea id="home-q" rows="1" maxlength="500" placeholder="想听哪一段，问一个问题，或贴一句话让我核对…" enterkeyhint="send"></textarea>
-<div class="composer-bar"><div class="try-row" id="try-row" hidden><span class="try-label">试试：</span><span class="try-chips" id="try-chips"></span><button type="button" class="try-shuffle" id="try-shuffle" aria-label="换一批示例问题" title="换一批">↻</button><button type="button" class="try-claim" id="try-claim" aria-haspopup="dialog">核对一句话</button></div><span class="ctx-pill" title="提问会围绕这个节点"><i></i><span id="ctx-text"></span></span><span class="spacer"></span><button type="submit" class="send-round" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div>
+<div class="composer-bar"><div class="try-row" id="try-row" hidden><span class="try-label">试试：</span><span class="try-chips" id="try-chips"></span><button type="button" class="try-shuffle" id="try-shuffle" aria-label="换一批示例问题" title="换一批">↻</button></div><span class="ctx-pill" title="提问会围绕这个节点"><i></i><span id="ctx-text"></span></span><span class="spacer"></span><button type="submit" class="send-round" aria-label="发送"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg></button></div>
 </form>
 
 
@@ -736,17 +743,9 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <div class="dialog-head"><div><h2 id="about-dialog-title">资料说明</h2></div><button type="button" class="dialog-close" id="about-dialog-close" aria-label="关闭">×</button></div>
 <div class="dialog-body" id="about-dialog-content"></div>
 </dialog>
-<dialog class="route-dialog" id="claims-dialog" aria-labelledby="claims-title">
-<div class="dialog-head"><div><h2 id="claims-title">常见说法，对不对？</h2><p>选一句，让小征对着资料核对；也可以在输入框里贴你听到的说法</p></div><button type="button" class="dialog-close" id="claims-close" aria-label="关闭">×</button></div>
-<div class="dialog-body"><div class="hist-list" id="claims-list"></div><p class="plan-note">核对结果以回答里附的出处为准；资料没有记载的，小征会如实说明。</p></div>
-</dialog>
 <dialog class="route-dialog" id="history-dialog" aria-labelledby="history-title">
 <div class="dialog-head"><div><h2 id="history-title">目录</h2><p>按专题或分类找故事；你读过的故事、看过的站、问过的问题也在这里</p></div><button type="button" class="dialog-close" id="history-close" aria-label="关闭">×</button></div>
 <div class="dialog-body" id="history-body"></div>
-</dialog>
-<dialog class="route-dialog" id="people-dialog" aria-labelledby="people-title">
-<div class="dialog-head"><div><h2 id="people-title">人物档案</h2><p>认识长征中的人物，阅读与他们相关的故事</p></div><button type="button" class="dialog-close" id="people-close" aria-label="关闭">×</button></div>
-<div class="dialog-body"><p class="plan-note">人物简介按已整理资料逐步补充；节点是讲解分类，不表示故事一定发生在该节点地点。</p><div id="people-list"></div><div id="person-detail" hidden></div></div>
 </dialog>
 <main class="session" id="session" data-pane="read" hidden>
 <div class="pane-switch" role="tablist" aria-label="切换视图"><button type="button" role="tab" id="sw-read" aria-selected="true">讲解</button><button type="button" role="tab" id="sw-chat" aria-selected="false">对话<span class="dot" id="chat-dot" hidden></span></button></div>
@@ -765,6 +764,7 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <nav class="section-nav" aria-label="切换浏览板块">
 <button type="button" class="btn btn-text" id="section-browse" aria-current="page">自由浏览</button>
 <button type="button" class="btn btn-text" id="section-stories">长征故事</button>
+<button type="button" class="btn btn-text" id="section-people">人物档案</button>
 <button type="button" class="btn btn-text" id="section-fujian">八闽儿女的长征</button>
 </nav>
 <section class="fujian-page story-page" id="story-page" aria-labelledby="story-title" hidden>
@@ -779,6 +779,14 @@ html.story-opening::view-transition-new(root){animation:story-reveal .3s ease-ou
 <p class="fujian-note">本专题包括长征前、长征中和会师后的相关经历；归档节点用于浏览分类，不一定是事件发生地。</p>
 <h2 class="fujian-section-title">专题目录</h2><div id="fujian-list" class="story-list"></div></div>
 <article id="fujian-detail" hidden></article>
+</section>
+<section class="fujian-page" id="people-page" aria-labelledby="people-title" hidden>
+<div class="story-top"><button type="button" class="story-back" id="people-back" hidden>← 全部人物</button><div class="fujian-kicker" id="people-tag">真人真事，皆有出处</div></div>
+<h1 id="people-title" tabindex="-1">人物档案</h1>
+<div id="people-index"><p class="fujian-intro">从一个人的经历认识长征：读他们长征时期的简介，再读与他们相关的故事。</p>
+<p class="fujian-note">人物简介按已整理资料逐步补充；故事归在哪一站是讲解分类，不表示故事一定发生在该地。</p>
+<div class="story-filter" id="people-count"></div><div id="people-list" class="story-list"></div></div>
+<article id="person-detail" hidden></article>
 </section>
 <div class="read-head">
 <div class="tour" id="tour" hidden>
@@ -1172,59 +1180,62 @@ const PEOPLE = [
 ];
 function personStories(person) { return person.stories.map(id => STORIES.find(t => t.id === id && t.reviewed === true)).filter(t => t && find(t.node)); }
 function personBio(person) { return nodes.flatMap(n => n.extra || []).find(e => e.id === person.bio) || null; }
-function personList() {
-  const container = $('people-list'), detail = $('person-detail'); container.hidden = false; detail.hidden = true; detail.replaceChildren();
-  const ul = el('ul', 'rows');
-  for (const person of PEOPLE) {
-    const items = personStories(person), bio = personBio(person); if (!items.length && !bio) continue;
-    const li = el('li'), b = el('button', 'row'), main = el('span', 'row-main'); b.type = 'button';
-    const names = [...new Set(items.map(t => find(t.node).name))];
-    main.append(el('span', 'row-title', person.name), el('span', 'row-sub', names.join(' · ')));
-    b.append(main, el('span', 'row-meta', (bio ? '' : '简介待补 · ') + (items.length ? items.length + ' 个故事' : '暂未收录故事')), chev()); b.addEventListener('click', () => personDetail(person)); li.append(b); ul.append(li);
-  }
-  container.replaceChildren(ul);
+// 人物档案是独立的一页，和“长征故事”“八闽儿女的长征”一样：先是人物卡片，点开看简介和相关故事
+const personKey = person => person.bio || person.stories[0];
+const personHash = person => 'person-' + personKey(person);
+function peopleShown() { return PEOPLE.filter(person => personStories(person).length || personBio(person)); }
+function personNodes(person) { return [...new Set(personStories(person).map(t => find(t.node).name))]; }
+function showPeoplePage(title, hash, push) {
+  stopSpeaking(); if (chatOnly) setChatOnly(false); setTopicMode(true, 'people');
+  setView('session'); setPane('read'); $('bar-mid').replaceChildren(el('span', 'crumb', '人物档案'));
+  $('people-title').textContent = title; $('read-pane').scrollTo({ top: 0 }); window.scrollTo(0, 0);
+  if (push && location.hash !== hash) { try { history.pushState(null, '', hash); } catch {} }
+  requestAnimationFrame(() => $('people-title').focus({ preventScroll: true }));
 }
-function personDetail(person) {
-  const detail = $('person-detail'); $('people-list').hidden = true; detail.hidden = false; detail.replaceChildren();
-  const back = el('button', 'btn btn-ghost', '← 返回人物'); back.type = 'button'; back.addEventListener('click', () => { personList(); $('people-list button')?.focus(); });
-  const title = el('h3', '', person.name); title.tabIndex = -1;
-  const bio = personBio(person), intro = el('section', 'more'); intro.append(el('h3', '', '长征时期简介'));
-  if (bio) { intro.append(el('p', '', bio.text)); const u = safeLink(bio.url); if (u) intro.append(srcLink(u, bio.source)); }
+function openPeople(push = true) {
+  $('people-index').hidden = false; $('person-detail').hidden = true; $('person-detail').replaceChildren(); $('people-back').hidden = true;
+  $('people-tag').textContent = '真人真事，皆有出处';
+  const shown = peopleShown();
+  $('people-count').replaceChildren(el('b', '', '全部人物 · ' + shown.length + ' 位'));
+  const cards = shown.map(person => {
+    const bio = personBio(person), n = personStories(person).length, card = el('button', 'story-next'); card.type = 'button';
+    const where = personNodes(person);
+    card.append(el('small', '', '人物' + (where.length ? ' · ' + where.join(' · ') : '')), el('b', '', person.name));
+    card.append(el('p', 'person-gist', bio ? bio.text : '人物简介待补充，可以先读相关故事。'));
+    card.append(el('span', '', (n ? n + ' 个故事' : '暂未收录故事') + ' · 看档案 →'));
+    card.setAttribute('aria-label', person.name + '，' + (n ? n + ' 个故事' : '暂未收录故事') + '，看档案');
+    card.addEventListener('click', () => openPerson(person));
+    return card;
+  });
+  $('people-list').replaceChildren(...cards);
+  showPeoplePage('人物档案', '#people', push); setReadingStory(null);
+}
+function openPerson(person, push = true) {
+  const detail = $('person-detail'); $('people-index').hidden = true; $('people-back').hidden = false; detail.replaceChildren();
+  const where = personNodes(person); $('people-tag').textContent = '人物档案' + (where.length ? ' · ' + where.join(' · ') : '');
+  const bio = personBio(person), intro = el('section', 'person-bio'); intro.append(el('h2', 'fujian-section-title', '长征时期简介'));
+  if (bio) { intro.append(el('p', '', bio.text)); const u = safeLink(bio.url); if (u) { const refs = el('div', 'fujian-story-sources'); refs.append(srcLink(u, bio.source)); intro.append(refs); } }
   else intro.append(el('p', 'plan-note', '人物简介待补充；下方可先阅读现有相关故事。'));
-  if (bio) { const q = person.question || person.name + '在长征中做了什么？', askPerson = el('button', 'chip', q); askPerson.type = 'button'; askPerson.disabled = busy; askPerson.addEventListener('click', () => { closePeople(); if (view === 'home') ask(q, { fromHome: true }); else askChip(q); }); intro.append(el('p', 'plan-note', '可以问小征'), askPerson); }
-  const stories = personStories(person);
-  const info = el('p', 'plan-note', '以下是与人物相关的故事，节点为资料分类；点击故事可进入对应节点。');
-  const ul = el('ul', 'rows');
-  for (const t of stories) {
-    const li = el('li', 'person-story'), b = el('button', 'row'), main = el('span', 'row-main'); b.type = 'button';
-    main.append(el('span', 'row-title', t.title), el('span', 'row-sub', find(t.node).name + ' · ' + t.date));
-    b.append(main, chev()); b.addEventListener('click', () => { closePeople(); choose(t.node); const pending = decisionOf(t.node) && !decided.has(t.node); if (pending) { addMessage('小征', '「' + t.title + '」收录在这一站。请先完成或跳过抉择，就能查看故事和出处。', [], { quiet: true }); reveal('decision-card'); } else { requestAnimationFrame(() => { const card = document.getElementById('story-' + t.id); if (card) { card.scrollIntoView({ block: 'center', behavior: motion() }); card.tabIndex = -1; card.focus({ preventScroll: true }); } }); } });
-    li.append(b, el('p', '', t.text)); if (publicNote(t.note, true)) li.append(el('p', 'plan-note', '（资料说明：' + publicNote(t.note, true) + '）')); appendStorySources(li, t); ul.append(li);
-  }
-  if (stories.length) detail.append(back, title, intro, el('h3', '', '长征中的相关故事'), info, ul);
-  else detail.append(back, title, intro, el('p', 'plan-note', '暂未收录这位人物的关联故事；可以先读简介，或直接问小征。'));
-  title.focus();
+  const q = person.question || person.name + '在长征中做了什么？', row = el('div', 'person-ask'), askPerson = el('button', 'btn btn-primary', '问小征：' + q); askPerson.type = 'button';
+  askPerson.addEventListener('click', () => { if (busy) return; if (mobile()) setPane('chat'); askChip(q); });
+  row.append(askPerson); intro.append(row); detail.append(intro);
+  const tales = personStories(person).map(t => GUIDES.find(g => g.story === t.id)).filter(Boolean);
+  if (tales.length) { const list = el('div', 'story-list person-detail-list'); list.replaceChildren(...tales.map(g => taleCard(g, 'story-next' + (readTales.has(g.id) ? ' is-read' : '')))); detail.append(el('h2', 'fujian-section-title', '长征中的相关故事 · ' + tales.length + ' 个'), list); }
+  else detail.append(el('p', 'plan-note', '暂未收录这位人物的关联故事；可以先读简介，或直接问小征。'));
+  detail.hidden = false;
+  showPeoplePage(person.name, '#' + personHash(person), push); setReadingStory(null);
 }
 function closeDialog(id) { const d = $(id); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
-/* ---------- 开场引导：示例问题、说法核对 ---------- */
-const STARTERS = DATA.starters && Array.isArray(DATA.starters.questions) ? DATA.starters.questions : [], CLAIMS = DATA.starters && Array.isArray(DATA.starters.claims) ? DATA.starters.claims : [];
+/* ---------- 开场引导：示例问题 ---------- */
+const STARTERS = DATA.starters && Array.isArray(DATA.starters.questions) ? DATA.starters.questions : [];
 let starterAt = STARTERS.length ? Math.floor(Math.random() * STARTERS.length) : 0;
 const askFromAnywhere = q => ask(q, view !== 'session' ? { fromHome: true } : {});
 function renderTry() {
-  const row = $('try-row'); if (!row) return; row.hidden = !STARTERS.length && !CLAIMS.length; const box = $('try-chips'); box.replaceChildren();
+  const row = $('try-row'); if (!row) return; row.hidden = !STARTERS.length; const box = $('try-chips'); box.replaceChildren();
   for (let i = 0; i < Math.min(2, STARTERS.length); i++) { const t = STARTERS[(starterAt + i) % STARTERS.length], b = el('button', '', t.label); b.type = 'button'; b.title = t.q; b.addEventListener('click', () => { if (!busy) askFromAnywhere(t.q); }); box.append(b); }
-  $('try-shuffle').hidden = STARTERS.length < 3; $('try-claim').hidden = !CLAIMS.length;
-}
-function openClaims() {
-  const list = $('claims-list'); list.replaceChildren();
-  for (const c of CLAIMS) { const b = el('button', '', '“' + c.claim + '”'); b.type = 'button'; b.append(el('small', '', '让小征核对 · ' + c.tag)); b.addEventListener('click', () => { closeDialog('claims-dialog'); if (!busy) askFromAnywhere('请核对这个说法：' + c.claim); }); list.append(b); }
-  const d = $('claims-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
-  requestAnimationFrame(() => list.querySelector('button')?.focus());
+  $('try-shuffle').hidden = STARTERS.length < 3;
 }
 $('try-shuffle').addEventListener('click', () => { starterAt = (starterAt + 2) % Math.max(1, STARTERS.length); renderTry(); });
-$('try-claim').addEventListener('click', openClaims);
-$('claims-close').addEventListener('click', () => closeDialog('claims-dialog'));
-$('claims-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeDialog('claims-dialog'); });
 renderTry();
 function openHistory() {
   const body = $('history-body'), has = hist.stories.length || hist.stops.length || hist.asks.length || route.length || viewed.size || messages.querySelector('.msg.user'); body.replaceChildren();
@@ -1245,12 +1256,10 @@ function openHistory() {
 $('start-history').addEventListener('click', openHistory);
 $('history-close').addEventListener('click', () => closeDialog('history-dialog'));
 $('history-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeDialog('history-dialog'); });
-function openPeople() { personList(); const d = $('people-dialog'); if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); } requestAnimationFrame(() => $('people-list button')?.focus()); }
-function closePeople() { const d = $('people-dialog'); if (d.open) { if (d.close) d.close(); else d.removeAttribute('open'); } }
-$('start-people').addEventListener('click', openPeople);
-$('bar-people').addEventListener('click', openPeople);
-$('people-close').addEventListener('click', closePeople);
-$('people-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closePeople(); });
+$('start-people').addEventListener('click', () => openPeople());
+$('bar-people').addEventListener('click', () => openPeople());
+$('people-back').addEventListener('click', () => openPeople());
+$('section-people').addEventListener('click', () => openPeople());
 
 /* ---------- 八闽儿女的长征 ---------- */
 let topicKind = '', currentStory = null;
@@ -1267,15 +1276,16 @@ function setTopicMode(on, kind = 'fujian') {
   if (!on || topicKind !== kind) setReadingStory(null);
   topicMode = on; topicKind = on ? kind : '';
   $('session').classList.toggle('topic-mode', on);
-  const activeSection = !on ? 'browse' : kind === 'story' ? 'stories' : 'fujian';
-  for (const section of ['browse', 'stories', 'fujian']) {
+  const activeSection = !on ? 'browse' : kind === 'story' ? 'stories' : kind;
+  for (const section of ['browse', 'stories', 'people', 'fujian']) {
     const button = $('section-' + section);
     if (section === activeSection) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
   $('fujian-page').hidden = !(on && kind === 'fujian');
   $('story-page').hidden = !(on && kind === 'story');
-  $('sw-read').firstChild.textContent = on ? (kind === 'story' ? '故事' : '专题') : '讲解';
+  $('people-page').hidden = !(on && kind === 'people');
+  $('sw-read').firstChild.textContent = on ? ({ story: '故事', people: '人物' }[kind] || '专题') : '讲解';
 }
 const fujianEntries = STORIES.filter(t => t.id.startsWith('story_fj_') && t.reviewed === true && find(t.node));
 const fujianByHash = new Map(fujianEntries.map(t => ['fujian-' + t.id.slice('story_fj_'.length), t]));
@@ -1397,7 +1407,7 @@ function renderSide() {
   const explore = el('div', 'side-sec'); explore.append(el('h3', '', '换种方式探索'));
   explore.append(toolCard('线', '跟着小征参观', '选一条路线，逐站讲解', openRoutes));
   explore.append(toolCard('图', '沙盘自由浏览', '在地形沙盘上点地点', () => $('start-browse').click()));
-  explore.append(toolCard('人', '人物档案', '从人物故事认识长征', openPeople));
+  explore.append(toolCard('人', '人物档案', '从人物故事认识长征', () => openPeople()));
   side.append(explore);
   const qs = sideQuestions();
   if (qs.length) { const sec = el('div', 'side-sec'); const h = el('h3', '', '可以这样问我'); const more = el('button', '', '换一批'); more.type = 'button'; more.addEventListener('click', () => { sideOffset += 1; renderSide(); }); h.append(more); sec.append(h); for (const q of qs) { const b = el('button', 'side-q', q); b.type = 'button'; b.disabled = busy; b.addEventListener('click', () => askChip(q)); sec.append(b); } side.append(sec); }
@@ -1454,6 +1464,8 @@ function choose(id, opts = {}) {
 function restorePage(id) {
   if (id === 'stories') openStoryList(false);
   else if (id.startsWith('story-') && GUIDES.some(g => 'story-' + g.id === id)) openStory(id.slice(6), false);
+  else if (id === 'people') openPeople(false);
+  else if (id.startsWith('person-') && PEOPLE.some(p => personHash(p) === id)) openPerson(PEOPLE.find(p => personHash(p) === id), false);
   else if (id === 'fujian') openFujian(false);
   else if (fujianByHash.has(id)) openFujianStory(id, false);
   else if (find(id)) choose(id, {push:false});
@@ -2013,7 +2025,7 @@ async function ask(question, opts = {}) {
 $('chat-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = input.value.trim(); if (!q) return; input.value = ''; autosize(input); updateCount(); ask(q); });
 $('home-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = homeQ.value.trim(); if (!q) { homeQ.focus(); return; } homeQ.value = ''; autosize(homeQ); ask(q, { fromHome: true }); });
 
-addMessage('小征', '你好，我是小征，给你讲长征路上的真人真事。想听故事、想问问题，或者有拿不准的说法想核对，都可以告诉我；我讲的内容都附出处，方便你核对原文。目前收录的是中央红军主力长征路线的资料。', [], { quiet: true, followups: STARTERS.slice(0, 2).map(t => t.q), actions: [{ label: '听一个故事', run: () => openStoryList() }, { label: '核对一句话', run: openClaims }] });
+addMessage('小征', '你好，我是小征，给你讲长征路上的真人真事。想听故事、想问问题，或者有拿不准的说法想核对，都可以告诉我；我讲的内容都附出处，方便你核对原文。目前收录的是中央红军主力长征路线的资料。', [], { quiet: true, followups: STARTERS.slice(0, 2).map(t => t.q), actions: [{ label: '听一个故事', run: () => openStoryList() }] });
 restorePage(initialHash);
 })();
 </script>
