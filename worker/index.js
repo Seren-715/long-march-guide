@@ -563,8 +563,11 @@ function dateSupported(claim,source){
   const follow=d=>{const i=d.context.indexOf(d.raw);return i<0?'':squash(d.context.slice(i+d.raw.length)).replace(/^[，,、：:]+/,'');};
   // 只缩小候选，不替日期前面挂的事件背书：“遵义会议在1935年4月，红军干部休养连……”仍要拦。
   const lead=d=>{const i=d.context.indexOf(d.raw);return i<0?'':d.context.slice(0,i);};
+  // 原句后面用“同月、当天”接上的另一件事，是另一个日期说法，也不能借原句放行（“……遭敌机轰炸，同月召开遵义会议”）。
+  const tail=d=>{const f=follow(d),k=f.search(/同月|同日|同年|当月|当日|当天|同一天|同一月|这个月|那个月/);return k<0?'':f.slice(k);};
   const claimFollow=follow(claim),sameStatement=claimFollow.length>=10&&follow(source).startsWith(claimFollow.slice(0,10))
-    &&eventKeys(lead(claim)).every(event=>eventKeys(source.context).includes(event));
+    &&eventKeys(lead(claim)).every(event=>eventKeys(source.context).includes(event))
+    &&eventKeys(tail(claim)).every(event=>eventKeys(source.context).includes(event));
   const claimedEvents=sameStatement?[]:boundEvents(claim),sourceEvents=sameStatement?[]:boundEvents(source);
   if(claimedEvents===null||sourceEvents===null)return false;
   if(claimedEvents.length&&!claimedEvents.every(event=>sourceEvents.includes(event)))return false;
@@ -604,8 +607,11 @@ function unsupportedDates(answer,ids){
   // 引号里原样引用所引资料的话（如电令“我军明十三号继续西进”），其中的日期就是资料原文，不再单独判断归属。
   const normalized=normalizeNumerals(answer),cited=squash(normalizeNumerals(ids.map(id=>evidence.find(e=>e.id===id).text).join('|')));
   // 引号只包住一个日期（遵义会议于“1935年1月29日”召开）不算引用原文，外面的谓词照常核对。
+  // 引号只证明引文是原话；引文外面把它说成哪件事（“遵义会议的日期是‘……’”），那件事也须是所引资料讲的。
+  const citedEvents=new Set(ids.flatMap(id=>eventKeys(evidence.find(e=>e.id===id).text)));
   const quoted=[...normalized.matchAll(/“([^”]{2,80})”/g)].filter(q=>cited.includes(squash(q[1]))
-    &&squash(maskDates(q[1],dateFacts(q[1]))).replace(/[，,。、：:；;！!？?\s]/g,'').length>=4).map(q=>[q.index,q.index+q[0].length]);
+    &&squash(maskDates(q[1],dateFacts(q[1]))).replace(/[，,。、：:；;！!？?\s]/g,'').length>=4
+    &&eventKeys(withoutQuotes(clauseAt(normalized,q.index,q.index+q[0].length))).every(event=>citedEvents.has(event))).map(q=>[q.index,q.index+q[0].length]);
   return dateFacts(answer).filter(d=>{
     if(quoted.some(([a,b])=>d.start>=a&&d.end<=b))return false;
     let matches=sources.filter(s=>dateSupported(d,s));

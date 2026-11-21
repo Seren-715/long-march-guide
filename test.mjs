@@ -1244,6 +1244,10 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
     ['jinsha',['jinsha_person_he_zizhen'],false,'遵义会议在1935年4月，红军干部休养连在贵州盘县附近遭敌机轰炸。'],
     // 引号只包住日期，不算引用原文
     ['chishui',['chishui_detail'],false,'遵义会议于“1935年1月29日”召开。'],
+    // 原句后面用“同月”接上另一件事；整段原文引文被说成另一件事的日期（Codex 051）
+    ['jinsha',['jinsha_person_he_zizhen'],false,'1935年4月，红军干部休养连在贵州盘县附近遭敌机轰炸，同月召开遵义会议。'],
+    ['chishui',['chishui_detail'],false,'遵义会议的日期是“1935年1月29日，红军首次渡过赤水河”。'],
+    ['chishui',['chishui_detail'],true,'资料原文是“1935 年 1 月 29 日，红军首次渡过赤水河”。'],
     // 电令原话挂到别的会议上
     ['zunyi',['tongdao'],false,'1935年1月，遵义会议发出“万万火急”电令，部署“我军明十三号继续西进”。'],
     // 区间两端须来自同一段起止记述；四次渡河各有序次
