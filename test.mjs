@@ -1261,6 +1261,16 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
     ['chishui',['chishui_detail'],false,'1935年2月18日至21日，红军三渡赤水。'],
     ['chishui',['chishui_detail'],true,'1935年3月21日至22日，红军四渡赤水，跳出敌军包围。'],
     ['chishui',['chishui'],true,'1935年1月下旬至3月，中央红军四渡赤水河。'],
+    // “二渡：2月18日至21日东渡，随后……攻占娄山关”：冒号前的序次是日期的标签，“随后”引出的是下一件事（全面测试）
+    ['chishui',['chishui_detail'],true,'二渡：1935年2月18日至21日东渡，随后进军黔北，攻占娄山关并再占遵义。'],
+    ['chishui',['chishui_detail'],false,'三渡：1935年2月18日至21日由茅台地区西渡。'],
+    ['chishui',['chishui_detail'],false,'1935年2月18日至21日，红军攻占娄山关。'],
+    // 回答里另起一句只写“17日”，接上一句的年月，日子不能早于上一句（全面测试 F2：腊子口回答因此被删到只剩一句）
+    ['lazikou',['lazikou'],true,'1935年9月16日，红一方面军到达甘肃迭部腊子口。17日凌晨，红一军团第二师第四团接连突破鲁大昌部设置的两道防线，夺取天险腊子口。'],
+    ['lazikou',['lazikou'],false,'1935年9月16日，红一方面军到达甘肃迭部腊子口。19日凌晨，第四团夺取天险腊子口。'],
+    ['lazikou',['lazikou'],true,'1935年9月16日，红一方面军到达甘肃迭部腊子口。红一军团第二师第四团采取正面进攻和侧翼袭击相结合的作战方案，到17日凌晨接连突破鲁大昌部设置的两道防线，夺取了天险腊子口。'],
+    ['lazikou',['lazikou'],false,'1935年9月16日，红一方面军到达甘肃迭部腊子口。第四团采取正面进攻和侧翼袭击相结合的作战方案，到19日凌晨夺取了天险腊子口。'],
+    ['lazikou',['lazikou'],false,'1935年9月17日，红一方面军到达甘肃迭部腊子口。16日，第四团夺取天险腊子口。'],
     // 红四团：资料只写“5 月 26 日……。27 日拂晓……出发……29 日……赶到”，年份取所属节点，日期按行动分段
     ['luding',['story_lin_biao_luding'],true,'1935年5月27日拂晓，红四团从安顺场出发，沿大渡河西岸飞奔，29日早晨6点按时赶到泸定桥。'],
     ['luding',['story_lin_biao_luding'],false,'1935年5月29日拂晓，红四团从安顺场出发，27日早晨6点赶到泸定桥。'],
@@ -1274,6 +1284,17 @@ body=await (await worker.fetch(make({question:'遵义会议开了多久',node:'z
     if(keep){assert.equal(n,1,'应保留：'+answer);assert.equal(body.answer,answer);}
     else{assert.ok(n>=2,'应拦下：'+answer);assert.notEqual(body.answer,answer);}
   }
+}
+// —— 湘江兵力：说明句以“需要说明的是，”开头也算交代了累计兵力变化（全面测试 X1）——
+{
+  const ok='资料记载，中央红军从长征出发时的8.6万余人，经过连续突破封锁线、特别是湘江战役遭受重大损失后，减至3万余人。需要说明的是，这是从长征出发到渡过湘江后的累计兵力变化，不是湘江单场战役的损失数字。';
+  let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer:ok,sources:['xiangjiang_lines','yudu_army']})};
+  let body=await (await worker.fetch(make({question:'湘江战役之后中央红军还剩多少人？',node:'start',free:true}),env)).json();
+  assert.equal(n,1,'带引导语的说明句应通过');assert.equal(body.answer,ok);
+  const bad='资料记载，中央红军经过湘江战役遭受重大损失后，由8.6万余人减至3万余人。需要说明的是，湘江战役非常惨烈。';
+  n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer:bad,sources:['xiangjiang_lines','yudu_army']})};
+  body=await (await worker.fetch(make({question:'湘江战役之后中央红军还剩多少人？',node:'start',free:true}),env)).json();
+  assert.ok(n>=2,'没有交代累计区间仍要重答');
 }
 // —— 传言题：“无法认定这是谣言”留有余地，不算断言 ——
 {

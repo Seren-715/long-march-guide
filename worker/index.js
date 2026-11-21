@@ -369,7 +369,7 @@ function validCalendarDay(y,m,d){
 }
 const HISTORICAL_EVENTS=[
   ['zunyi',/遵义/],['xiangjiang',/湘江/],['three-blockade-lines',/(?:前)?[三3]道封锁线/],['luding',/泸定桥/],
-  ['chishui',/赤水/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
+  ['chishui',/赤水|(?<![第大])[一二三四]渡(?![口河乌金长])/],['yudu',/于都/],['tongdao',/通道(?:会议|转兵)?/],
   ['liping',/黎平/],['gouba',/苟坝/],['dagu',/打鼓新场/],['dadu',/大渡河|安顺场/],
   ['jinsha',/金沙江/],['huining',/会宁/],['jiangtaibao',/将台堡/],
   ['lazikou',/腊子口/],['wuqi',/吴起镇/],['zhiluozhen',/直罗镇/],['jiajin',/夹金山/],
@@ -420,13 +420,14 @@ function dateFacts(text,allowPreviousSentence=false,anchor=null){
     if(out.some(d=>m.index>=d.start&&m.index<d.end))continue;
     const before=source.slice(0,m.index),boundary=Math.max(before.lastIndexOf('。'),before.lastIndexOf('！'),before.lastIndexOf('？'),before.lastIndexOf('\n'));
     let prior=out.filter(d=>d.start>boundary&&d.end<=m.index).sort((a,b)=>b.start-a.start)[0];
-    // 仅在单条资料中，允许句首的“25日”继承紧邻上一句最后一个明确年月。
-    // （曾试过让回答也这样继承，结果红四团“27日拂晓……”被按事件归属拒绝、整条降级，弊大于利，已撤回。）
-    if(!prior&&allowPreviousSentence&&!m[1]&&!source.slice(boundary+1,m.index).trim()){
+    // 一句里第一个只写日子的日期（“25日”“……的作战方案，到17日凌晨”）继承紧邻上一句最后一个明确年月。资料照此继承；
+    // 回答还要求日子不早于上一句的日期。2026-11-20 曾因资料一侧解析不出“27 日”而撤回回答一侧的继承，资料一侧修好后恢复。
+    if(!prior&&!m[1]){
       const earlier=source.slice(0,Math.max(0,boundary));
       const previousBoundary=Math.max(earlier.lastIndexOf('。'),earlier.lastIndexOf('！'),earlier.lastIndexOf('？'),earlier.lastIndexOf('\n'));
       const candidates=out.filter(d=>d.start>previousBoundary&&d.end<=boundary&&!d.yearOmitted).sort((a,b)=>b.start-a.start);
-      if(candidates.length&&new Set(candidates.map(d=>`${d.y}-${d.endM||d.m}`)).size===1)prior=candidates[0];
+      if(candidates.length&&new Set(candidates.map(d=>`${d.y}-${d.endM||d.m}`)).size===1
+        &&(allowPreviousSentence||toDateNumber(m[5])>=(candidates[0].endD??candidates[0].d??0)))prior=candidates[0];
     }
     // 这一句里第一个日期只写了“27 日”、上一句又没有日期时，沿同一条记述往前找最近的明确年月，且日子不早于它
     // （“5 月 26 日……。……。27 日拂晓出发”“1935 年 5 月下旬……。据……记述，27 日……”）。
@@ -464,7 +465,9 @@ function dateFacts(text,allowPreviousSentence=false,anchor=null){
   for(const [i,d] of out.entries()){
     const stops=['。','！','？','；',';','\n'].map(c=>source.indexOf(c,d.end)).filter(x=>x>=0);
     const next=out[i+1]&&out[i+1].start>=d.end?out[i+1].start:Infinity;
-    d.span=withoutQuotes(source.slice(d.start,Math.min(next,...stops,source.length)));
+    // “随后、此后、接着、然后”引出的是下一件事（“2月18日至21日东渡，随后……攻占娄山关”）。
+    const rest=source.slice(d.end,Math.min(next,...stops,source.length)),turn=rest.search(/随后|此后|接着|然后/);
+    d.span=withoutQuotes(source.slice(d.start,turn<0?d.end+rest.length:d.end+turn));
   }
   return out;
 }
@@ -550,6 +553,10 @@ function dateSupported(claim,source){
     if(local.length)return local;
     const own=eventKeys(d.span||'');
     if(own.length===1)return own;
+    // 日期前用冒号引出的标签（“二渡：2月18日至21日东渡”）
+    const whole0=d.context.slice(0,Math.max(0,d.context.indexOf(d.raw)));
+    const head=whole0.slice(Math.max(...['，',',','。','；',';','\n'].map(c=>whole0.lastIndexOf(c)))+1);
+    if(/[：:]\s*$/.test(head)&&!own.length){const named=eventKeys(head);if(named.length===1)return named;}
     const whole=eventKeys(d.context);
     if(!whole.length&&d.inheritedEvents)return d.inheritedEvents;
     if(whole.length<=1)return whole;
@@ -670,7 +677,7 @@ function mixesXiangjiangStrengthWithBattle(answer,question,ids){
     const next=sentences[index+1]||'';
     const distinguishesCasualties=/(?:不是|并非|不能(?:当作|等同于))[^。；]{0,12}单场[^。；]{0,12}(?:伤亡|损失)/;
     const consecutiveScope=/(?:由|从|自)(?:中央红军)?(?:长征)?出发/.test(sentence)
-      &&/^(?:这(?:是|一(?:数字|变化))|上述(?:数字|变化))/.test(next)
+      &&/^(?:(?:需要|要)?(?:说明|注意|指出)的是[，,]?|不过[，,]?|注意[，,]?)?(?:这(?:是|一(?:数字|变化))|上述(?:数字|变化))/.test(next)
       &&XIANGJIANG_FULL_INTERVAL.test(next)&&distinguishesCasualties.test(next);
     if(consecutiveScope)return false;
     if(fullInterval)return directCasualtyQuestion&&!distinguishesCasualties.test(sentence);
@@ -913,7 +920,10 @@ export default {async fetch(request, env) {
   const reunionQuery=/(?:三大主力|三个方面军|三支主力|三军|红一、红二、红四).{0,10}会师|会师.{0,6}(?:哪里|哪儿|在哪|何处|什么地方)/.test(question);
   const preload=evidence.filter(e=>(!free&&e.node===current.id)||recalled.has(e.id)||guideIds.has(e.id)||((fujianCountQuery||compareFujianCounts)&&FUJIAN_COUNT_IDS.has(e.id))||(xiangjiangStrengthQuery&&e.id==='xiangjiang_lines')||(remainingClaim&&XIANGJIANG_SCOPE_SOURCES.includes(e.id))||(wuqiZhiluoCheck&&WUQI_ZHILUO_SOURCES.includes(e.id))||(departureStrengthCheck&&e.id==='yudu_army')||(reunionQuery&&(e.id==='huining'||e.id==='jiangtaibao')));
   const state={loaded:new Set(preload.map(e=>e.id)),action:null,current:free?null:current.id,tour};
-  const gist=e=>e.id.startsWith('story_')?e.name.replace(/（[^）]*）$/,''):e.text.replace(/\s+/g,'').slice(0,26)+'…';
+  // 目录只列开头 26 字；资料里的人数（“减至 3 万余人”）若不在开头，补在后面，免得问人数时模型看不出该取哪条。
+  const gist=e=>{if(e.id.startsWith('story_'))return e.name.replace(/（[^）]*）$/,'');
+    const head=e.text.replace(/\s+/g,'').slice(0,26),counts=[...new Set(countFacts(e.text).filter(c=>c.value>=10).map(c=>c.raw.replace(/\s+/g,'')).filter(c=>/[人名]$/.test(c)&&!head.includes(c)))].slice(0,3);
+    return head+'…'+(counts.length?`（含：${counts.join('、')}）`:'');};
   const catalogue=nodes.map(n=>`[${n.id}] ${n.date} ${n.name}：${n.title}\n`+evidence.filter(e=>e.node===n.id).map(e=>`  - ${e.id}：${gist(e)}`).join('\n')).join('\n');
   const visit=tour?`观众正在按路线参观：${tour.route.map(nodeName).join(' → ')}${tour.route.includes(current.id)?`（当前第 ${tour.route.indexOf(current.id)+1} / ${tour.route.length} 站）`:'（当前节点不在路线中）'}；已看过：${tour.visited.map(nodeName).join('、')||'暂无'}。可以据此自然地衔接前后站，但衔接中的史实同样只能来自资料。`:'观众没有选择路线，正在自由浏览。';
   const system=`你是“长征路上”的小征，给观众讲长征路上有出处的真人真事，是一个会自己查资料、核对出处、会操作页面的智能体，面向想了解长征的普通观众，语气亲切、简洁。你的职责是讲述和查证：观众想听故事、提问或给出一句说法，你查阅资料后依据原文讲述或回答。自我介绍时说明你讲长征故事、回答问题，也能查证关于长征的说法。
@@ -1061,7 +1071,7 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
               if(!gap)kept.push(part);
               continue;
             }
-            if(gap&&/^\s*(?:(?:要注意|需要注意(?:的是)?|值得注意(?:的是)?)[，,：:\s]*)?(?:也就是说|换句话说|这(?:是|些|个|一|就|说明|意味着)|上述|前者|后者|由此|据此|因此|所以)/.test(part)){
+            if(gap&&/^\s*(?:(?:要注意|需要注意(?:的是)?|值得注意(?:的是)?|(?:需要|要)?(?:说明|指出)的是)[，,：:\s]*)?(?:也就是说|换句话说|这(?:是|些|个|一|就|说明|意味着)|上述|前者|后者|由此|据此|因此|所以)/.test(part)){
               disconnected++;
               continue;
             }
