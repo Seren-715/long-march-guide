@@ -1526,6 +1526,10 @@ body=await (await worker.fetch(make({question:'红军什么时候翻越夹金山
   body=await (await worker.fetch(make({question:'湘江战役之后中央红军还剩多少人？',node:'xiangjiang'}),env)).json();
   assert.equal(n,2);assert.match(body.answer,/从长征出发时到渡过湘江后/);assert.ok(body.sources.some(s=>(s.ids||[s.id]).includes('xiangjiang_lines')));
   assert.ok(body.steps.some(s=>s.text==='改用资料原文说明兵力变化'));
+  // 删句后只剩“这3万余人是……”时，也改用原文的完整说法
+  n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer:'湘江战役中，中央红军由8.6万余人减至3万余人。这3万余人是从长征出发到渡过湘江后的累计兵力变化，不是湘江单场战役的损失数字。',sources:['xiangjiang_lines']})};
+  body=await (await worker.fetch(make({question:'湘江战役之后中央红军还剩多少人？',node:'xiangjiang'}),env)).json();
+  assert.match(body.answer,/由8\.6万余人减至3万余人/,'删句后不能只剩没头没尾的说明');
   // 问伤亡的仍按原规则如实说明资料不足（上文已有测试），兜底只用于问人数
 }
 globalThis.fetch=original;

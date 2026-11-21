@@ -1125,7 +1125,9 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         }).filter(Boolean).sort((a,b)=>b.retainedLength-a.retainedLength);
         // 两稿都只差湘江兵力的表述、资料已取出时，改用资料原文的说法，不转去联网（全面测试 X1）。
         const scopeOnly=[result,firstFailed].filter(Boolean).every(c=>c.risks.length&&c.risks.every(r=>r===XIANGJIANG_SCOPE_ISSUE)&&!c.badNumbers.length&&!c.badTitles.length);
-        const scopeFallback=!candidates.length&&scopeOnly&&/湘江/.test(question)&&/人数|多少人|兵力|剩|还有多少/.test(question)&&state.loaded.has('xiangjiang_lines')
+        // 删句后只剩“这3万余人是……”、丢了出发时的兵力，也改用原文说法。
+        const lostStart=candidates.length&&!XIANGJIANG_STRENGTH_START.test(candidates[0].answer);
+        const scopeFallback=(!candidates.length||lostStart)&&scopeOnly&&/湘江/.test(question)&&/人数|多少人|兵力|剩|还有多少/.test(question)&&state.loaded.has('xiangjiang_lines')
           ?checkReply({type:'history',answer:XIANGJIANG_INTERVAL_ANSWER,sources:['xiangjiang_lines']},question,state.current,state.loaded):null;
         if(scopeFallback&&!scopeFallback.badNumbers.length&&!scopeFallback.badTitles.length&&!scopeFallback.risks.length){result=scopeFallback;step({kind:'verify',text:'改用资料原文说明兵力变化',detail:'从长征出发到渡过湘江后',ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
         else if(candidates.length){result=candidates[0];step({kind:'verify',text:'删去未能核对的内容',detail:`${result.removed} 句${result.disconnected?`（含 ${result.disconnected} 句上下文不完整）`:''}`,ok:false});step({kind:'verify',text:'引用与数字规则检查',detail:`引用 ${result.ids.length} 条 · 规则检查通过（非史实核验）`,ok:true});}
