@@ -1049,6 +1049,11 @@ body=await (await worker.fetch(make({question:'彝海结盟何时授旗？',node
 // 页面操作：定制路线按时间排序；出题不泄露；一次回答只执行第一个操作
 log=script([toolReply([toolCall('plan_route',{nodes:['lazikou','xiangjiang','luding','nope'],title:'险战速览'})]),reply({type:'chat',answer:'排好了，马上出发。',sources:[]})]);
 body=await (await worker.fetch(make({question:'我只有十分钟',node:'start',free:true}),env)).json();assert.deepEqual(body.action,{type:'plan',route:['xiangjiang','luding','lazikou'],title:'险战速览'});assert.match(body.steps[0].text,/规划路线：湘江 → 泸定桥 → 腊子口/);
+// 路线已经排好、说明文字两次都不是 JSON：仍返回路线，不报 502；第二次请求要带上格式提示
+log=script([toolReply([toolCall('plan_route',{nodes:['lazikou','xiangjiang','luding'],title:'险战速览'})]),reply('好的，马上出发'),reply('出发吧')]);
+res=await worker.fetch(make({question:'我只有十分钟，想看最惊险的战斗',node:'start',free:true}),env);body=await res.json();
+assert.equal(res.status,200,'路线已安排时格式异常不应报错');assert.deepEqual(body.action,{type:'plan',route:['xiangjiang','luding','lazikou'],title:'险战速览'});assert.match(body.answer,/路线已经安排好/);
+assert.match(log.at(-1).messages.at(-1).content,/不是规定格式的 JSON/,'重试时要提示格式');
 log=script([toolReply([toolCall('plan_route',{nodes:['zunyi']})]),reply({type:'chat',answer:'请多选几站。',sources:[]})]);
 body=await (await worker.fetch(make({question:'排路线',node:'start',free:true}),env)).json();assert.equal(body.action,null);
 log=script([toolReply([toolCall('open_stop',{node:'luding'}),toolCall('start_route',{route:'full'},'c2')]),reply({type:'chat',answer:'这就带你去。',sources:[]})]);

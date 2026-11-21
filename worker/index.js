@@ -1047,7 +1047,12 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
           continue;
         }
         let parsed=null;if(choice?.finish_reason!=='length'){try{parsed=JSON.parse(content)}catch{parsed=null}}
-        if(!parsed||typeof parsed.answer!=='string'||!parsed.answer.trim()){if(corrected)break;corrected=true;continue;}
+        if(!parsed||typeof parsed.answer!=='string'||!parsed.answer.trim()){
+          if(corrected)break;corrected=true;
+          // 告诉模型上一条格式不对，而不是原样再发一次
+          if(content.trim())messages.push({role:'assistant',content},{role:'user',content:'系统校验：上一条回复不是规定格式的 JSON。请只输出一个 JSON 对象（字段 type、answer、sources、followups），不要附加其他文字。'});
+          continue;
+        }
         result=checkReply(parsed,question,state.current,state.loaded);
         const failed=result.badNumbers.length||result.badTitles.length||result.risks.length;
         // 自称是历史回答却没有引用任何已取出的资料：提醒先查资料再答（只提醒一次）。
@@ -1065,6 +1070,8 @@ ${preload.length?materialLines(preload):'（暂无，请用工具取）'}`;
         break;
       }
       result??=firstFailed;
+      // 路线或页面操作已经由工具完成，只是说明文字格式不对：用一句固定说明，不让整个请求报错（标准组第 40 题偶发）。
+      if(!result&&state.action)result={type:'chat',ids:[],answer:state.action.type==='plan'?'路线已经安排好，页面马上开始；想跳过哪一站随时告诉我。':'好，页面已经切换，接着看吧。',badNumbers:[],badTitles:[],risks:[],action:null,followups:[]};
       if(!result) return {status:502,body:{error:'助手回复格式异常，请重试。'}};
       if(remainingClaim&&result.type==='history'&&(!result.ids.length||result.badNumbers.length||result.badTitles.length||result.risks.length||!coversXiangjiangRemaining(result.answer,remainingClaim.asksLoss))){
         const sources=remainingClaim.asksLoss?XIANGJIANG_SCOPE_SOURCES:['xiangjiang_lines'];
