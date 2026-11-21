@@ -1049,6 +1049,11 @@ body=await (await worker.fetch(make({question:'彝海结盟何时授旗？',node
 // 页面操作：定制路线按时间排序；出题不泄露；一次回答只执行第一个操作
 log=script([toolReply([toolCall('plan_route',{nodes:['lazikou','xiangjiang','luding','nope'],title:'险战速览'})]),reply({type:'chat',answer:'排好了，马上出发。',sources:[]})]);
 body=await (await worker.fetch(make({question:'我只有十分钟',node:'start',free:true}),env)).json();assert.deepEqual(body.action,{type:'plan',route:['xiangjiang','luding','lazikou'],title:'险战速览'});assert.match(body.steps[0].text,/规划路线：湘江 → 泸定桥 → 腊子口/);
+// 路线已经排好、说明文字两次都不是 JSON：仍返回路线，不报 502；第二次请求要带上格式提示
+log=script([toolReply([toolCall('plan_route',{nodes:['lazikou','xiangjiang','luding'],title:'险战速览'})]),reply('好的，马上出发'),reply('出发吧')]);
+res=await worker.fetch(make({question:'我只有十分钟，想看最惊险的战斗',node:'start',free:true}),env);body=await res.json();
+assert.equal(res.status,200,'路线已安排时格式异常不应报错');assert.deepEqual(body.action,{type:'plan',route:['xiangjiang','luding','lazikou'],title:'险战速览'});assert.match(body.answer,/路线已经安排好/);
+assert.match(log.at(-1).messages.at(-1).content,/不是规定格式的 JSON/,'重试时要提示格式');
 log=script([toolReply([toolCall('plan_route',{nodes:['zunyi']})]),reply({type:'chat',answer:'请多选几站。',sources:[]})]);
 body=await (await worker.fetch(make({question:'排路线',node:'start',free:true}),env)).json();assert.equal(body.action,null);
 log=script([toolReply([toolCall('open_stop',{node:'luding'}),toolCall('start_route',{route:'full'},'c2')]),reply({type:'chat',answer:'这就带你去。',sources:[]})]);
@@ -1495,5 +1500,41 @@ body=await (await worker.fetch(make({question:'红军什么时候翻越夹金山
   const old={...tokenOf(q1.historyToken)};delete old.type;
   let r=await worker.fetch(make({...base,question:'具体点呢',historyTokens:[await sign(old)]}),env);assert.equal(r.status,200,'旧格式签名应可读');
   r=await worker.fetch(make({...base,question:'具体点呢',historyTokens:[await sign({...old,type:'admin'})]}),env);assert.equal(r.status,400,'不认识的 type 应拒绝');
+}
+// —— 全面测试发现的三处：外站资料的说法被搬进回答（E1.4）、资料写“18 勇士”（P-13）、湘江兵力兜底（X1）——
+{
+  // E1.4：把黎平会议“决定在适当时候……”说成遵义会议的事，要重答
+  const bad='遵义会议之后，会议决定在适当时候总结，随后中央政治局常委分工：张闻天负中央总的责任。';
+  const good='遵义会议后，中央政治局常委决定由张闻天负中央总的责任，此后主持中央日常工作。';
+  let n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer:n===1?bad:good,sources:['zunyi','zunyi_person_zhang_wentian']})};
+  let body=await (await worker.fetch(make({question:'遵义会议之后呢？',node:'zunyi'}),env)).json();
+  assert.equal(n,2,'外站资料的说法要重答');assert.equal(body.answer,good);
+  // 两稿都带着这句：删去这一句，保留其余内容，不整条降级
+  n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer:good+'另外，会议决定在适当时候总结经验。',sources:['zunyi','zunyi_person_zhang_wentian']})};
+  body=await (await worker.fetch(make({question:'遵义会议之后呢？',node:'zunyi'}),env)).json();
+  assert.equal(n,2);assert.match(body.answer,/张闻天负中央总的责任/);assert.doesNotMatch(body.answer,/适当时候/);assert.doesNotMatch(body.answer,/资料不足/);
+  // 引用了那条资料就不算搬用
+  n=0;const cited='黎平会议还决定在适当时候召开中央政治局扩大会议，总结经验教训。';
+  globalThis.fetch=async()=>{n++;return reply({type:'history',answer:cited,sources:['liping_convening']})};
+  body=await (await worker.fetch(make({question:'黎平会议还决定了什么？',node:'liping'}),env)).json();
+  assert.equal(n,1,'引用了出处的原话不应被拦');
+  // P-13：资料写“称 18 勇士也没有错”，回答写“18人”算有据；“19人”仍拦
+  n=0;const ok18='若把营长孙继先算进去，就是18人，所以也称18勇士。';
+  globalThis.fetch=async()=>{n++;return reply({type:'history',answer:ok18,sources:['story_17_yongshi']})};
+  body=await (await worker.fetch(make({question:'十七勇士还是十八勇士？',node:'dadu'}),env)).json();
+  assert.equal(n,1,'资料写“18 勇士”，回答写“18人”应通过');assert.equal(body.answer,ok18);
+  n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer:'强渡大渡河的勇士共19人。',sources:['story_17_yongshi']})};
+  body=await (await worker.fetch(make({question:'十七勇士还是十八勇士？',node:'dadu'}),env)).json();
+  assert.ok(n>=2,'“19人”资料里没有，仍要拦');
+  // X1：两稿都只差湘江兵力的表述时，改用资料原文的说法，不降级、不转联网
+  n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer:'湘江战役中，中央红军由8.6万余人减至3万余人。',sources:['xiangjiang_lines']})};
+  body=await (await worker.fetch(make({question:'湘江战役之后中央红军还剩多少人？',node:'xiangjiang'}),env)).json();
+  assert.equal(n,2);assert.match(body.answer,/从长征出发时到渡过湘江后/);assert.ok(body.sources.some(s=>(s.ids||[s.id]).includes('xiangjiang_lines')));
+  assert.ok(body.steps.some(s=>s.text==='改用资料原文说明兵力变化'));
+  // 删句后只剩“这3万余人是……”时，也改用原文的完整说法
+  n=0;globalThis.fetch=async()=>{n++;return reply({type:'history',answer:'湘江战役中，中央红军由8.6万余人减至3万余人。这3万余人是从长征出发到渡过湘江后的累计兵力变化，不是湘江单场战役的损失数字。',sources:['xiangjiang_lines']})};
+  body=await (await worker.fetch(make({question:'湘江战役之后中央红军还剩多少人？',node:'xiangjiang'}),env)).json();
+  assert.match(body.answer,/由8\.6万余人减至3万余人/,'删句后不能只剩没头没尾的说明');
+  // 问伤亡的仍按原规则如实说明资料不足（上文已有测试），兜底只用于问人数
 }
 globalThis.fetch=original;
