@@ -1326,8 +1326,9 @@ function makePoster() {
     g.font = `24px ${sans}`; g.fillStyle = '#8A8E90';
     const d = new Date(); g.fillText(`生成于 ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} · 史实资料来自《长征路上》知识库，逐条附出处`, 72, H2 - 50);
     const url = cv.toDataURL('image/png'); const box = $('poster'); box.replaceChildren(); const pi = el('img'); pi.src = url; pi.alt = '我的长征行军卡：路线进度与阅读、答题记录'; box.append(pi); box.hidden = false;
-    const save = $('save-poster'); save.href = url; save.hidden = false;
-    $('poster-note').textContent = '可以点“保存图片”，或长按 / 右键图片保存。记录只保存在你这台设备的浏览器里。';
+    let framed = true; try { framed = window.top !== window.self; } catch { /* 跨域框架内 */ }
+    const save = $('save-poster'); save.href = url; save.hidden = framed;
+    $('poster-note').textContent = (framed ? '长按或右键图片即可保存。' : '可以点“保存图片”，或长按 / 右键图片保存。') + '记录只保存在你这台设备的浏览器里。';
   };
   im.src = D.map.img;
 }
