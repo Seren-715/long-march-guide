@@ -16,8 +16,8 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('digital-march:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem('digital-march:' + k, JSON.stringify(v)); } catch { /* 本地存储不可用时只在本页有效 */ } },
 };
-const state = { visited: new Set(store.get('visited', [])), read: new Set(store.get('read', [])), best: store.get('best', null) };
-const saveState = () => { store.set('visited', [...state.visited]); store.set('read', [...state.read]); store.set('best', state.best); updatePassport(); };
+const state = { visited: new Set(store.get('visited', [])), read: new Set(store.get('read', [])), best: store.get('best', null), journal: new Set(store.get('journal', [])) };
+const saveState = () => { store.set('visited', [...state.visited]); store.set('read', [...state.read]); store.set('best', state.best); store.set('journal', [...state.journal]); updatePassport(); };
 const nodeById = Object.fromEntries(D.nodes.map((n) => [n.id, n]));
 const storyById = Object.fromEntries(D.stories.map((s) => [s.id, s]));
 const guideById = Object.fromEntries(D.guides.map((g) => [g.id, g]));
@@ -678,7 +678,7 @@ function openGuide(gid, list = storyList) {
 function updatePassport() {
   const p = $('pstats'); if (!p) return; p.replaceChildren();
   const add = (v, l) => { const d = el('div'); d.append(el('b', null, v), el('span', null, l)); p.append(d); };
-  add(`${state.visited.size}/${ALL.length}`, '走过的站点'); add(String(state.read.size), '读过的故事'); add(state.best == null ? '—' : `${state.best}/10`, '问答最好成绩');
+  add(`${state.visited.size}/${ALL.length}`, '走过的站点'); add(String(state.journal.size), '小说里的见闻'); add(String(state.read.size), '读过的故事'); add(state.best == null ? '—' : `${state.best}/10`, '问答最好成绩');
 }
 updatePassport();
 
@@ -702,7 +702,7 @@ function makePoster() {
     for (const id of ALL) { const [x, y] = P(nodeById[id].at); g.beginPath(); g.arc(x, y, state.visited.has(id) ? 9 : 6, 0, 7); g.fillStyle = state.visited.has(id) ? '#B3261E' : '#8c7a63'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#fff'; g.stroke(); }
     const sy = my + mh + 70;
     const stat = (x, v, l) => { g.fillStyle = '#A9241C'; g.font = `96px ${serif}`; g.fillText(v, x, sy + 70); g.fillStyle = '#5B6064'; g.font = `30px ${sans}`; g.fillText(l, x, sy + 120); };
-    stat(72, `${state.visited.size}/${ALL.length}`, '走过的站点'); stat(430, String(state.read.size), '读过的故事'); stat(720, state.best == null ? '—' : `${state.best}/10`, '问答最好成绩');
+    stat(72, `${state.visited.size}/${ALL.length}`, '走过的站点'); stat(330, String(state.journal.size), '见闻'); stat(530, String(state.read.size), '读过的故事'); stat(780, state.best == null ? '—' : `${state.best}/10`, '问答成绩');
     g.fillStyle = 'rgba(29,32,35,.15)'; g.fillRect(70, sy + 170, W2 - 140, 2);
     g.fillStyle = '#1D2023'; g.font = `46px ${serif}`;
     const q = F.closingQuotes[1].quote; const lines = q.match(/[^。]+。/g) || [q];
@@ -720,4 +720,5 @@ function makePoster() {
   im.src = D.map.img;
 }
 $('make-poster').addEventListener('click', makePoster);
+/*NOVEL_UI*/
 })();

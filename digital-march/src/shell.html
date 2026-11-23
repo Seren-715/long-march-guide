@@ -7,11 +7,11 @@
 </style>
 <!--/HEAD-->
 <!--BODY-->
-<a class="sr" href="#march">跳到行军沙盘</a>
+<a class="sr" href="#story">跳到正文</a>
 <div class="topbar"><div class="wrap">
   <a class="brand" href="#top"><svg class="brand-star" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1.8l2.6 7.1h7.6l-6.1 4.5 2.3 7.3L12 16.2l-6.4 4.5 2.3-7.3L1.8 8.9h7.6z"/></svg>数字长征</a>
   <nav class="nav" id="nav" aria-label="章节">
-    <a href="#march">行军沙盘</a><a href="#chishui">四渡赤水</a><a href="#data">数字</a><a href="#meetings">转折</a><a href="#stars">人物星河</a><a href="#stories">故事</a><a href="#quiz">问答</a><a href="#end">行军卡</a>
+    <a href="#story">我的长征</a><a href="#march">行军沙盘</a><a href="#chishui">四渡赤水</a><a href="#data">数字</a><a href="#meetings">转折</a><a href="#stars">人物星河</a><a href="#stories">故事</a><a href="#quiz">问答</a><a href="#end">行军卡</a>
   </nav>
   <button type="button" class="theme-btn" id="theme-btn" aria-label="切换深浅色"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-.5 0-1-.1-1.4A5.5 5.5 0 0 1 12.4 3.1 9 9 0 0 0 12 3z"/></svg></button>
 </div></div>
@@ -23,8 +23,8 @@
     <p class="lede">从江西瑞金、于都出发，到陕北吴起镇。这一页把《长征路上》知识库里有出处的资料，做成一张能走的沙盘、一条电报纸带和一片人物星河。<em>页面上每个日期、每个数字都能点开看到原文出处。</em></p>
     <p class="today" id="today" aria-live="polite"></p>
     <div class="hero-actions">
-      <a class="btn primary" href="#march">开始行军 ↓</a>
-      <a class="btn ghost" href="#quiz">直接答题</a>
+      <button type="button" class="btn primary" id="hero-novel">化身小红军，走一遍长征</button>
+      <a class="btn ghost" href="#march">看行军沙盘 ↓</a>
     </div>
   </div>
   <figure class="hero-figure" style="margin:0">
@@ -35,8 +35,25 @@
 </header>
 
 <main>
+<section class="chapter" id="story" aria-labelledby="story-h"><div class="wrap">
+  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">壹</span><h2 id="story-h">我的长征 · 互动小说</h2><p>你是一名跟着中央红军行军的小战士。从于都河到吴起镇，十四幕，每一幕由你决定去看哪件事、跟着谁走。你看到、听到的，都是有出处的真人真事。</p></div>
+  <div class="story-entry">
+    <div class="enlist">
+      <p class="enlist-k tape">入伍须知</p>
+      <ul class="enlist-rules">
+        <li><b>楷体</b>是“你”的视角，只写你往哪里走、看向哪里；<b>宋体</b>是史料，每段下面注明出处。</li>
+        <li>书里的人说的话，只引用资料记载的原话；不给“你”编名字、经历和心事。</li>
+        <li>选项不会改变历史，只决定你先去看哪一件事。看过的事会记进“见闻”本。</li>
+        <li>别的方面军的事迹会标明“另一路红军”。</li>
+      </ul>
+      <div class="hero-actions"><button type="button" class="btn primary" id="novel-start">背上行装，出发</button><span class="note" id="novel-progress"></span></div>
+    </div>
+    <ol class="acts" id="acts" aria-label="选择一幕"></ol>
+  </div>
+</div></section>
+
 <section class="chapter" id="march" aria-labelledby="march-h"><div class="wrap">
-  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">壹</span><h2 id="march-h">行军沙盘</h2><p>向下滚动，跟着红旗一站一站走。电报纸带上是这一站的日期和“距瑞金出发多少天”（按资料日期推算）。点沙盘上的圆点或下方的刻度可以直接跳站。</p></div>
+  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">贰</span><h2 id="march-h">行军沙盘</h2><p>向下滚动，跟着红旗一站一站走。电报纸带上是这一站的日期和“距瑞金出发多少天”（按资料日期推算）。点沙盘上的圆点或下方的刻度可以直接跳站。</p></div>
   <div class="scrolly">
     <div class="stage-wrap">
       <div class="telegraph tape" aria-live="polite"><span class="blink" aria-hidden="true"></span><span class="tg-date" id="tg-date">1934·10·10</span><span class="tg-sep">|</span><span class="tg-rest" id="tg-rest">中央红军从江西瑞金等地出发</span></div>
@@ -48,7 +65,7 @@
 </div></section>
 
 <section class="chapter" id="chishui" aria-labelledby="chishui-h"><div class="wrap">
-  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">贰</span><h2 id="chishui-h">四渡赤水：同一条河，渡了四次</h2><p>1935 年 1 月下旬至 3 月，中央红军在川黔滇边境地区四渡赤水河。下图横向表示在河的哪一岸，纵向表示时间先后；它只表示渡河的先后和方向，不表示实际位置和行军路线。</p></div>
+  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">叁</span><h2 id="chishui-h">四渡赤水：同一条河，渡了四次</h2><p>1935 年 1 月下旬至 3 月，中央红军在川黔滇边境地区四渡赤水河。下图横向表示在河的哪一岸，纵向表示时间先后；它只表示渡河的先后和方向，不表示实际位置和行军路线。</p></div>
   <div class="chishui">
     <div class="cs-board">
       <svg class="cs-svg" id="cs-svg" viewBox="0 0 520 560" role="img" aria-label="四渡赤水时间与渡河方向示意图"></svg>
@@ -64,7 +81,7 @@
 </div></section>
 
 <section class="chapter" id="data" aria-labelledby="data-h"><div class="wrap">
-  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">叁</span><h2 id="data-h">数字里的长征</h2><p>图里只画资料给出的数：起止只到月份，人数只有三个时间点。点条形、菱形或卡片，可以看到对应的原文。</p></div>
+  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">肆</span><h2 id="data-h">数字里的长征</h2><p>图里只画资料给出的数：起止只到月份，人数只有三个时间点。点条形、菱形或卡片，可以看到对应的原文。</p></div>
   <div class="viz-grid">
     <div class="panel">
       <h3>四路红军的长征</h3>
@@ -89,7 +106,7 @@
 </div></section>
 
 <section class="chapter" id="meetings" aria-labelledby="meet-h"><div class="wrap">
-  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">肆</span><h2 id="meet-h">一路开会，一路转折</h2><p>从通道到瓦窑堡的 17 次会议。纸带上每一格的“决定”都是资料原文，不作改写。</p></div>
+  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">伍</span><h2 id="meet-h">一路开会，一路转折</h2><p>从通道到瓦窑堡的 17 次会议。纸带上每一格的“决定”都是资料原文，不作改写。</p></div>
   <div class="meet-top">
     <svg class="mini-map" id="mini-map" role="img" aria-label="会议所在站点在路线上的位置"></svg>
     <div class="meet-focus" id="meet-focus" aria-live="polite"></div>
@@ -102,7 +119,7 @@
 
 <section class="chapter" id="stars" aria-labelledby="stars-h"><div class="wrap">
   <div class="sky">
-    <div class="chapter-head"><span class="chapter-no" aria-hidden="true">伍</span><h2 id="stars-h">人物星河</h2><p>站点按沙盘上的位置排成一条星座；人物是星，连线表示他（她）在哪几站的资料里出现。点一颗星看人物和相关故事，点站点看这一站有谁。</p></div>
+    <div class="chapter-head"><span class="chapter-no" aria-hidden="true">陆</span><h2 id="stars-h">人物星河</h2><p>站点按沙盘上的位置排成一条星座；人物是星，连线表示他（她）在哪几站的资料里出现。点一颗星看人物和相关故事，点站点看这一站有谁。</p></div>
     <div class="sky-grid">
       <div class="sky-scroll"><svg class="sky-svg" id="sky-svg" role="group" aria-label="长征人物与站点关系图"></svg></div>
       <div class="sky-card" id="sky-card" aria-live="polite"></div>
@@ -111,19 +128,19 @@
 </div></section>
 
 <section class="chapter" id="stories" aria-labelledby="stories-h"><div class="wrap">
-  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">陆</span><h2 id="stories-h">长征故事</h2><p>真人真事，皆有出处。按专题筛选，打开后可以顺着这条线读下一篇。</p></div>
+  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">柒</span><h2 id="stories-h">长征故事</h2><p>真人真事，皆有出处。按专题筛选，打开后可以顺着这条线读下一篇。</p></div>
   <div class="filters" id="filters" role="group" aria-label="故事专题"></div>
   <div class="story-grid" id="story-grid"></div>
   <div class="more-row"><button type="button" class="btn" id="story-more">显示全部</button></div>
 </div></section>
 
 <section class="chapter" id="quiz" aria-labelledby="quiz-h"><div class="wrap">
-  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">柒</span><h2 id="quiz-h">行军考场</h2><p>题目从知识库资料自动组卷，每轮 10 题；答完每一题都会给出原文和出处。</p></div>
+  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">捌</span><h2 id="quiz-h">行军考场</h2><p>题目从知识库资料自动组卷，每轮 10 题；答完每一题都会给出原文和出处。</p></div>
   <div class="quiz" id="quiz-box"></div>
 </div></section>
 
 <section class="chapter" id="end" aria-labelledby="end-h"><div class="wrap">
-  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">捌</span><h2 id="end-h">长征是宣言书</h2><p>走完这一程，生成一张自己的行军卡。</p></div>
+  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">玖</span><h2 id="end-h">长征是宣言书</h2><p>走完这一程，生成一张自己的行军卡。</p></div>
   <div class="closing">
     <div id="closing-quote"></div>
     <div class="passport">
@@ -140,6 +157,23 @@
 </main>
 <footer class="foot"><div class="wrap" id="foot"></div></footer>
 
+<div class="nv" id="nv" hidden role="dialog" aria-modal="true" aria-label="互动小说：我的长征">
+  <div class="nv-bg" aria-hidden="true"><div class="nv-map" id="nv-map"></div><canvas class="nv-fx" id="nv-fx"></canvas><div class="nv-shade"></div></div>
+  <header class="nv-top">
+    <div class="nv-where"><span class="nv-when tape" id="nv-when"></span><span class="nv-place" id="nv-place"></span></div>
+    <span class="nv-troops" id="nv-troops"></span>
+    <div class="nv-tools">
+      <button type="button" class="nv-tool" id="nv-sound" aria-pressed="true">声音 开</button>
+      <button type="button" class="nv-tool" id="nv-jbtn">见闻 <b id="nv-jn">0</b></button>
+      <button type="button" class="nv-tool nv-x" id="nv-close" aria-label="退出互动小说">×</button>
+    </div>
+  </header>
+  <div class="nv-dots" id="nv-dots" aria-hidden="true"></div>
+  <div class="nv-log" id="nv-log" aria-live="polite"></div>
+  <footer class="nv-act" id="nv-act"></footer>
+  <aside class="nv-journal" id="nv-journal" hidden aria-label="见闻本"></aside>
+  <div class="nv-card" id="nv-card" hidden></div>
+</div>
 <dialog class="reader" id="reader" aria-labelledby="reader-title"><div class="reader-in" id="reader-in"></div></dialog>
 <script>
 window.__MARCH__ = /*DATA*/;
