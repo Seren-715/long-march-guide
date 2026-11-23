@@ -11,7 +11,7 @@ import { stories } from '../src/stories.js';
 import { storyGuides } from '../src/story-guides.js';
 import { storyTrails } from '../src/story-trails.js';
 import * as facts from './src/facts.js';
-import { novel } from './src/novel.js';
+import { vnScenes, vnCast, vnSpirits } from './src/vn-script.js';
 
 const here = (p) => new URL(p, import.meta.url);
 const args = process.argv.slice(2);
@@ -62,36 +62,36 @@ for (const q of facts.numberQuestions) {
 for (const c of facts.closingQuotes) checkQuote(use(c.ref), c.quote, 'closingQuotes');
 use('jiangtaibao_spirit'); use('wuqi_distance_method'); use('jiangtaibao_meaning');
 
-// ---------- 2b. 互动小说《我的长征》：数字与引语必须出自所引资料 ----------
-const nodeIds = new Set(nodes.map((n) => n.id));
-function checkPassage(ps, where) {
-  if (!ps || typeof ps.t !== 'string') { errors.push(`${where}: 段落格式有误`); return; }
-  const quotes = [...ps.t.matchAll(/“([^”]+)”/g)].map((m) => m[1]);
-  if (ps.frame) {
-    must(!/\d/.test(ps.t), `${where}: 过渡句不能含数字「${ps.t}」`);
-    must(!quotes.length && !/[“”「」]/.test(ps.t), `${where}: 过渡句不能含引号「${ps.t}」`);
-    return;
-  }
-  must(Array.isArray(ps.src) && ps.src.length, `${where}: 缺少出处「${ps.t.slice(0, 20)}」`);
-  const srcText = (ps.src || []).map((id) => { must(materials.has(id), `${where}: 未知资料 ${id}`); usedRefs.add(id); return textOf(id) || ''; }).join('\n');
-  for (const num of ps.t.match(/\d+(?:\.\d+)?/g) || []) must(srcText.includes(num), `${where}: 数字 ${num} 不在所引资料原文中「${ps.t.slice(0, 30)}」`);
-  for (const q of quotes) must(srcText.includes(q), `${where}: 引语「${q}」不在所引资料原文中`);
+// ---------- 2b. galgame《我的长征》：史料卡逐字取自原文，虚构台词不许出现数字 ----------
+const SPRITES = new Set(Object.values(vnCast).flatMap((c) => [c.sprite, ...Object.values(c.alt || {})]).filter(Boolean));
+const vnImages = new Set([...SPRITES]);
+const spiritsUsed = {};
+function checkLines(lines, where) {
+  lines.forEach((ln, i) => {
+    const w = `${where}[${i}]`;
+    if (ln.card) {
+      must(ln.src?.length, `${w}: 史料卡缺少出处`);
+      const srcText = (ln.src || []).map((id) => { must(materials.has(id), `${w}: 未知资料 ${id}`); usedRefs.add(id); return textOf(id) || ''; }).join('\n');
+      for (const seg of ln.card.split('……').map((x) => x.replace(/^[”“]+|[”“]+$/g, '').trim()).filter(Boolean)) must(srcText.includes(seg), `${w}: 史料卡文字不是资料原文「${seg.slice(0, 30)}」`);
+      if (ln.who) for (const num of ln.who.match(/\d+/g) || []) must(srcText.includes(num), `${w}: 署名中的数字 ${num} 不在原文中`);
+    } else if (ln.who || ln.nar) {
+      const t = ln.t ?? ln.nar;
+      must(typeof t === 'string' && t.length, `${w}: 台词为空`);
+      must(!/\d/.test(t), `${w}: 虚构台词和旁白不能出现数字「${t}」`);
+      if (ln.who) must(vnCast[ln.who], `${w}: 未知角色 ${ln.who}`);
+    } else if (ln.choice) {
+      must(ln.choice.length >= 2, `${w}: 选项至少 2 个`);
+      ln.choice.forEach((c, j) => { must(vnSpirits[c.spirit], `${w}.choice[${j}]: 未知精神 ${c.spirit}`); spiritsUsed[c.spirit] = (spiritsUsed[c.spirit] || 0) + 1; must(!/\d/.test(c.t), `${w}.choice[${j}]: 选项不能出现数字`); checkLines(c.lines, `${w}.choice[${j}].lines`); });
+    } else if (ln.bg) vnImages.add(ln.bg);
+    else if (!(ln.fx || ln.sprite)) errors.push(`${w}: 无法识别的剧本行`);
+  });
 }
-novel.prologue.forEach((ps, i) => checkPassage(ps, `novel.prologue[${i}]`));
-const sceneIds = new Set();
-for (const sc of novel.scenes) {
-  const w = `novel.${sc.id}`;
-  must(!sceneIds.has(sc.id), `${w}: 场景 ID 重复`); sceneIds.add(sc.id);
-  must(nodeIds.has(sc.node), `${w}: 未知节点 ${sc.node}`);
-  must(sc.choices?.length >= 2, `${w}: 至少要有 2 个选项`);
-  for (const k of ['intro', 'outro']) (sc[k] || []).forEach((ps, i) => checkPassage(ps, `${w}.${k}[${i}]`));
-  sc.choices.forEach((c, i) => { must(c.label && c.body?.length, `${w}.choices[${i}]: 选项缺少内容`); c.body.forEach((ps, j) => checkPassage(ps, `${w}.choices[${i}].body[${j}]`)); });
-  if (sc.mini) {
-    for (const k of ['before', 'after']) if (sc.mini[k]) checkPassage(sc.mini[k], `${w}.mini.${k}`);
-    (sc.mini.steps || []).forEach((ps, i) => checkPassage(ps, `${w}.mini.steps[${i}]`));
-    must(['bridge', 'chishui', 'bugle', 'chains', 'climb', 'tussock'].includes(sc.mini.type), `${w}: 未知小游戏 ${sc.mini.type}`);
-  }
-  if (sc.troops) must([...materials.values()].some((m) => m.text.includes(sc.troops.replace(/^约 /, ''))), `${w}: 队伍人数「${sc.troops}」在资料中找不到`);
+for (const sc of vnScenes) { vnImages.add(sc.bg); checkLines(sc.lines, `vn.${sc.id}`); must(sc.lines.some((l) => l.choice) || ['prologue', 'end'].includes(sc.id), `vn.${sc.id}: 缺少选择`); }
+for (const k of Object.keys(vnSpirits)) must(spiritsUsed[k], `vn: 精神「${vnSpirits[k]}」没有任何选项对应`);
+const vnImg = {};
+for (const name of vnImages) {
+  try { vnImg[name] = 'data:image/webp;base64,' + (await readFile(here(`assets/vn/${name}.webp`))).toString('base64'); }
+  catch { errors.push(`vn: 缺少图片 digital-march/assets/vn/${name}.webp`); }
 }
 
 // ---------- 3. 地图 ----------
@@ -148,7 +148,7 @@ const payload = {
   mainOrder, codaOrder, routeIndex,
   map: { w: layout.width, h: layout.height, route: layout.route, labels: layout.labels, img: 'data:image/webp;base64,' + mapB64 },
   stories: reviewed.map((s) => ({ id: s.id, title: s.title, node: s.node, date: s.date, text: s.text, note: s.note || '', source: s.source, url: s.url, more: (s.more || []).filter((m) => m && m.url) })),
-  guides, trails, persons, refs, novel,
+  guides, trails, persons, refs, vn: { scenes: vnScenes, cast: vnCast, spirits: vnSpirits, img: vnImg },
   facts: { dateAnchors: facts.dateAnchors, heroStats: facts.heroStats, armies: facts.armies, armyEvents: facts.armyEvents, armySizes: facts.armySizes, armySizeCaveat: facts.armySizeCaveat,
     meetings: facts.meetings, chishuiSteps: facts.chishuiSteps, numberCards: facts.numberCards, numberQuestions: facts.numberQuestions, closingQuotes: facts.closingQuotes },
   counts: { nodes: nodes.length, materials: nodes.reduce((s, n) => s + 1 + (n.extra || []).length, 0), stories: reviewed.length, persons: persons.length },
@@ -156,7 +156,7 @@ const payload = {
 const json = JSON.stringify(payload).replaceAll('<', '\\u003c').replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029');
 
 // ---------- 7. 拼装 ----------
-const [shell, css, app0, novelUi] = await Promise.all([readFile(here('src/shell.html'), 'utf8'), readFile(here('src/style.css'), 'utf8'), readFile(here('src/app.js'), 'utf8'), readFile(here('src/novel-ui.js'), 'utf8')]);
+const [shell, css, app0, novelUi] = await Promise.all([readFile(here('src/shell.html'), 'utf8'), readFile(here('src/style.css'), 'utf8'), readFile(here('src/app.js'), 'utf8'), readFile(here('src/vn-ui.js'), 'utf8')]);
 const app = app0.replace('/*NOVEL_UI*/', () => novelUi);
 if (app === app0) throw new Error('app.js 缺少 /*NOVEL_UI*/ 标记');
 const fill = (s) => s.replace('/*STYLE*/', () => css).replace('/*DATA*/', () => json).replace('/*APP*/', () => app);
@@ -173,5 +173,5 @@ if (checkOnly) {
 } else {
   await writeFile(outUrl, full);
   if (fragmentPath) await writeFile(fragmentPath, fragment);
-  console.log(`已生成 digital-march/index.html（${(Buffer.byteLength(full) / 1024).toFixed(0)} KB，${payload.counts.nodes} 个节点，${payload.stories.length} 篇故事，${persons.length} 位人物，${usedRefs.size} 条资料引用，互动小说 ${novel.scenes.length} 幕）` + (fragmentPath ? `；片段：${fragmentPath}` : ''));
+  console.log(`已生成 digital-march/index.html（${(Buffer.byteLength(full) / 1024).toFixed(0)} KB，${payload.counts.nodes} 个节点，${payload.stories.length} 篇故事，${persons.length} 位人物，${usedRefs.size} 条资料引用，剧情 ${vnScenes.length} 段、图片 ${Object.keys(vnImg).length} 张）` + (fragmentPath ? `；片段：${fragmentPath}` : ''));
 }

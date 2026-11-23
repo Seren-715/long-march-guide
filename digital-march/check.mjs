@@ -19,7 +19,7 @@ assert.ok(!/@import|url\(\s*["']?https?:/i.test(html), 'CSS 不应引用外部�
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 assert.equal(scripts.length, 2, '应有数据脚本和程序脚本各一段');
 for (const s of scripts) new vm.Script(s);
-assert.ok(Buffer.byteLength(html) < 2 * 1024 * 1024, '单文件应小于 2MB，便于手机打开');
+assert.ok(Buffer.byteLength(html) < 2.5 * 1024 * 1024, '单文件应小于 2.5MB，便于手机打开');
 console.log(`静态检查通过：${tags.length} 个资源标签均为内联，${scripts.length} 段脚本可解析，${(Buffer.byteLength(html) / 1024).toFixed(0)} KB`);
 
 let chromium;
@@ -58,10 +58,24 @@ try {
     await page.fill('#poster-name', '测试');
     await page.click('#make-poster');
     await page.locator('#poster img').waitFor();
+    // galgame：开启快进，所有选择都选第一项，必须走到结尾的“我的长征精神”
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.click('#hero-novel');
+    await page.click('#vn-skip');
+    for (let i = 0; i < 400; i++) {
+      const st = await page.evaluate(() => { const q = (s) => document.querySelector(s); return !q('#vn-end').hidden ? 'end' : !q('#vn-choices').hidden ? 'choice' : 'run'; });
+      if (st === 'end') break;
+      if (st === 'choice') { await page.locator('#vn-choices .vn-choice').first().click(); await page.click('#vn-skip').catch(() => {}); }
+      else await page.waitForTimeout(150);
+    }
+    assert.ok(await page.locator('#vn-end:not([hidden]) .vn-bar').count() === 4, 'galgame 应走到结尾并显示四种精神');
+    const picks = await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('digital-march:vn')).picks).length);
+    assert.equal(picks, 6, '六幕都应记录选择');
+    await page.click('#vn-close');
     const [sw, iw] = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
     assert.ok(sw <= iw, `页面不应横向滚动（${sw} > ${iw}）`);
     assert.deepEqual(errors, [], '不应有脚本错误或外部请求');
-    console.log(`浏览器检查通过（${vp.width}×${vp.height}）：沙盘 26 站、四渡赤水、甘特图、会议纸带、人物星河、故事阅读、10 道问答、行军卡`);
+    console.log(`浏览器检查通过（${vp.width}×${vp.height}）：沙盘 26 站、四渡赤水、甘特图、会议纸带、人物星河、故事阅读、10 道问答、行军卡、galgame 六幕通关`);
     await page.close();
   }
 } finally { await browser.close(); }

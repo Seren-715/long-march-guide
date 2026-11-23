@@ -36,17 +36,17 @@
 
 <main>
 <section class="chapter" id="story" aria-labelledby="story-h"><div class="wrap">
-  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">壹</span><h2 id="story-h">我的长征 · 互动小说</h2><p>你是一名跟着中央红军行军的小战士。从于都河到吴起镇，十四幕，每一幕由你决定去看哪件事、跟着谁走。你看到、听到的，都是有出处的真人真事。</p></div>
+  <div class="chapter-head"><span class="chapter-no" aria-hidden="true">壹</span><h2 id="story-h">我的长征</h2><p>化身一名普通的红军小战士，从于都河走到吴起镇。六幕剧情，每一幕由你做一次选择；人物是虚构的，史料卡里的时间、地点、数字都有出处。</p></div>
   <div class="story-entry">
     <div class="enlist">
       <p class="enlist-k tape">入伍须知</p>
       <ul class="enlist-rules">
-        <li><b>楷体</b>是“你”的视角，只写你往哪里走、看向哪里；<b>宋体</b>是史料，每段下面注明出处。</li>
-        <li>书里的人说的话，只引用资料记载的原话；不给“你”编名字、经历和心事。</li>
-        <li>选项不会改变历史，只决定你先去看哪一件事。看过的事会记进“见闻”本。</li>
-        <li>别的方面军的事迹会标明“另一路红军”。</li>
+        <li>身边的班长、石头、张大姐都是<b>虚构人物</b>，他们代表千千万万普通的红军战士。</li>
+        <li>弹出的<b>史料卡</b>是真实的历史：文字取自资料原文，可以点开出处核对。</li>
+        <li>选项不会改变历史，会改变你和战友之间的故事。走完六幕，会得到一张“我的长征精神”卡。</li>
+        <li>建议戴上耳机：每一幕都有风声、水声和雨声。</li>
       </ul>
-      <div class="hero-actions"><button type="button" class="btn primary" id="novel-start">背上行装，出发</button><span class="note" id="novel-progress"></span></div>
+      <div class="hero-actions"><button type="button" class="btn primary" id="vn-start">背上行装，出发</button><span class="note" id="vn-progress"></span></div>
     </div>
     <ol class="acts" id="acts" aria-label="选择一幕"></ol>
   </div>
@@ -157,22 +157,38 @@
 </main>
 <footer class="foot"><div class="wrap" id="foot"></div></footer>
 
-<div class="nv" id="nv" hidden role="dialog" aria-modal="true" aria-label="互动小说：我的长征">
-  <div class="nv-bg" aria-hidden="true"><div class="nv-map" id="nv-map"></div><canvas class="nv-fx" id="nv-fx"></canvas><div class="nv-shade"></div></div>
-  <header class="nv-top">
-    <div class="nv-where"><span class="nv-when tape" id="nv-when"></span><span class="nv-place" id="nv-place"></span></div>
-    <span class="nv-troops" id="nv-troops"></span>
-    <div class="nv-tools">
-      <button type="button" class="nv-tool" id="nv-sound" aria-pressed="true">声音 开</button>
-      <button type="button" class="nv-tool" id="nv-jbtn">见闻 <b id="nv-jn">0</b></button>
-      <button type="button" class="nv-tool nv-x" id="nv-close" aria-label="退出互动小说">×</button>
+<div class="vn" id="vn" hidden role="dialog" aria-modal="true" aria-label="我的长征">
+  <div class="vn-blur" id="vn-blur" aria-hidden="true"></div>
+  <div class="vn-frame" id="vn-frame">
+    <div class="vn-stage" id="vn-stage">
+      <div class="vn-bg" aria-hidden="true"><img id="vn-bg-a" alt=""><img id="vn-bg-b" alt=""></div>
+      <canvas class="vn-fx" id="vn-fx" aria-hidden="true"></canvas>
+      <div class="vn-flash" id="vn-flash" aria-hidden="true"></div>
+      <div class="vn-chars" id="vn-chars" aria-hidden="true"></div>
+      <div class="vn-top">
+        <div class="vn-where"><span class="vn-no tape" id="vn-no"></span><span class="vn-title" id="vn-title"></span></div>
+        <div class="vn-tools">
+          <button type="button" class="vn-tool" id="vn-sound" aria-pressed="true">声音</button>
+          <button type="button" class="vn-tool" id="vn-log-btn">记录</button>
+          <button type="button" class="vn-tool vn-x" id="vn-close" aria-label="退出">×</button>
+        </div>
+      </div>
+      <div class="vn-card" id="vn-card" hidden></div>
+      <div class="vn-choices" id="vn-choices" hidden></div>
+      <div class="vn-chapter" id="vn-chapter" hidden></div>
+      <div class="vn-end" id="vn-end" hidden></div>
     </div>
-  </header>
-  <div class="nv-dots" id="nv-dots" aria-hidden="true"></div>
-  <div class="nv-log" id="nv-log" aria-live="polite"></div>
-  <footer class="nv-act" id="nv-act"></footer>
-  <aside class="nv-journal" id="nv-journal" hidden aria-label="见闻本"></aside>
-  <div class="nv-card" id="nv-card" hidden></div>
+    <div class="vn-box" id="vn-box">
+      <div class="vn-name" id="vn-name"></div>
+      <p class="vn-text" id="vn-text" aria-live="polite"></p>
+      <div class="vn-ctl">
+        <button type="button" class="vn-mini" id="vn-auto" aria-pressed="false">自动</button>
+        <button type="button" class="vn-mini" id="vn-skip" aria-pressed="false">快进</button>
+        <span class="vn-next" id="vn-next" aria-hidden="true">▼</span>
+      </div>
+    </div>
+  </div>
+  <div class="vn-log" id="vn-log" hidden></div>
 </div>
 <dialog class="reader" id="reader" aria-labelledby="reader-title"><div class="reader-in" id="reader-in"></div></dialog>
 <script>
