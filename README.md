@@ -19,19 +19,7 @@
 
 ## 参赛材料（赛道二 · AI 编程）
 
-《数字长征沙盘》：用同一知识库做成的创意互动网页（行军沙盘、四渡赤水示意、数据图、会议纸带、人物星河、故事、问答、行军卡），单文件离线可用，运行时不调用模型。
-
-| 材料 | 位置 |
-| --- | --- |
-| 作品（直接用浏览器打开） | [digital-march/index.html](digital-march/index.html) |
-| 源码 | [digital-march/](digital-march/) |
-| 创作文档说明（创意构思、AI 工具、功能介绍） | [docs/赛道二-创作文档说明.md](docs/赛道二-创作文档说明.md) |
-| 设计文档（架构、数据流、模块、测试） | [docs/赛道二-设计文档.md](docs/赛道二-设计文档.md) |
-
-```sh
-npm run build:march
-npm run test:march
-```
+赛道二作品《数字长征沙盘》（互动剧情《我的长征》、行军沙盘、数据图、人物星河、问答等）已独立为单独仓库：[Seren-715/long-march-digital](https://github.com/Seren-715/long-march-digital)。它使用本仓库知识库资料的副本（`data/` 目录），作品、源码与创作文档都在那里维护。
 
 ## 本地运行
 

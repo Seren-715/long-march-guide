@@ -12,8 +12,6 @@
     "audit": "node scripts/audit-grounding.mjs",
     "check:kb": "node scripts/check-kb-text.mjs",
     "eval:retrieval": "node scripts/eval-retrieval.mjs",
-    "eval:sweep": "node scripts/eval-sweep.mjs",
-    "build:march": "node digital-march/build.mjs",
-    "test:march": "node digital-march/check.mjs"
+    "eval:sweep": "node scripts/eval-sweep.mjs"
   }
 }
