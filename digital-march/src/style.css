@@ -535,10 +535,11 @@ body.vn-open{overflow:hidden}
 @media (orientation:portrait){
   .vn-frame{position:absolute;inset:0;transform:none;left:0;top:0;width:100%;height:100%;aspect-ratio:auto;container-type:inline-size;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
   .vn-stage{position:relative;inset:auto;width:100%;aspect-ratio:16/9;flex:none}
-  .vn-box{position:relative;left:auto;right:auto;bottom:auto;margin:28px 12px 12px;flex:0 0 auto;min-height:190px;max-height:calc(100% - 56.25vw - 60px);padding:22px 18px 48px;overflow-y:auto}
+  .vn-box{position:relative;left:auto;right:auto;bottom:auto;margin:14px 12px 12px;flex:0 0 auto;min-height:190px;max-height:calc(100% - 56.25vw - 40px);padding:16px 18px 48px;overflow-y:auto}
   .vn-frame::after{content:"横屏体验更佳 · 轻触任意处继续";margin:auto auto 18px;font-size:.75rem;color:rgba(238,231,216,.35);letter-spacing:.2em}
   .vn-text{font-size:1.125rem}
-  .vn-name{font-size:1.0625rem;left:14px}
+  .vn-name{position:static;display:inline-block;font-size:1.0625rem;margin-bottom:8px}
+  .vn-name[hidden]{display:none}
   .vn-ctl{right:12px;bottom:10px}
   .vn-mini{font-size:.8125rem;padding:4px 12px}
   .vn-next{font-size:.875rem}
