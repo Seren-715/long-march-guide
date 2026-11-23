@@ -9,7 +9,10 @@ const vnUI = (() => {
   let run = 0, pending = null, auto = false, skip = false, lastFocus = null, curBg = null, frontIsA = true;
   const log = [];
   const sceneIdx = (id) => SC.findIndex((s) => s.id === id);
-  const choiceScenes = SC.filter((s) => s.lines.some((l) => l.choice));
+  for (const k of Object.keys(state.vn.picks || {})) if (!k.includes(':')) delete state.vn.picks[k]; // 旧版存档按场景记一次选择，作废
+  if ((state.vn.at || 0) >= SC.length) state.vn.at = 0;
+  let TOTAL_CHOICES = 0;
+  for (const s of SC) { let k = 0; for (const l of s.lines) if (l.choice) { l.key = k++; TOTAL_CHOICES++; } }
 
   // —— 环境声：全部用 WebAudio 现场合成，不加载音频文件 ——
   const audio = (() => {
@@ -45,6 +48,7 @@ const vnUI = (() => {
       'rain-fire': [['rain', .35], ['wind', .12, 300], 'crackle'],
       evening: [['wind', .18, 320], ['pad', .05, [110, 164.8, 220, 277.2]]],
       finale: [['pad', .07, [130.8, 196, 261.6, 329.6]], ['wind', .12, 300]],
+      battle: [['river', .35, 220], ['wind', .25, 260], 'crackle', 'boom'],
     };
     function crackle(onOff) {
       clearInterval(crackleTimer); if (!onOff) return;
@@ -55,13 +59,26 @@ const vnUI = (() => {
         s.connect(hp).connect(g).connect(master); s.start(t, Math.random() * 2); s.stop(t + .15);
       }, 90);
     }
+    let boomTimer = 0;
+    function boom(onOff) {
+      clearInterval(boomTimer); if (!onOff) return;
+      boomTimer = setInterval(() => {
+        if (!ac || Math.random() > .4) return;
+        const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(), n = ac.createBufferSource(), lp = ac.createBiquadFilter(), ng = ac.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(30, t + 1.2);
+        const v = .18 + Math.random() * .22; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .03); g.gain.exponentialRampToValueAtTime(.0001, t + 1.6);
+        n.buffer = brown; lp.type = 'lowpass'; lp.frequency.value = 300; ng.gain.setValueAtTime(.0001, t); ng.gain.exponentialRampToValueAtTime(v * 1.5, t + .02); ng.gain.exponentialRampToValueAtTime(.0001, t + 1.2);
+        o.connect(g).connect(master); n.connect(lp).connect(ng).connect(master); o.start(t); o.stop(t + 1.7); n.start(t, Math.random() * 2); n.stop(t + 1.3);
+      }, 1400);
+    }
     function set(name) {
       if (!init()) return; if (ac.state === 'suspended') ac.resume();
-      const t = ac.currentTime;
+      const t = ac.currentTime; boom(false);
       for (const l of layers) { l.out.gain.cancelScheduledValues(t); l.out.gain.setTargetAtTime(0, t, .8); const n = l.nodes; setTimeout(() => { n.forEach((x) => { try { x.stop(); } catch { /* 已停止 */ } }); l.out.disconnect(); }, 4000); }
       layers = []; crackle(false);
       for (const spec of presets[name] || []) {
         if (spec === 'crackle') { crackle(true); continue; }
+        if (spec === 'boom') { boom(true); continue; }
         const [kind, ...args] = spec; const l = make[kind](...args);
         const target = l.out.gain.value; const fin = ac.createGain(); fin.gain.value = 0; l.out.connect(fin).connect(master); fin.gain.setTargetAtTime(1, t, 1.2);
         layers.push({ out: fin, nodes: l.nodes }); void target;
@@ -102,7 +119,7 @@ const vnUI = (() => {
       raf = requestAnimationFrame(frame);
     }
     return {
-      set(k) { if (k === kind && parts.length) return; kind = k; cancelAnimationFrame(raf); size(); g.clearRect(0, 0, w, h); parts = []; if (!k || !spawn[k] || reduceMotion) return; parts = Array.from({ length: counts[k] }, spawn[k]); frame(); },
+      set(k) { stage.dataset.fx = k || ''; if (k === kind && parts.length) return; kind = k; cancelAnimationFrame(raf); size(); g.clearRect(0, 0, w, h); parts = []; if (!k || !spawn[k] || reduceMotion) return; parts = Array.from({ length: counts[k] }, spawn[k]); frame(); },
       stop() { cancelAnimationFrame(raf); kind = null; parts = []; g.clearRect(0, 0, w, h); },
       resize() { const k = kind; kind = null; this.set(k); },
     };
@@ -111,6 +128,8 @@ const vnUI = (() => {
   // —— 背景：两张图交替淡入 ——
   function setBg(name) {
     if (name === curBg) return; curBg = name;
+    stage.classList.toggle('dark', name === 'black');
+    if (name === 'black') { bgA.classList.remove('show'); bgB.classList.remove('show'); blur.style.backgroundImage = 'none'; return; }
     const next = frontIsA ? bgB : bgA, prev = frontIsA ? bgA : bgB; frontIsA = !frontIsA;
     next.src = IMG[name]; next.classList.remove('kb'); void next.offsetWidth; next.classList.add('kb', 'show'); prev.classList.remove('show');
     blur.style.backgroundImage = `url("${IMG[name]}")`;
@@ -200,7 +219,7 @@ const vnUI = (() => {
       if (ln.card) await showCard(ln);
       else if (ln.choice) {
         const i = await choose(ln.choice); if (i === ABORT) throw ABORT;
-        const c = ln.choice[i]; state.vn.picks[sc.id] = c.spirit; saveState();
+        const c = ln.choice[i]; state.vn.picks[sc.id + ':' + ln.key] = c.spirit; saveState();
         log.push({ k: 'pick', t: '▸ ' + c.t });
         await runLines(c.lines, sc);
       } else if (ln.bg || ln.fx || ln.sprite || ln.amb) {
@@ -220,7 +239,7 @@ const vnUI = (() => {
       log.push({ k: 'chap', t: `${sc.no} ${sc.title}` });
       await chapter(sc);
       await runLines(sc.lines, sc);
-      if (state.visited && sc.id !== 'prologue' && sc.id !== 'end') { const node = { yudu: 'yudu', chishui: 'chishui', luding: 'luding', xueshan: 'jiajin', caodi: 'caodi', wuqi: 'wuqi' }[sc.id]; if (node && !state.visited.has(node)) state.visited.add(node); }
+      if (state.visited && sc.id !== 'prologue' && sc.id !== 'end') { const node = { yudu: 'yudu', xiangjiang: 'xiangjiang', chishui: 'chishui', luding: 'luding', xueshan: 'jiajin', caodi: 'caodi', wuqi: 'wuqi' }[sc.id]; if (node && !state.visited.has(node)) state.visited.add(node); }
     }
     state.vn.done = true; state.vn.at = 0; saveState(); renderActs();
     ending();
@@ -229,7 +248,7 @@ const vnUI = (() => {
   // —— 结尾：我的长征精神 ——
   function spiritTally() {
     const n = {}; for (const k of Object.keys(V.spirits)) n[k] = 0;
-    for (const s of choiceScenes) { const p = state.vn.picks[s.id]; if (p) n[p]++; }
+    for (const p of Object.values(state.vn.picks)) if (n[p] != null) n[p]++;
     const max = Math.max(...Object.values(n)); const top = Object.keys(n).filter((k) => n[k] === max && max > 0);
     return { n, top };
   }
@@ -240,7 +259,7 @@ const vnUI = (() => {
     inner.append(el('span', 'vn-ch-no tape', '你走完了这一程'), el('h2', null, '我的长征精神'));
     inner.append(el('p', 'vn-end-top', top.length ? top.map((k) => V.spirits[k]).join(' · ') : '还没有做出选择'));
     const bars = el('div', 'vn-bars');
-    for (const k of Object.keys(V.spirits)) { const r = el('div', 'vn-bar' + (top.includes(k) ? ' top' : '')); const i = el('i'); i.style.width = (n[k] / choiceScenes.length * 100) + '%'; r.append(el('span', null, V.spirits[k]), el('b'), el('em', null, String(n[k]))); r.children[1].append(i); bars.append(r); }
+    for (const k of Object.keys(V.spirits)) { const r = el('div', 'vn-bar' + (top.includes(k) ? ' top' : '')); const i = el('i'); i.style.width = (n[k] / TOTAL_CHOICES * 100) + '%'; r.append(el('span', null, V.spirits[k]), el('b'), el('em', null, String(n[k]))); r.children[1].append(i); bars.append(r); }
     inner.append(bars);
     const sp = el('p', 'vn-end-note'); sp.append('这四种精神，都写在长征路上。资料里对长征精神的完整表述：'); const b = el('button', 'vn-link', '查看原文'); b.type = 'button'; b.addEventListener('click', (e) => { e.stopPropagation(); openRef('jiangtaibao_spirit'); }); sp.append(b); inner.append(sp);
     const row = el('div', 'vn-end-row');
@@ -262,8 +281,8 @@ const vnUI = (() => {
       g.fillStyle = '#E9C47C'; g.font = `32px ${sans}`; g.fillText('我的长征 · 1934—1936', 80, 640);
       g.fillStyle = '#EEE7D8'; g.font = `96px ${serif}`; g.fillText('我的长征精神', 80, 760);
       g.fillStyle = '#E2533E'; g.font = `64px ${serif}`; g.fillText(top.map((k) => V.spirits[k]).join(' · ') || '—', 80, 870);
-      let y = 960; for (const k of Object.keys(V.spirits)) { g.fillStyle = '#A9A498'; g.font = `34px ${serif}`; g.fillText(V.spirits[k], 80, y + 30); g.fillStyle = 'rgba(238,231,216,.12)'; g.fillRect(300, y + 4, 620, 30); g.fillStyle = top.includes(k) ? '#E2533E' : '#8a7f6a'; g.fillRect(300, y + 4, 620 * n[k] / choiceScenes.length, 30); g.fillStyle = '#EEE7D8'; g.font = `30px ${sans}`; g.fillText(String(n[k]), 940, y + 30); y += 72; }
-      g.fillStyle = '#EEE7D8'; g.font = `38px ${serif}`; g.fillText('从于都河到吴起镇，六幕，我和战友们一起走过。', 80, 1310);
+      let y = 960; for (const k of Object.keys(V.spirits)) { g.fillStyle = '#A9A498'; g.font = `34px ${serif}`; g.fillText(V.spirits[k], 80, y + 30); g.fillStyle = 'rgba(238,231,216,.12)'; g.fillRect(300, y + 4, 620, 30); g.fillStyle = top.includes(k) ? '#E2533E' : '#8a7f6a'; g.fillRect(300, y + 4, 620 * n[k] / TOTAL_CHOICES, 30); g.fillStyle = '#EEE7D8'; g.font = `30px ${sans}`; g.fillText(String(n[k]), 940, y + 30); y += 72; }
+      g.fillStyle = '#EEE7D8'; g.font = `38px ${serif}`; g.fillText('从于都河到吴起镇，我和战友们一起走过。', 80, 1310);
       g.fillStyle = '#6f6a60'; g.font = `24px ${sans}`; g.fillText('人物为虚构 · 史实依据《长征路上》知识库资料 · 数字长征沙盘', 80, 1380);
       const url = cv.toDataURL('image/png'); const out = $('vn-poster'); out.replaceChildren(); const pi = el('img'); pi.src = url; pi.alt = '我的长征精神卡'; out.append(pi);
       let framed = true; try { framed = window.top !== window.self; } catch { /* 跨域框架 */ }
@@ -323,14 +342,14 @@ const vnUI = (() => {
     const list = $('acts'); if (!list) return; list.replaceChildren();
     SC.forEach((sc, i) => {
       const li = el('li'); const done = state.vn.done || state.vn.at > i;
-      const b = el('button', 'act' + (done ? ' done' : '')); b.type = 'button'; b.style.backgroundImage = `linear-gradient(90deg, rgba(10,12,14,.86), rgba(10,12,14,.35)), url("${IMG[sc.bg]}")`;
+      const b = el('button', 'act' + (done ? ' done' : '')); b.type = 'button'; b.style.backgroundImage = IMG[sc.bg] ? `linear-gradient(90deg, rgba(10,12,14,.86), rgba(10,12,14,.35)), url("${IMG[sc.bg]}")` : 'radial-gradient(ellipse at 80% 60%, rgba(160,50,30,.55), rgba(10,12,14,.95) 70%)';
       b.append(el('span', 'act-no', sc.no), el('span', 'act-place', sc.title), el('span', 'act-when tape', sc.when));
-      const p = state.vn.picks[sc.id]; if (p) b.append(el('span', 'act-seen', '你选择了：' + V.spirits[p]));
+      const mine = Object.entries(state.vn.picks).filter(([k]) => k.startsWith(sc.id + ':')).map(([, v]) => V.spirits[v]); if (mine.length) b.append(el('span', 'act-seen', '你选择了：' + mine.join('、')));
       b.addEventListener('click', () => start(i)); li.append(b); list.append(li);
     });
     const at = state.vn.at || 0; const btn = $('vn-start');
     btn.textContent = at > 0 && !state.vn.done ? `接着走：${SC[at].no} ${SC[at].title}` : (state.vn.done ? '再走一遍' : '背上行装，出发');
-    $('vn-progress').textContent = state.vn.done ? '已走完全程' : `${SC.length - 2} 幕 + 序幕与尾声 · 约 12 分钟`;
+    $('vn-progress').textContent = state.vn.done ? '已走完全程' : `${SC.length - 2} 幕 + 序幕与尾声 · 约 25 分钟`;
   }
   $('vn-start').addEventListener('click', () => { const at = state.vn.at || 0; start(at > 0 && !state.vn.done ? at : 0); });
   $('hero-novel').addEventListener('click', () => start(0));

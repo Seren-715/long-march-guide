@@ -82,11 +82,11 @@ function checkLines(lines, where) {
     } else if (ln.choice) {
       must(ln.choice.length >= 2, `${w}: 选项至少 2 个`);
       ln.choice.forEach((c, j) => { must(vnSpirits[c.spirit], `${w}.choice[${j}]: 未知精神 ${c.spirit}`); spiritsUsed[c.spirit] = (spiritsUsed[c.spirit] || 0) + 1; must(!/\d/.test(c.t), `${w}.choice[${j}]: 选项不能出现数字`); checkLines(c.lines, `${w}.choice[${j}].lines`); });
-    } else if (ln.bg) vnImages.add(ln.bg);
-    else if (!(ln.fx || ln.sprite)) errors.push(`${w}: 无法识别的剧本行`);
+    } else if (ln.bg || ln.fx || ln.sprite || ln.amb) { if (ln.bg && ln.bg !== 'black') vnImages.add(ln.bg); }
+    else errors.push(`${w}: 无法识别的剧本行`);
   });
 }
-for (const sc of vnScenes) { vnImages.add(sc.bg); checkLines(sc.lines, `vn.${sc.id}`); must(sc.lines.some((l) => l.choice) || ['prologue', 'end'].includes(sc.id), `vn.${sc.id}: 缺少选择`); }
+for (const sc of vnScenes) { if (sc.bg !== 'black') vnImages.add(sc.bg); checkLines(sc.lines, `vn.${sc.id}`); must(sc.lines.some((l) => l.choice) || ['prologue', 'end'].includes(sc.id), `vn.${sc.id}: 缺少选择`); }
 for (const k of Object.keys(vnSpirits)) must(spiritsUsed[k], `vn: 精神「${vnSpirits[k]}」没有任何选项对应`);
 const vnImg = {};
 for (const name of vnImages) {

@@ -678,7 +678,7 @@ function openGuide(gid, list = storyList) {
 function updatePassport() {
   const p = $('pstats'); if (!p) return; p.replaceChildren();
   const add = (v, l) => { const d = el('div'); d.append(el('b', null, v), el('span', null, l)); p.append(d); };
-  add(`${state.visited.size}/${ALL.length}`, '走过的站点'); add(state.vn.done ? '已走完' : (Object.keys(state.vn.picks).length ? `${Object.keys(state.vn.picks).length}/6 幕` : '—'), '我的长征'); add(String(state.read.size), '读过的故事'); add(state.best == null ? '—' : `${state.best}/10`, '问答最好成绩');
+  add(`${state.visited.size}/${ALL.length}`, '走过的站点'); add(state.vn.done ? '已走完' : (state.vn.at > 0 ? `走到第 ${state.vn.at} 幕` : '—'), '我的长征'); add(String(state.read.size), '读过的故事'); add(state.best == null ? '—' : `${state.best}/10`, '问答最好成绩');
 }
 updatePassport();
 
@@ -702,7 +702,7 @@ function makePoster() {
     for (const id of ALL) { const [x, y] = P(nodeById[id].at); g.beginPath(); g.arc(x, y, state.visited.has(id) ? 9 : 6, 0, 7); g.fillStyle = state.visited.has(id) ? '#B3261E' : '#8c7a63'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#fff'; g.stroke(); }
     const sy = my + mh + 70;
     const stat = (x, v, l) => { g.fillStyle = '#A9241C'; g.font = `96px ${serif}`; g.fillText(v, x, sy + 70); g.fillStyle = '#5B6064'; g.font = `30px ${sans}`; g.fillText(l, x, sy + 120); };
-    stat(72, `${state.visited.size}/${ALL.length}`, '走过的站点'); stat(330, state.vn.done ? '走完' : `${Object.keys(state.vn.picks).length}/6`, '剧情'); stat(530, String(state.read.size), '读过的故事'); stat(780, state.best == null ? '—' : `${state.best}/10`, '问答成绩');
+    stat(72, `${state.visited.size}/${ALL.length}`, '走过的站点'); stat(330, state.vn.done ? '走完' : (state.vn.at > 0 ? `第${state.vn.at}幕` : '—'), '剧情'); stat(530, String(state.read.size), '读过的故事'); stat(780, state.best == null ? '—' : `${state.best}/10`, '问答成绩');
     g.fillStyle = 'rgba(29,32,35,.15)'; g.fillRect(70, sy + 170, W2 - 140, 2);
     g.fillStyle = '#1D2023'; g.font = `46px ${serif}`;
     const q = F.closingQuotes[1].quote; const lines = q.match(/[^。]+。/g) || [q];

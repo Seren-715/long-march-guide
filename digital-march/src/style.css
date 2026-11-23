@@ -445,6 +445,12 @@ body.vn-open{overflow:hidden}
 .vn-blur{position:absolute;inset:-40px;background-size:cover;background-position:center;filter:blur(28px) brightness(.35);transition:background-image 1s}
 .vn-frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(100vw,calc(100dvh * 16 / 9));aspect-ratio:16/9;container-type:size;box-shadow:0 0 80px rgba(0,0,0,.6)}
 .vn-stage{position:absolute;inset:0;overflow:hidden;cursor:pointer;background:#000}
+.vn-stage.dark{background:radial-gradient(ellipse at 50% 85%,#1b1f24,#030304 70%);transition:background 1.2s}
+.vn-stage.dark[data-fx="fire"]{background:radial-gradient(ellipse at 65% 95%,#4a1408,#1a0705 40%,#030202 75%)}
+.vn-stage.dark[data-fx="river"]{background:radial-gradient(ellipse at 50% 100%,#0f2230,#05090c 60%,#020304)}
+.vn-stage.dark[data-fx="dust"]{background:radial-gradient(ellipse at 50% 90%,#3a2a14,#0d0905 60%,#030202)}
+.vn-stage.dark[data-fx="fire"] .vn-flash{opacity:.35;animation:ember 3.2s ease-in-out infinite alternate}
+@keyframes ember{from{opacity:.18}to{opacity:.45}}
 .vn-bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.4s ease;transform-origin:60% 50%}
 .vn-bg img.show{opacity:1}
 .vn-bg img.kb{animation:kb 34s ease-in-out infinite alternate}
